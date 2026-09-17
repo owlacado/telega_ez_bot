@@ -1,0 +1,8 @@
+package-lock.json
+packages/contracts/openapi.json
+packages/contracts/src/schema.d.ts
+apps/api/
+.next/
+node_modules/
+.local/
+apps/web/next-env.d.ts

@@ -1,0 +1,24 @@
+{
+  "name": "technician-hub",
+  "private": true,
+  "workspaces": [
+    "apps/web",
+    "packages/contracts",
+    "packages/shared"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "test": "npm run test -w apps/web",
+    "lint": "npm run lint -w apps/web",
+    "typecheck": "npm run typecheck -w apps/web",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:e2e": "npm run test:e2e -w apps/web",
+    "contracts:generate": "openapi-typescript packages/contracts/openapi.json -o packages/contracts/src/schema.d.ts"
+  },
+  "devDependencies": {
+    "prettier": "3.9.7",
+    "openapi-typescript": "7.13.0"
+  }
+}

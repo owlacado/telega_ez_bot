@@ -1,0 +1,1176 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Technician Hub API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/technicians": {
+      "get": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "List Technicians",
+        "operationId": "list_technicians_api_technicians_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": "",
+              "title": "Q"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TechnicianSummary"
+                  },
+                  "title": "Response List Technicians Api Technicians Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Create Technician",
+        "operationId": "create_technician_api_technicians_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TechnicianCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnicianDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{technician_id}": {
+      "get": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Get Technician",
+        "operationId": "get_technician_api_technicians__technician_id__get",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnicianDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Update Technician",
+        "operationId": "update_technician_api_technicians__technician_id__patch",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TechnicianUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TechnicianDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Delete Technician",
+        "operationId": "delete_technician_api_technicians__technician_id__delete",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{technician_id}/calendar-assignments": {
+      "get": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Assignment History",
+        "operationId": "assignment_history_api_technicians__technician_id__calendar_assignments_get",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssignmentRead"
+                  },
+                  "title": "Response Assignment History Api Technicians  Technician Id  Calendar Assignments Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{technician_id}/calendar": {
+      "put": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Set Calendar",
+        "operationId": "set_calendar_api_technicians__technician_id__calendar_put",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignmentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "technicians"
+        ],
+        "summary": "Remove Calendar Assignment",
+        "operationId": "remove_calendar_assignment_api_technicians__technician_id__calendar_delete",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars": {
+      "get": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "List Calendars",
+        "operationId": "list_calendars_api_calendars_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarRead"
+                  },
+                  "type": "array",
+                  "title": "Response List Calendars Api Calendars Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Create Calendar",
+        "operationId": "create_calendar_api_calendars_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/{calendar_id}": {
+      "patch": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Rename Calendar",
+        "operationId": "rename_calendar_api_calendars__calendar_id__patch",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Delete Calendar",
+        "operationId": "delete_calendar_api_calendars__calendar_id__delete",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarDelete"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssignedTechnician": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AssignedTechnician"
+      },
+      "AssignmentInput": {
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Calendar Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "calendar_id"
+        ],
+        "title": "AssignmentInput"
+      },
+      "AssignmentRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "technician_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Technician Id"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Id"
+          },
+          "calendar_name": {
+            "type": "string",
+            "title": "Calendar Name"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "technician_id",
+          "calendar_id",
+          "calendar_name",
+          "is_active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AssignmentRead"
+      },
+      "CalendarCreate": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CalendarCreate"
+      },
+      "CalendarDelete": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "DELETE",
+            "title": "Confirmation"
+          },
+          "detach_assigned": {
+            "type": "boolean",
+            "title": "Detach Assigned",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "title": "CalendarDelete"
+      },
+      "CalendarRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "assigned_technician": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssignedTechnician"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CalendarRead"
+      },
+      "CalendarSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "CalendarSummary"
+      },
+      "DeleteConfirmation": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "DELETE",
+            "title": "Confirmation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmation"
+        ],
+        "title": "DeleteConfirmation"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "database": {
+            "type": "string",
+            "title": "Database"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "Health"
+      },
+      "IntegrationSummary": {
+        "properties": {
+          "telegram_private": {
+            "type": "string",
+            "enum": [
+              "NOT_CONNECTED",
+              "PENDING",
+              "CONNECTED",
+              "ERROR"
+            ],
+            "title": "Telegram Private",
+            "default": "NOT_CONNECTED"
+          },
+          "telegram_group": {
+            "type": "string",
+            "enum": [
+              "NOT_CONNECTED",
+              "PENDING",
+              "CONNECTED",
+              "ERROR"
+            ],
+            "title": "Telegram Group",
+            "default": "NOT_CONNECTED"
+          },
+          "gps_provider": {
+            "type": "string",
+            "enum": [
+              "NONE",
+              "MOTOWATCHDOG_SHARE"
+            ],
+            "title": "Gps Provider",
+            "default": "NONE"
+          },
+          "gps_status": {
+            "type": "string",
+            "enum": [
+              "NOT_CONNECTED",
+              "PENDING",
+              "CONNECTED",
+              "ERROR"
+            ],
+            "title": "Gps Status",
+            "default": "NOT_CONNECTED"
+          }
+        },
+        "type": "object",
+        "title": "IntegrationSummary"
+      },
+      "TechnicianCreate": {
+        "properties": {
+          "first_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Last Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "first_name",
+          "last_name"
+        ],
+        "title": "TechnicianCreate"
+      },
+      "TechnicianDetail": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "first_name": {
+            "type": "string",
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "title": "Last Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "title": "Status"
+          },
+          "calendar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalendarSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "integrations": {
+            "$ref": "#/components/schemas/IntegrationSummary"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "driver_license_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver License Id"
+          },
+          "ssn_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssn Last4"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "first_name",
+          "last_name",
+          "photo_url",
+          "status",
+          "calendar",
+          "integrations",
+          "created_at",
+          "updated_at",
+          "driver_license_id",
+          "ssn_last4"
+        ],
+        "title": "TechnicianDetail"
+      },
+      "TechnicianSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "first_name": {
+            "type": "string",
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "title": "Last Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "title": "Status"
+          },
+          "calendar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CalendarSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "integrations": {
+            "$ref": "#/components/schemas/IntegrationSummary"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "first_name",
+          "last_name",
+          "photo_url",
+          "status",
+          "calendar",
+          "integrations",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TechnicianSummary"
+      },
+      "TechnicianUpdate": {
+        "properties": {
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "ACTIVE",
+                  "INACTIVE"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "driver_license_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver License Id"
+          },
+          "ssn_last4": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9]{4}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ssn Last4"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TechnicianUpdate"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
