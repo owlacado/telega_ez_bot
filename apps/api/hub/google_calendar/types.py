@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
+EVENT_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly"
+
 SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
 
 
@@ -30,6 +32,10 @@ class ProviderError(Exception):
     CODES = {
         "REAUTH_REQUIRED",
         "SCOPE_REQUIRED",
+        "EVENT_SCOPE_REQUIRED",
+        "CALENDAR_UNAVAILABLE",
+        "TIMEZONE_REQUIRED",
+        "REQUEST_LIMIT",
         "RATE_LIMITED",
         "PROVIDER_TEMPORARY_ERROR",
         "CONFIGURATION_ERROR",
@@ -44,8 +50,16 @@ class ProviderError(Exception):
 
 
 class CalendarProvider(Protocol):
-    def build_authorization_url(self, state: str) -> Authorization: ...
-    async def exchange_authorization_code(self, code: str, verifier: str) -> TokenGrant: ...
-    async def refresh_credentials(self, refresh_token: str) -> TokenGrant: ...
+    def build_authorization_url(self, state: str, event_access: bool = False) -> Authorization: ...
+    async def exchange_authorization_code(
+        self, code: str, verifier: str, event_access: bool = False
+    ) -> TokenGrant: ...
+    async def refresh_credentials(
+        self, refresh_token: str, scopes: tuple[str, ...] = (SCOPE,)
+    ) -> TokenGrant: ...
     async def revoke_credentials(self, refresh_token: str) -> None: ...
     async def list_calendars(self, access_token: str) -> list[DiscoveredCalendar]: ...
+
+    async def list_events(
+        self, access_token: str, provider_calendar_id: str, time_min, time_max, timezone: str
+    ): ...

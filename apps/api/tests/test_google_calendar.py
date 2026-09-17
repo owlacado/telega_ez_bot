@@ -698,7 +698,7 @@ async def test_official_library_exchange_and_refresh_are_normalized(monkeypatch)
                 "scope": SCOPE,
             }
 
-    monkeypatch.setattr(adapter, "_flow", lambda verifier: FlowStub())
+    monkeypatch.setattr(adapter, "_flow", lambda verifier, **kwargs: FlowStub())
     grant = await adapter.exchange_authorization_code("synthetic-code", "verifier")
     assert grant.refresh_token == "synthetic-refresh" and closed
 
@@ -774,7 +774,7 @@ async def test_incremental_scope_warning_requires_discovery_scope(monkeypatch, s
             }
             raise warning
 
-    monkeypatch.setattr(adapter, "_flow", lambda verifier: ScopeFlow())
+    monkeypatch.setattr(adapter, "_flow", lambda verifier, **kwargs: ScopeFlow())
     if SCOPE in scopes:
         grant = await adapter.exchange_authorization_code("code", "verifier")
         assert grant.scopes == tuple(scopes)

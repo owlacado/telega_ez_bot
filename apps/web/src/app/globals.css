@@ -1746,3 +1746,47 @@ td > small {
 .excluded-row > span {
   overflow-wrap: anywhere;
 }
+
+.schedule-meta {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+.schedule-meta small {
+  color: var(--muted);
+}
+.schedule-jobs {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  max-height: 34rem;
+  overflow: auto;
+}
+.schedule-jobs li {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  gap: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  padding: 1rem 0;
+}
+.schedule-jobs time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.schedule-jobs p,
+.schedule-jobs strong {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.schedule-jobs p {
+  margin: 0.3rem 0;
+}
+.schedule-jobs details {
+  margin-top: 0.5rem;
+}
+.schedule-jobs summary {
+  cursor: pointer;
+}
+.schedule-empty {
+  padding: 1rem 0;
+}

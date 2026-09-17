@@ -1,4 +1,4 @@
-"""The sole Google network boundary. No event API and no calendar deletion API."""
+"""Google read-only network boundary. No calendar/event mutation API."""
 
 import asyncio
 import json
@@ -17,6 +17,7 @@ from oauthlib.oauth2 import OAuth2Error
 
 from hub.core.config import Settings
 from hub.google_calendar.types import (
+    EVENT_SCOPE,
     SCOPE,
     Authorization,
     DiscoveredCalendar,
@@ -54,7 +55,7 @@ class GoogleCalendarProvider:
                 if child.startswith(name + "."):
                     logging.getLogger(child).disabled = True
 
-    def _flow(self, verifier=None):
+    def _flow(self, verifier=None, event_access=False):
         settings = self.settings
         flow = Flow.from_client_config(
             {
@@ -65,7 +66,7 @@ class GoogleCalendarProvider:
                     "token_uri": "https://oauth2.googleapis.com/token",
                 }
             },
-            scopes=[SCOPE],
+            scopes=[SCOPE, EVENT_SCOPE] if event_access else [SCOPE],
             redirect_uri=settings.google_oauth_redirect_uri,
             code_verifier=verifier,
             autogenerate_code_verifier=verifier is None,
@@ -73,8 +74,8 @@ class GoogleCalendarProvider:
         flow.oauth2session.trust_env = False
         return flow
 
-    def build_authorization_url(self, state):
-        flow = self._flow()
+    def build_authorization_url(self, state, event_access=False):
+        flow = self._flow(event_access=event_access)
         try:
             url, _ = flow.authorization_url(
                 state=state,
@@ -86,9 +87,9 @@ class GoogleCalendarProvider:
         finally:
             flow.oauth2session.close()
 
-    async def exchange_authorization_code(self, code, verifier):
+    async def exchange_authorization_code(self, code, verifier, event_access=False):
         def exchange():
-            flow = self._flow(verifier)
+            flow = self._flow(verifier, event_access=event_access)
             try:
                 try:
                     token = flow.fetch_token(code=code, timeout=TIMEOUT, allow_redirects=False)
@@ -98,7 +99,7 @@ class GoogleCalendarProvider:
                     token = getattr(changed_scope, "token", None)
                     if not isinstance(token, dict):
                         raise ProviderError("SCOPE_REQUIRED") from None
-                scopes = token.get("scope", [SCOPE])
+                scopes = token.get("scope", [SCOPE, EVENT_SCOPE] if event_access else [SCOPE])
                 if isinstance(scopes, str):
                     scopes = scopes.split()
                 if SCOPE not in scopes:
@@ -120,7 +121,7 @@ class GoogleCalendarProvider:
 
         return await _thread_call(exchange)
 
-    async def refresh_credentials(self, refresh_token):
+    async def refresh_credentials(self, refresh_token, scopes=(SCOPE,)):
         def refresh():
             settings = self.settings
             credentials = Credentials(
@@ -129,7 +130,7 @@ class GoogleCalendarProvider:
                 token_uri="https://oauth2.googleapis.com/token",
                 client_id=settings.google_client_id,
                 client_secret=settings.google_client_secret.get_secret_value(),
-                scopes=[SCOPE],
+                scopes=list(scopes),
             )
             with requests.Session() as session:
                 session.trust_env = False
@@ -151,12 +152,19 @@ class GoogleCalendarProvider:
 
                 try:
                     credentials.refresh(bounded)
-                    if credentials.granted_scopes and SCOPE not in credentials.granted_scopes:
+                    if (
+                        credentials.granted_scopes is not None
+                        and SCOPE not in credentials.granted_scopes
+                    ):
                         raise ProviderError("SCOPE_REQUIRED")
                     return TokenGrant(
                         credentials.token,
                         credentials.refresh_token,
-                        tuple(credentials.granted_scopes or [SCOPE]),
+                        tuple(
+                            scopes
+                            if credentials.granted_scopes is None
+                            else credentials.granted_scopes
+                        ),
                     )
                 except RefreshError as exc:
                     # Inspect only the machine code, never format/log the exception.
@@ -304,3 +312,122 @@ class GoogleCalendarProvider:
                 raise ProviderError("PROVIDER_TEMPORARY_ERROR") from None
 
         await _thread_call(revoke)
+
+    async def list_events(self, access_token, provider_calendar_id, time_min, time_max, timezone):
+        return await _thread_call(
+            self._events, access_token, provider_calendar_id, time_min, time_max, timezone
+        )
+
+    def _events(self, access_token, provider_calendar_id, time_min, time_max, timezone):
+        from time import monotonic
+        from urllib.parse import quote
+
+        from hub.calendar_events.normalization import normalize_event
+
+        found, instances, seen_pages, statuses = {}, {}, set(), {}
+        page, received, started = None, 0, monotonic()
+        with requests.Session() as session:
+            session.trust_env = False
+            for _ in range(100):
+                if monotonic() - started > 45:
+                    raise ProviderError("REQUEST_LIMIT")
+                params = {
+                    "maxResults": 250,
+                    "singleEvents": "true",
+                    "orderBy": "startTime",
+                    "showDeleted": "false",
+                    "timeMin": time_min.isoformat(),
+                    "timeMax": time_max.isoformat(),
+                    "timeZone": timezone,
+                    "fields": (
+                        "kind,timeZone,nextPageToken,items(id,status,summary,description,"
+                        "location,start,end,htmlLink,recurringEventId,originalStartTime,updated)"
+                    ),
+                }
+                if page:
+                    params["pageToken"] = page
+                try:
+                    with session.get(
+                        "https://www.googleapis.com/calendar/v3/calendars/"
+                        + quote(provider_calendar_id, safe="")
+                        + "/events",
+                        params=params,
+                        headers={"Authorization": "Bearer " + access_token},
+                        timeout=TIMEOUT,
+                        allow_redirects=False,
+                        stream=True,
+                    ) as response:
+                        # Bound the full read, including error bodies, before parsing JSON.
+                        chunks = []
+                        for chunk in response.iter_content(65536):
+                            received += len(chunk)
+                            if received > 8_000_000 or monotonic() - started > 45:
+                                raise ProviderError("REQUEST_LIMIT")
+                            chunks.append(chunk)
+                        raw = b"".join(chunks)
+
+                        def body_json(raw=raw):
+                            return json.loads(raw)
+
+                        try:
+                            self._check(
+                                SimpleNamespace(
+                                    status_code=response.status_code,
+                                    headers=response.headers,
+                                    json=body_json,
+                                )
+                            )
+                        except ProviderError as exc:
+                            if exc.code == "SCOPE_REQUIRED":
+                                # A calendar ACL denial isn't necessarily missing OAuth scope.
+                                reasons = []
+                                try:
+                                    reasons = [
+                                        x.get("reason")
+                                        for x in body_json().get("error", {}).get("errors", [])
+                                    ]
+                                except (ValueError, TypeError, AttributeError):
+                                    pass
+                                raise ProviderError(
+                                    "EVENT_SCOPE_REQUIRED"
+                                    if "insufficientPermissions" in reasons
+                                    else "CALENDAR_UNAVAILABLE"
+                                ) from None
+                            if response.status_code == 404:
+                                raise ProviderError("CALENDAR_UNAVAILABLE") from None
+                            raise
+                        body = body_json()
+                except (requests.RequestException, ValueError):
+                    raise ProviderError("PROVIDER_TEMPORARY_ERROR") from None
+                if (
+                    not isinstance(body, dict)
+                    or not isinstance(body.get("items", []), list)
+                    or ("items" not in body and body.get("kind") != "calendar#events")
+                ):
+                    raise ProviderError("MALFORMED_RESPONSE")
+                for item in body.get("items", []):
+                    event = normalize_event(item, timezone)
+                    identifier = item["id"]
+                    event_status = item.get("status", "confirmed")
+                    if identifier in statuses and statuses[identifier] != event_status:
+                        raise ProviderError("MALFORMED_RESPONSE")
+                    statuses[identifier] = event_status
+                    if event is None:
+                        continue
+                    if event.provider_event_id in found and found[event.provider_event_id] != event:
+                        raise ProviderError("MALFORMED_RESPONSE")
+                    if event.recurring_event_id and event.original_start_time:
+                        key = (event.recurring_event_id, event.original_start_time)
+                        if key in instances and instances[key] != event:
+                            raise ProviderError("MALFORMED_RESPONSE")
+                        instances[key] = event
+                    found[event.provider_event_id] = event
+                    if len(found) > 10000:
+                        raise ProviderError("REQUEST_LIMIT")
+                page = body.get("nextPageToken")
+                if page is None:
+                    return list(found.values())
+                if not isinstance(page, str) or not page or len(page) > 4096 or page in seen_pages:
+                    raise ProviderError("MALFORMED_RESPONSE")
+                seen_pages.add(page)
+        raise ProviderError("REQUEST_LIMIT")

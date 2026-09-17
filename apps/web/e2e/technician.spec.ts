@@ -42,15 +42,15 @@ test("dashboard to permanent deletion, with a real local calendar", async ({
       .getByLabel("Assigned calendar", { exact: true })
       .selectOption({ label: calendarName });
     await expect(
-      page.getByText(calendarName, { exact: true }).last(),
-    ).toBeVisible();
+      page.getByLabel("Assigned calendar", { exact: true }),
+    ).toHaveValue(calendar.id);
     await page.reload();
     await expect(
       page.getByLabel("Assigned calendar", { exact: true }),
     ).toHaveValue(calendar.id);
     await expect(
-      page.getByRole("button", { name: "Send tomorrow’s schedule" }),
-    ).toBeDisabled();
+      page.getByRole("button", { name: /Preview .*Schedule/ }),
+    ).toBeEnabled();
     await page
       .getByRole("button", { name: "Delete Technician", exact: true })
       .click();

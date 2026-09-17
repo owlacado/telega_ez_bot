@@ -200,6 +200,7 @@ export function ProfilePanel({
           <label>
             Assigned calendar
             <select
+              id="profile-calendar"
               aria-label="Assigned calendar"
               value={t.calendar?.id ?? ""}
               disabled={assigning || saving || !calendars.data}

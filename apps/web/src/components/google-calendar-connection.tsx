@@ -41,7 +41,7 @@ export function GoogleCalendarConnection({
   }, [result]);
 
   async function action(
-    kind: "CONNECT" | "RECONNECT" | "SWITCH" | "DISCONNECT" | "SCAN",
+    kind: "CONNECT" | "RECONNECT" | "SWITCH" | "DISCONNECT" | "SCAN" | "EVENTS",
   ) {
     if (!data || pending.current) return;
     const snapshot = confirm?.snapshot ?? data;
@@ -78,7 +78,8 @@ export function GoogleCalendarConnection({
             method: "POST",
             body: json({
               ...expected,
-              mode: kind,
+              mode: kind === "EVENTS" ? "RECONNECT" : kind,
+              request_event_access: kind === "EVENTS",
               confirm_replace: kind === "SWITCH",
               expected_impact_version: snapshot.impact_version,
             }),
@@ -126,7 +127,7 @@ export function GoogleCalendarConnection({
                 : data.status === "REAUTH_REQUIRED"
                   ? "Google Calendar connection needs attention"
                   : data.status === "ERROR"
-                    ? "Last scan failed"
+                    ? "Google Calendar needs attention"
                     : "Not connected"}
             </strong>
             <p className="muted">
@@ -151,7 +152,29 @@ export function GoogleCalendarConnection({
                 Google OAuth is not configured on this server.
               </p>
             )}
+            {data.status === "CONNECTED" && (
+              <p className="field-hint">
+                Calendar discovery available.{" "}
+                {data.granted_scopes?.includes(
+                  "https://www.googleapis.com/auth/calendar.events.readonly",
+                )
+                  ? "Google event access available."
+                  : "Event access not yet granted."}
+              </p>
+            )}
             <div className="google-actions">
+              {data.id &&
+                !data.granted_scopes?.includes(
+                  "https://www.googleapis.com/auth/calendar.events.readonly",
+                ) && (
+                  <button
+                    className="button secondary"
+                    disabled={!!busy || !data.enabled}
+                    onClick={() => void action("EVENTS")}
+                  >
+                    Grant Event Access
+                  </button>
+                )}
               <button
                 className="button primary"
                 disabled={

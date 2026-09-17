@@ -1,6 +1,6 @@
 # Technical debt register
 
-Scope: Stage 2 Google Calendar discovery following the audited Stage 1 baseline `37c7791`. **27 entries: 10 RESOLVED, 17 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 12, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md and AUDIT_STAGE2_GOOGLE_CALENDAR.md. The independent audit adds evidence and localized remediation without closing any existing operational obligation. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
+Scope: Stage 3 calendar event views following audited Stage 2 baseline `253071c`. **27 entries: 10 RESOLVED, 17 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 12, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md and AUDIT_STAGE2_GOOGLE_CALENDAR.md. The independent audit adds evidence and localized remediation without closing any existing operational obligation. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.
 
@@ -354,3 +354,30 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Independent Stage 2 audit evidence:** Independent Google audit: expanded fake transport/PostgreSQL/browser tests and ten mutation experiments do not replace real consent, primary identity, refresh lifetime or project-wide revocation acceptance. No accounts.google.com, oauth2.googleapis.com, www.googleapis.com or real account/API was contacted. Dedicated TEST acceptance remains explicitly manual and OPEN.
 - **Status:** OPEN
+
+## Stage 3 evidence (existing debt IDs retained)
+
+No new debt ID is needed and no existing item is resolved by Stage 3. The counts above remain unchanged.
+
+- **TD-015, LATER SCALE:** Day reads are bounded to 100 pages/10,000 events/8 MB; UI wraps and scrolls.
+  Large event-day pagination/virtualization and optional durable caching require measured operational
+  demand. No local event mirror is created merely to anticipate scale.
+- **TD-017, BEFORE INTERNAL PILOT:** Event network I/O stays outside SQL transactions. The provider has
+  per-call timeouts and a 45-second pagination budget checked between reads; this is not a hard
+  end-to-end deadline across lifecycle waiting/current blocking I/O. Admission/shutdown and correlated
+  provider metrics still need operational policy.
+- **TD-025, BEFORE INTERNAL PILOT:** Scope upgrades preserve encryption and verify omitted-token
+  capability. Rotated event refresh grants commit before pagination. Provider rotation/DB commit
+  cannot be atomic; key rotation, crash recovery and durable revocation remain open.
+- **TD-026, BEFORE INTERNAL PILOT:** One event read per technician at a time plus UI deduplication
+  suppresses overlapping requests. This does not impose cross-technician/manager quotas or bound all
+  lifecycle waiters. Establish request budgets and attempt retention before shared use.
+- **TD-027, BEFORE INTERNAL PILOT:** Extend dedicated Google TEST acceptance to incremental event
+  consent/partial grants, recurring exceptions, calendar ACL/private events, provider timezone/DST,
+  pagination and refresh. Automated tests use fakes only; the runbook is not executed automatically.
+- **TD-010/011/014:** Durable audit retention, sensitive technician-field encryption and pre-existing
+  Telegram/GPS database invariants remain open. Stage 3 does not persist event PII; API responses are
+  no-store and logs exclude event content. Overdue TD-014 remains explicitly unclosed.
+
+Internal-pilot blockers remain TD-010/011/012/013/014/017/018/022/023/025/026/027.
+Production additionally requires TD-016/019/020. TD-015/024 remain LATER SCALE.

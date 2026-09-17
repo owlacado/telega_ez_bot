@@ -15,7 +15,7 @@ from hub.calendars.models import Calendar, CalendarAssignment
 from hub.core.secrets import SecretCipher
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.google_calendar.schemas import GoogleConnectionRead
-from hub.google_calendar.types import SCOPE, ProviderError
+from hub.google_calendar.types import EVENT_SCOPE, SCOPE, ProviderError
 from hub.telegram.locks import advisory_guard, lock_key
 
 
@@ -92,6 +92,7 @@ async def status(request, db):
             "last_success_at",
             "last_error_code",
             "retry_at",
+            "granted_scopes",
         ):
             setattr(result, name, getattr(connection, name))
     result.impact_version, result.calendar_count, result.assignment_count = await impact_details(
@@ -123,7 +124,13 @@ async def start(request, db, payload):
     if payload.mode == "SWITCH" and payload.expected_impact_version != impact:
         raise HTTPException(409, "Calendar impact changed. Refresh and confirm again.")
     state = secrets.token_urlsafe(32)
-    authorization = adapter.build_authorization_url(state)
+    if payload.request_event_access and payload.mode != "RECONNECT":
+        raise HTTPException(409, "Event access requires a same-account reconnect.")
+    authorization = (
+        adapter.build_authorization_url(state, event_access=True)
+        if payload.request_event_access
+        else adapter.build_authorization_url(state)
+    )
     await db.execute(
         update(GoogleOAuthAttempt)
         .where(
@@ -141,6 +148,7 @@ async def start(request, db, payload):
         expected_connection_id=connection.id if connection else None,
         expected_generation=connection.generation if connection else None,
         mode=payload.mode,
+        request_event_access=payload.request_event_access,
         expected_impact_version=impact,
     )
     db.add(attempt)
@@ -236,7 +244,9 @@ async def callback(request):
                 if attempt.expires_at <= now():
                     raise ProviderError("REAUTH_REQUIRED")
             grant = await adapter.exchange_authorization_code(
-                code, secret_cipher.decrypt(encrypted_verifier)
+                code,
+                secret_cipher.decrypt(encrypted_verifier),
+                **({"event_access": True} if attempt.request_event_access else {}),
             )
             if SCOPE not in grant.scopes:
                 raise ProviderError("SCOPE_REQUIRED")
@@ -254,13 +264,21 @@ async def callback(request):
                 ):
                     raise ProviderError("REAUTH_REQUIRED")
                 old_token = secret_cipher.decrypt(snapshot.encrypted_refresh_token)
-                verified = await adapter.refresh_credentials(old_token)
+                verified = await adapter.refresh_credentials(
+                    old_token,
+                    **({"scopes": tuple(grant.scopes)} if EVENT_SCOPE in grant.scopes else {}),
+                )
                 if SCOPE not in verified.scopes:
                     raise ProviderError("SCOPE_REQUIRED")
                 old_calendars = await adapter.list_calendars(verified.access_token)
                 if [c.provider_id for c in old_calendars if c.primary] != identities:
                     raise ProviderError("ACCOUNT_IDENTITY_UNAVAILABLE")
-                grant = replace(grant, refresh_token=verified.refresh_token or old_token)
+                # A retained refresh grant must carry the upgraded capability too.
+                grant = replace(
+                    grant,
+                    refresh_token=verified.refresh_token or old_token,
+                    scopes=tuple(s for s in grant.scopes if s in verified.scopes),
+                )
             async with factory() as db:
                 await mutation_lock(db)
                 session = await db.scalar(
@@ -390,19 +408,30 @@ async def scan(request):
                         expected(latest, identifier, generation)
                         encrypted = latest.encrypted_refresh_token
                     token = secret_cipher.decrypt(encrypted)
-                    grant = await adapter.refresh_credentials(token)
+                    grant = await adapter.refresh_credentials(
+                        token,
+                        **(
+                            {"scopes": tuple(latest.granted_scopes)}
+                            if EVENT_SCOPE in latest.granted_scopes
+                            else {}
+                        ),
+                    )
                     if SCOPE not in grant.scopes:
                         raise ProviderError("SCOPE_REQUIRED")
                     # Persist a rotated credential before pagination, which can fail.
                     # Recheck generation so an old scan cannot resurrect disconnected grants.
-                    if grant.refresh_token and grant.refresh_token != token:
+                    if (grant.refresh_token and grant.refresh_token != token) or set(
+                        grant.scopes
+                    ) != set(latest.granted_scopes):
                         async with factory() as db:
                             await mutation_lock(db)
                             connection = await current(db)
                             expected(connection, identifier, generation)
-                            connection.encrypted_refresh_token = secret_cipher.encrypt(
-                                grant.refresh_token
-                            )
+                            if grant.refresh_token:
+                                connection.encrypted_refresh_token = secret_cipher.encrypt(
+                                    grant.refresh_token
+                                )
+                            connection.granted_scopes = list(grant.scopes)
                             await db.commit()
                 calendars = await adapter.list_calendars(grant.access_token)
             except HTTPException:

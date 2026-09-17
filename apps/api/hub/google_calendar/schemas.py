@@ -20,9 +20,11 @@ class GoogleConnectionRead(BaseModel):
     assignment_count: int = 0
     demo_enabled: bool = False
     impact_version: str | None = None
+    granted_scopes: list[str] = []
 
 
 class StartInput(InputModel):
+    request_event_access: bool = False
     mode: Literal["CONNECT", "RECONNECT", "SWITCH"] = "CONNECT"
     expected_connection_id: UUID | None = None
     expected_generation: int | None = None

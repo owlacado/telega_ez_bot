@@ -11,6 +11,7 @@ import hub.models  # noqa: F401
 from hub.auth.middleware import install_auth
 from hub.auth.router import router as auth_router
 from hub.auth.security import password_hasher, random_token
+from hub.calendar_events.router import router as events_router
 from hub.calendars.router import router as calendars_router
 from hub.core.config import Settings
 from hub.core.database import session
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(technicians_router)
     app.include_router(calendars_router)
     app.include_router(google_router)
+    app.include_router(events_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):

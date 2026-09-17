@@ -1,6 +1,6 @@
 # Architecture
 
-Stage 2 adds the Google Calendar provider described in [GOOGLE_CALENDAR_INTEGRATION.md](GOOGLE_CALENDAR_INTEGRATION.md). CalendarConnection and single-use GoogleOAuthAttempt are distinct from technician identity. Calendar rows now have LOCAL_DEMO/GOOGLE source, connection-scoped provider identity, last-seen availability, and explicit local exclusions. Existing assignment history and both active-assignment uniqueness indexes remain authoritative. A normalized CalendarProvider boundary owns OAuth, refresh, revoke, and complete CalendarList pagination; no event operations exist. Fernet-encrypted refresh credentials stay server-side; access tokens are ephemeral. Network fetch and short atomic reconciliation are separated by generation checks and PostgreSQL advisory coordination.
+Stage 2 adds the Google Calendar provider described in [GOOGLE_CALENDAR_INTEGRATION.md](GOOGLE_CALENDAR_INTEGRATION.md). CalendarConnection and single-use GoogleOAuthAttempt are distinct from technician identity. Calendar rows now have LOCAL_DEMO/GOOGLE source, connection-scoped provider identity, last-seen availability, and explicit local exclusions. Existing assignment history and both active-assignment uniqueness indexes remain authoritative. A normalized CalendarProvider boundary owns OAuth, refresh, revoke, and complete CalendarList pagination; Stage 3 adds the read-only event boundary described below. Fernet-encrypted refresh credentials stay server-side; access tokens are ephemeral. Network fetch and short atomic reconciliation are separated by generation checks and PostgreSQL advisory coordination.
 
 Current Telegram completion supersedes the original review-only flow described below for **new** invitations. New PRIVATE_TELEGRAM/WORK_GROUP credentials automatically activate the existing binding in the same transaction as claim/audit/outbox. A new group claim requires the exact linked private actor and bot membership/send capability, without administration. Legacy invitations retain review semantics through the server-owned automatic=false migration value. All existing generations, advisory locks, unique IDs, manager auth, provider boundaries, outbox and deletion protections remain. See [the current runbook](TELEGRAM_ONBOARDING.md) and [completion verification](TELEGRAM_COMPLETION_VERIFICATION.md).
 
@@ -101,3 +101,31 @@ Stage 0 audit migration `a04e70c92001` branches from `863590d3075e`. Reconciliat
 Audit evidence and current debt are tracked in [AUDIT_STAGE0.md](AUDIT_STAGE0.md), [TECH_DEBT.md](TECH_DEBT.md), and [AUDIT_RECONCILIATION.md](AUDIT_RECONCILIATION.md).
 
 Migration e7b310920001 follows the reconciliation head and preserves old credentials/queued messages while translating the private-purpose vocabulary. Both fresh and populated upgrade/downgrade paths are checked; see scripts/validate_migrations.py.
+
+## Stage 3: on-demand calendar event projections
+
+`calendar_events` owns normalized read models, operational date windows, title/work-window filtering,
+job ordering and schedule formatting. The Google adapter alone issues Events.list HTTP reads.
+`CalendarProvider.list_events` returns normalized DTOs; no Google SDK event objects enter the domain.
+There is no event table, durable event cache, background synchronization or Telegram delivery.
+
+Manager-authorized GET routes `/api/technicians/{id}/calendar/today` and
+`/api/technicians/{id}/calendar/next-schedule` take short SQL snapshots, refresh credentials under the
+existing lifecycle guard, read the provider outside SQL transactions, then recheck manager session,
+assignment UUID, calendar availability/timezone, current connection generation and granted scopes.
+Changed identities discard the fetched data. Per-technician nonblocking advisory guards suppress
+simultaneous event reads without consuming the transaction pool. Rotated refresh credentials are
+encrypted and committed before pagination. A scope-specific failure removes only event capability;
+Calendar discovery remains available. Provider Retry-After uses the shared persisted connection deadline.
+
+OAuth `request_event_access` is bound to the single-use attempt by additive migration c3e410a20917.
+It is accepted only for same-account RECONNECT, and requests both narrow read scopes with incremental
+authorization. Partial consent is represented solely by `CalendarConnection.granted_scopes`.
+An omitted refresh token must be verified for identity and refreshed capability before reuse.
+The migration downgrade consumes pending upgrade attempts before dropping their policy flag.
+
+The browser owns one Today reader and a preview reader only while its modal is open. Request identity,
+AbortController and mount cleanup prevent stale success/failure from another technician or assignment.
+Refresh clears previous jobs; errors cannot label cached jobs current. Strict Mode dispatch is deferred
+one microtask to deduplicate its immediate setup/cleanup cycle. Operational display times arrive as
+server-normalized `HH:mm`; date-only labels use explicit UTC formatting without changing their date.

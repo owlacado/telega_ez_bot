@@ -29,6 +29,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.history.replaceState(null, "", "/calendars");
   state = {
+    granted_scopes: [],
     enabled: true,
     status: "DISCONNECTED",
     calendar_count: 0,

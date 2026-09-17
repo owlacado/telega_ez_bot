@@ -357,3 +357,70 @@ alembic("check")
 print(
     "Stage 2 populated catalog/history preserved; destructive downgrade refused; checks verified."
 )
+
+
+# Stage 3 rollback must burn pending event upgrades; ordinary attempts remain intact.
+manager_id, session_id = uuid.uuid4(), uuid.uuid4()
+upgrade_id, ordinary_id = uuid.uuid4(), uuid.uuid4()
+
+
+async def stage3_attempts(check=False):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if not check:
+                await db.execute(
+                    text(
+                        "INSERT INTO managers (id,username,password_hash) "
+                        "VALUES (:id,'migration-events','not-a-login-hash')"
+                    ),
+                    {"id": manager_id},
+                )
+                await db.execute(
+                    text(
+                        "INSERT INTO manager_sessions (id,manager_id,token_hash,expires_at) "
+                        "VALUES (:id,:manager,:hash,now()+interval '1 hour')"
+                    ),
+                    {"id": session_id, "manager": manager_id, "hash": uuid.uuid4().hex * 2},
+                )
+                for identifier, upgrade in [(upgrade_id, True), (ordinary_id, False)]:
+                    await db.execute(
+                        text(
+                            "INSERT INTO google_oauth_attempts "
+                            "(id,state_hash,manager_id,session_id,encrypted_verifier,expires_at,"
+                            "mode,request_event_access) "
+                            "VALUES (:id,:hash,:manager,:session,'v1:inert-migration-fixture',"
+                            "now()+interval '10 minutes','RECONNECT',:upgrade)"
+                        ),
+                        {
+                            "id": identifier,
+                            "hash": uuid.uuid4().hex * 2,
+                            "manager": manager_id,
+                            "session": session_id,
+                            "upgrade": upgrade,
+                        },
+                    )
+            else:
+                rows = (
+                    await db.execute(
+                        text(
+                            "SELECT id,consumed_at IS NOT NULL,encrypted_verifier "
+                            "FROM google_oauth_attempts WHERE id IN (:upgrade,:ordinary)"
+                        ),
+                        {"upgrade": upgrade_id, "ordinary": ordinary_id},
+                    )
+                ).all()
+                found = {row[0]: row[1:] for row in rows}
+                assert found[upgrade_id] == (True, None)
+                assert found[ordinary_id] == (False, "v1:inert-migration-fixture")
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(stage3_attempts())
+alembic("downgrade", "b2917d804e12")
+asyncio.run(stage3_attempts(check=True))
+alembic("upgrade", "head")
+asyncio.run(stage3_attempts(check=True))
+alembic("check")
+print("Stage 3 upgrade-attempt downgrade burns verifier; re-upgrade and drift passed.")

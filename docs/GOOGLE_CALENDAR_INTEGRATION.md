@@ -1,6 +1,6 @@
-# Google Calendar discovery - Stage 2
+# Google Calendar integration - Stages 2 and 3
 
-Stage 2 discovers CalendarList metadata and manages local assignments. It never reads events, deletes Google calendars, polls periodically, sends schedules, or uses Google Sheets. Google is authoritative for provider metadata; PostgreSQL is authoritative for technician identity, assignments, history, and exclusions.
+CalendarList discovery manages provider metadata and local assignments. Stage 3 adds bounded read-only events and schedule previews after explicit event consent. Hub never deletes Google calendars, edits events, polls periodically, sends schedules, or uses Google Sheets. Google is authoritative for provider metadata; PostgreSQL is authoritative for technician identity, assignments, history, and exclusions.
 
 ## Verified references
 
@@ -11,7 +11,7 @@ Consulted on September 17, 2026, before implementation:
 - [Google OAuth scopes](https://developers.google.com/identity/protocols/oauth2/scopes#calendar): CalendarList discovery scope.
 - [Google PKCE guidance](https://developers.google.com/identity/protocols/oauth2/native-app#step1-code-verifier): S256 challenge semantics. This page describes native clients; web implementation support was separately verified in the installed official `google-auth-oauthlib==1.4.1` Flow implementation (`authorization_url`, `fetch_token`). Flow generates a 128-character verifier, SHA-256 challenge, and supplies the verifier during exchange. Technician Hub does not implement that cryptography itself.
 
-Only `https://www.googleapis.com/auth/calendar.calendarlist.readonly` is requested. No event, broad calendar, email, or OpenID scope is requested. `include_granted_scopes=true` follows Google's incremental-authorization mechanism; a later event stage must explicitly add consent for its own scope. Existing incremental grants can produce OAuthlib's scope-change warning; the adapter accepts its validated token only if the required discovery scope is present, without requesting any additional scope. No event access is implemented here.
+Initial discovery requests only `https://www.googleapis.com/auth/calendar.calendarlist.readonly`. Grant Event Access explicitly adds `https://www.googleapis.com/auth/calendar.events.readonly` for the same account using `include_granted_scopes=true`. No broad calendar, write, email or OpenID scope is requested. Partial consent leaves discovery working; the stored granted_scopes array governs event capability. OAuthlib scope-change warnings are accepted only with a validated token and the required discovery scope. See the Stage 3 runbook below.
 
 ## Connection and security design
 
@@ -144,3 +144,34 @@ path and remaining session lifetime are preserved; the session is neither rotate
 extended. Callback state still binds manager/session and is single-use. All normal
 mutations still require exact trusted Origin and CSRF proof. A browser test simulates the
 consent page on localhost and returns to 127.0.0.1; it performs no Google network access.
+
+## Stage 3 event access and dedicated TEST-account runbook
+
+Discovery-only connections remain valid. From Calendars choose Grant Event Access, authorize the same
+dedicated TEST account for calendar.events.readonly, and verify discovery plus event capability separately.
+Decline just event access once: discovery must continue, while Today explicitly asks for event access.
+Repeat consent with and without a new refresh token where Google permits; never record tokens/codes.
+Do not execute this acceptance automatically or use real business/customer calendars.
+
+In a disposable TEST calendar, manually create fictional events:
+
+1. An 08:00 `1. Furnace (old customer) didnt buy` job with a synthetic address.
+2. An 11:00 normal numbered job, plus an unnumbered valid job.
+3. A cancelled provider event and a `CANCEL - job` title.
+4. A `fake job` title.
+5. A valid title whose description contains `cancel` (must remain visible).
+6. A recurring job and one cancelled occurrence; instances must appear individually.
+7. All-day reminder, 07:59, 08:00, 22:00 and 22:01 boundary events.
+8. Duplicate sequence numbers, Unicode and harmless script-looking text.
+
+Assign the calendar to a fictional technician. Open Today, verify calendar wall-clock times (set the
+browser to a different zone), title filtering, notes and empty-success/error distinctions. Preview
+uses cleaned titles and the next work date. On Saturday and Sunday verify Monday; on Friday verify
+Saturday. Use dedicated test dates around spring/fall DST and compare office calendar display.
+Change a TEST event manually at Google, press Refresh, and verify the new data with a refreshed timestamp.
+Disconnect/revoke event access and verify truthful states with local assignments retained. Never test
+Google event insertion/update/deletion through Hub: no such methods exist. Confirm preview sends no
+Telegram message. Record only synthetic counts, safe status codes and dates in acceptance evidence.
+
+See STAGE3_CALENDAR_EVENTS.md for exact timezone, filtering, payload-budget and privacy rules, and
+STAGE3_CALENDAR_EVENTS_VERIFICATION.md for automated fake-provider evidence.

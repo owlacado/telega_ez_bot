@@ -1,22 +1,14 @@
 "use client";
 import { use, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Send, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2 } from "lucide-react";
 import type { TechnicianDetail } from "@hub/contracts";
 import { useResource } from "@/lib/use-resource";
-import {
-  Avatar,
-  DisabledAction,
-  ErrorNotice,
-  Loading,
-  Status,
-} from "@/components/ui";
+import { Avatar, ErrorNotice, Loading, Status } from "@/components/ui";
+import { TodayJobs, PreviewSchedule } from "@/components/calendar-jobs";
+import { useSchedule } from "@/lib/use-schedule";
 import { ProfilePanel } from "@/components/profile-panel";
-import {
-  AccountingPanel,
-  GpsPanel,
-  JobsPanel,
-} from "@/components/detail-placeholders";
+import { AccountingPanel, GpsPanel } from "@/components/detail-placeholders";
 import { DeleteTechnician } from "@/components/delete-technician";
 export default function TechnicianDetailPage({
   params,
@@ -30,6 +22,10 @@ export default function TechnicianDetailPage({
     reload,
     setData,
   } = useResource<TechnicianDetail>(`/technicians/${id}`);
+  const jobs = useSchedule(
+    technician ? `/technicians/${id}/calendar/today` : null,
+    technician?.calendar?.id ?? "",
+  );
   const [deleting, setDeleting] = useState(false);
   return (
     <>
@@ -61,10 +57,11 @@ export default function TechnicianDetailPage({
                 </span>
               </div>
             </div>
-            <DisabledAction reason="Telegram schedule delivery is not available yet.">
-              <Send size={16} />
-              Send tomorrow’s schedule
-            </DisabledAction>
+            <PreviewSchedule
+              key={`${id}:${technician.calendar?.id}`}
+              id={id}
+              today={jobs.data}
+            />
           </div>
           <div className="detail-grid">
             <ProfilePanel
@@ -77,7 +74,7 @@ export default function TechnicianDetailPage({
               }}
             />
             <AccountingPanel />
-            <JobsPanel technician={technician} />
+            <TodayJobs resource={jobs} />
             <GpsPanel />
           </div>
           <section className="danger-zone">

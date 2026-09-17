@@ -418,6 +418,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/technicians/{technician_id}/calendar/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today */
+        get: operations["today_api_technicians__technician_id__calendar_today_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/calendar/next-schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Next Schedule */
+        get: operations["next_schedule_api_technicians__technician_id__calendar_next_schedule_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -515,6 +549,51 @@ export interface components {
              * @default false
              */
             detach_assigned: boolean;
+        };
+        /** CalendarEventView */
+        CalendarEventView: {
+            /** Provider Event Id */
+            provider_event_id: string;
+            /** Summary */
+            summary: string;
+            /** Description */
+            description?: string | null;
+            /** Location */
+            location?: string | null;
+            /** Start */
+            start: string;
+            /** End */
+            end: string;
+            /** Is All Day */
+            is_all_day: boolean;
+            /** Status */
+            status: string;
+            /** Html Link */
+            html_link?: string | null;
+            /** Recurring Event Id */
+            recurring_event_id?: string | null;
+            /** Original Start Time */
+            original_start_time?: string | null;
+            /** Provider Updated At */
+            provider_updated_at?: string | null;
+            /**
+             * Calendar Id
+             * Format: uuid
+             */
+            calendar_id: string;
+            /**
+             * Display Date
+             * Format: date
+             */
+            display_date: string;
+            /** Display Start Time */
+            display_start_time: string;
+            /** Display End Time */
+            display_end_time: string;
+            /** Schedule Summary */
+            schedule_summary: string;
+            /** Job Number */
+            job_number: number | null;
         };
         /** CalendarExclude */
         CalendarExclude: {
@@ -707,6 +786,11 @@ export interface components {
             demo_enabled: boolean;
             /** Impact Version */
             impact_version?: string | null;
+            /**
+             * Granted Scopes
+             * @default []
+             */
+            granted_scopes: string[];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -867,8 +951,67 @@ export interface components {
             /** Discovered */
             discovered: number;
         };
+        /** ScheduleCalendar */
+        ScheduleCalendar: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ScheduleRead */
+        ScheduleRead: {
+            technician: components["schemas"]["ScheduleTechnician"];
+            calendar?: components["schemas"]["ScheduleCalendar"] | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "READY" | "NO_CALENDAR" | "CALENDAR_UNAVAILABLE" | "EVENT_SCOPE_REQUIRED" | "REAUTH_REQUIRED" | "PROVIDER_ERROR" | "TIMEZONE_REQUIRED" | "CHANGED" | "BUSY";
+            /** Operational Date */
+            operational_date?: string | null;
+            /** Next Schedule Date */
+            next_schedule_date?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /**
+             * Display Semantics
+             * @default CALENDAR_WALL_CLOCK
+             * @constant
+             */
+            display_semantics: "CALENDAR_WALL_CLOCK";
+            /** Jobs */
+            jobs?: components["schemas"]["CalendarEventView"][];
+            /** Warnings */
+            warnings?: string[];
+            /** Last Fetched At */
+            last_fetched_at?: string | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Retry At */
+            retry_at?: string | null;
+        };
+        /** ScheduleTechnician */
+        ScheduleTechnician: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
+        };
         /** StartInput */
         StartInput: {
+            /**
+             * Request Event Access
+             * @default false
+             */
+            request_event_access: boolean;
             /**
              * Mode
              * @default CONNECT
@@ -1926,6 +2069,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    today_api_technicians__technician_id__calendar_today_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    next_schedule_api_technicians__technician_id__calendar_next_schedule_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleRead"];
+                };
             };
             /** @description Validation Error */
             422: {

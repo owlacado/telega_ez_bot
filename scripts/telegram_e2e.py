@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps/api"))
 import hub.models  # noqa: E402,F401
-from hub.auth.models import Manager  # noqa: E402
+from hub.auth.models import Manager, RateBucket  # noqa: E402
 from hub.auth.service import create_manager  # noqa: E402
 from hub.core.config import Settings  # noqa: E402
 from hub.telegram.delivery import deliver_one  # noqa: E402
@@ -39,6 +39,11 @@ async def main():
         action = payload["action"]
         if action == "bootstrap":
             async with factory() as db:
+                # Each serial browser test gets isolated rate-limit state. The CLI
+                # guard above permits only the disposable loopback test database;
+                # application login limits and production routes are unchanged.
+                await db.execute(delete(RateBucket))
+                await db.commit()
                 await create_manager(db, payload["username"], payload["password"])
             settings = Settings(
                 database_url=url,

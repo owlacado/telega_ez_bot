@@ -16,3 +16,5 @@ export type TelegramPurpose =
 export type ManagerSession = components["schemas"]["ManagerRead"];
 
 export type GoogleConnection = components["schemas"]["GoogleConnectionRead"];
+
+export type ScheduleRead = components["schemas"]["ScheduleRead"];
