@@ -1,11 +1,15 @@
-"""Destructive round-trip verification is restricted to the disposable test database."""
+"""Destructive schema checks run ONLY on the local disposable test database."""
 
+import asyncio
 import os
 import subprocess
 import sys
+import uuid
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 root = Path(__file__).resolve().parents[1]
 url = os.environ.get(
@@ -17,18 +21,106 @@ if parsed.database != "technician_hub_test" or parsed.host not in {
     "localhost",
     "test-db",
 }:
-    raise SystemExit(
-        "Refusing migration round-trip outside the local technician_hub_test database."
-    )
+    raise SystemExit("Refusing migration checks outside local technician_hub_test.")
 env = {**os.environ, "DATABASE_URL": url}
-for arguments in [
-    ("upgrade", "head"),
-    ("downgrade", "base"),
-    ("upgrade", "head"),
-    ("check",),
-    ("current",),
-]:
+
+
+def alembic(*arguments):
     subprocess.run(
         [sys.executable, "-m", "alembic", *arguments], cwd=root / "apps/api", env=env, check=True
     )
-print("Migration upgrade / downgrade / upgrade and metadata drift validation passed.")
+
+
+tech, calendar, assignment = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+
+async def fixture(check=False):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if check:
+                row = (
+                    await db.execute(
+                        text("SELECT id,first_name,status FROM technicians WHERE id=:id"),
+                        {"id": tech},
+                    )
+                ).one()
+                assert row == (tech, "Migration fixture", "ACTIVE")
+                assert (
+                    await db.scalar(
+                        text("SELECT calendar_id FROM calendar_assignments WHERE id=:id"),
+                        {"id": assignment},
+                    )
+                    == calendar
+                )
+                assert (
+                    await db.scalar(
+                        text(
+                            "SELECT telegram_group_chat_id FROM telegram_bindings "
+                            "WHERE technician_id=:id"
+                        ),
+                        {"id": tech},
+                    )
+                    == -1001234567890
+                )
+                assert (
+                    await db.scalar(
+                        text("SELECT count(*) FROM gps_bindings WHERE technician_id=:id"),
+                        {"id": tech},
+                    )
+                    == 1
+                )
+            else:
+                await db.execute(
+                    text(
+                        "INSERT INTO technicians (id,first_name,last_name) "
+                        "VALUES (:id,'Migration fixture','Fictional')"
+                    ),
+                    {"id": tech},
+                )
+                await db.execute(
+                    text(
+                        "INSERT INTO calendars (id,name) VALUES (:id,'Migration fixture calendar')"
+                    ),
+                    {"id": calendar},
+                )
+                await db.execute(
+                    text(
+                        "INSERT INTO calendar_assignments "
+                        "(id,technician_id,calendar_id,calendar_name) "
+                        "VALUES (:id,:tech,:cal,'Migration fixture calendar')"
+                    ),
+                    {"id": assignment, "tech": tech, "cal": calendar},
+                )
+                await db.execute(
+                    text(
+                        "INSERT INTO telegram_bindings "
+                        "(technician_id,telegram_user_id,telegram_group_chat_id) "
+                        "VALUES (:id,1234567890,-1001234567890)"
+                    ),
+                    {"id": tech},
+                )
+                await db.execute(
+                    text("INSERT INTO gps_bindings (technician_id) VALUES (:id)"), {"id": tech}
+                )
+    finally:
+        await engine.dispose()
+
+
+alembic("upgrade", "head")
+alembic("downgrade", "base")
+alembic("upgrade", "head")
+alembic("check")
+print("Fresh database upgrade and drift passed.")
+alembic("downgrade", "base")
+alembic("upgrade", "863590d3075e")
+asyncio.run(fixture())
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+alembic("downgrade", "863590d3075e")
+asyncio.run(fixture(check=True))
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+alembic("check")
+alembic("current")
+print("Stage 0 data preserved through Stage 1 upgrade / downgrade / upgrade.")

@@ -22,6 +22,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
       APP_ENV: ${APP_ENV:-development}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-disabled}
+      TELEGRAM_EXPECTED_BOT_ID: ${TELEGRAM_EXPECTED_BOT_ID:-}
+      TELEGRAM_EXPECTED_BOT_USERNAME: ${TELEGRAM_EXPECTED_BOT_USERNAME:-}
+      TELEGRAM_INVITE_SECONDS: ${TELEGRAM_INVITE_SECONDS:-900}
     command:
       [
         "sh",
@@ -53,6 +59,28 @@ services:
     depends_on:
       api:
         condition: service_healthy
+  telegram-worker:
+    profiles: ["telegram"]
+    build:
+      context: .
+      dockerfile: infrastructure/api.Dockerfile
+    command: ["python", "-m", "hub.telegram.worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
+      APP_ENV: ${APP_ENV:-development}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-disabled}
+      TELEGRAM_EXPECTED_BOT_ID: ${TELEGRAM_EXPECTED_BOT_ID:-}
+      TELEGRAM_EXPECTED_BOT_USERNAME: ${TELEGRAM_EXPECTED_BOT_USERNAME:-}
+      TELEGRAM_TOKEN_FILE: /run/secrets/telegram-bot-token.txt
+      PTB_TIMEDELTA: "true"
+    volumes:
+      - ./.local/telegram-bot-token.txt:/run/secrets/telegram-bot-token.txt:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    stop_grace_period: 50s
+    restart: "no"
   test-db:
     profiles: ["test"]
     image: postgres:18-alpine

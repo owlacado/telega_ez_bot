@@ -13,6 +13,7 @@ import { DeleteTechnician } from "@/components/delete-technician";
 import { ProfilePanel } from "@/components/profile-panel";
 import { api } from "@/lib/api";
 import { calendar, technician } from "./fixtures";
+import { telegramState } from "./telegram-fixtures";
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/technicians",
@@ -27,7 +28,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
   mockedApi.mockImplementation(async (path) =>
-    path === "/calendars" ? [calendar] : technician,
+    path === "/calendars"
+      ? [calendar]
+      : path.endsWith("/telegram")
+        ? {
+            ...telegramState,
+            runtime: { ...telegramState.runtime, state: "DISABLED" },
+          }
+        : technician,
   );
 });
 afterEach(() => vi.useRealTimers());

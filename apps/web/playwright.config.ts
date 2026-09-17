@@ -18,7 +18,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://127.0.0.1:3001",
-    trace: "retain-on-failure",
+    trace: "off",
     screenshot: "only-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
@@ -28,7 +28,14 @@ export default defineConfig({
         {
           command: `"${python}" -m uvicorn hub.main:app --host 127.0.0.1 --port 8001`,
           cwd: "../api",
-          env: { DATABASE_URL: databaseUrl, APP_ENV: "test" },
+          env: {
+            DATABASE_URL: databaseUrl,
+            APP_ENV: "test",
+            ALLOWED_ORIGINS: '["http://127.0.0.1:3001"]',
+            TELEGRAM_MODE: "fake",
+            TELEGRAM_EXPECTED_BOT_ID: "9000001",
+            TELEGRAM_EXPECTED_BOT_USERNAME: "hub_dedicated_test_bot",
+          },
           url: "http://127.0.0.1:8001/api/health",
           reuseExistingServer: false,
         },

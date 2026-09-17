@@ -1,0 +1,119 @@
+from dataclasses import dataclass
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from hub.integrations.models import TelegramBinding
+from hub.integrations.ports import TelegramProvider
+from hub.technicians.models import Technician
+from hub.telegram.claims import consume_claim, prepare_claim
+from hub.telegram.common import can_deliver
+from hub.telegram.lifecycle import lifecycle
+from hub.telegram.models import TelegramProcessedUpdate
+from hub.telegram.types import TrustedEvent
+
+REPLIES = {
+    "INVITATION_REQUIRED": (
+        "A manager invitation is required to connect. Ask your manager "
+        "for a private connection link."
+    ),
+    "INVALID_INVITATION": (
+        "This invitation is invalid, expired, or already used. Ask your manager for a new link."
+    ),
+    "AWAITING_APPROVAL": (
+        "Invitation received. Your account or group is awaiting manager "
+        "approval; access has not been granted yet."
+    ),
+    "NEEDS_SETUP": (
+        "Invitation received, but group permissions or membership need "
+        "attention. Ask your manager to review setup checks and retry "
+        "verification."
+    ),
+    "CONNECTED": (
+        "Your private connection is approved. Reports, expenses, "
+        "receipts, and schedules are not available in this stage."
+    ),
+    "UNAVAILABLE": "Your connection is currently unavailable. Contact your manager.",
+    "HELP": (
+        "Use your manager's /start invitation to connect. /status shows "
+        "connection status. /getid shows your own Telegram ID in a "
+        "private chat. Reports, expenses, receipts, and schedules are not "
+        "available yet."
+    ),
+}
+
+
+@dataclass(frozen=True)
+class UpdateResult:
+    outcome: str
+    reply: str | None = None
+
+
+async def operational_access(db, user_id: int, bot_id: int) -> bool:
+    row = (
+        await db.execute(
+            select(Technician.status, TelegramBinding)
+            .join(TelegramBinding, TelegramBinding.technician_id == Technician.id)
+            .where(TelegramBinding.telegram_user_id == user_id)
+        )
+    ).first()
+    return bool(row and row[0] == "ACTIVE" and can_deliver(row[1], "PRIVATE_ACCOUNT", bot_id))
+
+
+async def process_update(
+    factory: async_sessionmaker, provider: TelegramProvider, event: TrustedEvent, bot_id: int
+) -> UpdateResult:
+    async with factory() as db:
+        if await db.get(TelegramProcessedUpdate, (bot_id, event.update_id)):
+            return UpdateResult("DUPLICATE")
+    proof = await prepare_claim(factory, event, provider, bot_id)
+    async with factory() as db, db.begin():
+        inserted = await db.scalar(
+            insert(TelegramProcessedUpdate)
+            .values(bot_id=bot_id, update_id=event.update_id, outcome="PROCESSING")
+            .on_conflict_do_nothing()
+            .returning(TelegramProcessedUpdate.update_id)
+        )
+        if inserted is None:
+            return UpdateResult("DUPLICATE")
+        result = "IGNORED"
+        reply = None
+        if event.kind in {"BOT_MEMBERSHIP", "MEMBER", "MIGRATION"}:
+            result = await lifecycle(db, event, bot_id)
+        elif (
+            event.kind == "COMMAND"
+            and not event.user_is_bot
+            and not event.anonymous
+            and event.user_id is not None
+        ):
+            if event.command == "/start" and event.payload:
+                result = await consume_claim(db, event, proof, bot_id)
+            elif event.chat_type == "private" and event.chat_id == event.user_id:
+                if event.command == "/help":
+                    result = "HELP"
+                elif event.command in {"/start", "/status"}:
+                    linked = await db.scalar(
+                        select(TelegramBinding.technician_id).where(
+                            TelegramBinding.telegram_user_id == event.user_id,
+                            TelegramBinding.bot_id == bot_id,
+                        )
+                    )
+                    result = (
+                        "CONNECTED"
+                        if await operational_access(db, event.user_id, bot_id)
+                        else "UNAVAILABLE"
+                        if linked
+                        else "INVITATION_REQUIRED"
+                    )
+                elif event.command == "/getid":
+                    result, reply = (
+                        "OWN_ID",
+                        f"Your Telegram user ID is {event.user_id}. "
+                        "This is not required for manager onboarding.",
+                    )
+            if event.chat_type in {"private", "group", "supergroup"}:
+                reply = reply or REPLIES.get(result)
+        record = await db.get(TelegramProcessedUpdate, (bot_id, event.update_id))
+        record.outcome = result
+    return UpdateResult(result, reply)

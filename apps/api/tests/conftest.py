@@ -1,4 +1,5 @@
 import os
+import secrets
 import subprocess
 import sys
 from collections.abc import AsyncIterator
@@ -8,9 +9,10 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from hub.auth.service import create_manager
 from hub.core.config import Settings
 from hub.main import create_app
 
@@ -41,16 +43,50 @@ def migrate_database() -> None:
 async def engine() -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(TEST_URL, poolclass=NullPool)
     async with engine.begin() as connection:
-        await connection.execute(text("TRUNCATE technicians, calendars RESTART IDENTITY CASCADE"))
+        await connection.execute(
+            text(
+                "TRUNCATE technicians, calendars, managers, rate_buckets, "
+                "audit_events, telegram_worker_states, telegram_processed_updates "
+                "RESTART IDENTITY CASCADE"
+            )
+        )
     yield engine
     await engine.dispose()
 
 
 @pytest.fixture
-async def client(engine: AsyncEngine) -> AsyncIterator[AsyncClient]:
-    app = create_app(Settings(database_url=TEST_URL, app_env="test"))
+async def app(engine: AsyncEngine):
+    app = create_app(
+        Settings(database_url=TEST_URL, app_env="test", allowed_origins=["http://127.0.0.1:3000"])
+    )
     async with app.router.lifespan_context(app):
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test.local"
-        ) as client:
-            yield client
+        yield app
+
+
+@pytest.fixture
+async def anonymous(app) -> AsyncIterator[AsyncClient]:
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://127.0.0.1:3000",
+        headers={"Origin": "http://127.0.0.1:3000", "X-Hub-Request": "1"},
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def credentials(engine: AsyncEngine):
+    password = secrets.token_urlsafe(24)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as db:
+        manager = await create_manager(db, "test-manager", password)
+    return {"username": manager.username, "password": password, "id": manager.id}
+
+
+@pytest.fixture
+async def client(anonymous: AsyncClient, credentials) -> AsyncIterator[AsyncClient]:
+    response = await anonymous.post(
+        "/api/auth/login",
+        json={"username": credentials["username"], "password": credentials["password"]},
+    )
+    assert response.status_code == 200, response.text
+    anonymous.headers["X-CSRF-Token"] = response.json()["csrf_token"]
+    yield anonymous

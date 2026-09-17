@@ -1,0 +1,49 @@
+# Disposable production-image browser test stack. No Telegram worker or real credentials.
+name: technician-hub-e2e
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: hub_test_only
+      POSTGRES_DB: technician_hub_test
+    ports: ["127.0.0.1:5438:5432"]
+    tmpfs: ["/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub -d technician_hub_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  api:
+    image: technician-hub-api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://hub:hub_test_only@db:5432/technician_hub_test
+      APP_ENV: test
+      ALLOWED_ORIGINS: '["http://127.0.0.1:3002"]'
+      TELEGRAM_MODE: fake
+      TELEGRAM_EXPECTED_BOT_ID: "9000001"
+      TELEGRAM_EXPECTED_BOT_USERNAME: hub_dedicated_test_bot
+    command:
+      [
+        "sh",
+        "-c",
+        "alembic upgrade head && uvicorn hub.main:app --host 0.0.0.0 --port 8000",
+      ]
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')",
+        ]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  web:
+    image: technician-hub-web
+    ports: ["127.0.0.1:3002:3000"]
+    depends_on:
+      api: { condition: service_healthy }

@@ -41,8 +41,26 @@ def summary(technician: Technician) -> TechnicianSummary:
         if assignment
         else None,
         integrations=IntegrationSummary(
-            telegram_private=telegram.private_status if telegram else "NOT_CONNECTED",
-            telegram_group=telegram.group_status if telegram else "NOT_CONNECTED",
+            telegram_private=(
+                telegram.private_status
+                if telegram.private_availability == "AVAILABLE"
+                else "ERROR"
+                if telegram.telegram_user_id
+                else "NOT_CONNECTED"
+            )
+            if telegram
+            else "NOT_CONNECTED",
+            telegram_group=(
+                telegram.group_status
+                if telegram.group_availability == "AVAILABLE"
+                and telegram.private_availability == "AVAILABLE"
+                and telegram.group_private_generation == telegram.private_generation
+                else "ERROR"
+                if telegram.telegram_group_chat_id
+                else "NOT_CONNECTED"
+            )
+            if telegram
+            else "NOT_CONNECTED",
             gps_provider=gps.provider if gps else "NONE",
             gps_status=gps.status if gps else "NOT_CONNECTED",
         ),

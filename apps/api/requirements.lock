@@ -34,3 +34,8 @@ typing_extensions==4.16.0
 uvicorn==0.53.0
 watchfiles==1.2.0
 websockets==17.1
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.1.0
+cffi==2.1.1
+pycparser==3.0
+python-telegram-bot==22.8

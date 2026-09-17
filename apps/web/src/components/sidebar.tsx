@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ManagerMenu } from "./manager-menu";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import {
@@ -84,15 +85,10 @@ export function Sidebar() {
         <div className="environment-note">
           <ShieldCheck size={18} />
           <span>
-            Local workspace<small>Stage 0 · Foundation</small>
+            Local workspace<small>Stage 1 · Secure onboarding</small>
           </span>
         </div>
-        <div className="user-area">
-          <span className="user-avatar">M</span>
-          <span className="user-name">
-            Workspace manager<small>Local development</small>
-          </span>
-        </div>
+        <ManagerMenu />
         <button
           className="collapse-button"
           onClick={toggle}

@@ -1,9 +1,11 @@
-"""Future provider ports. No implementations or calls exist in Stage 0."""
+"""Provider boundaries; only Telegram has an explicitly enabled Stage 1 adapter."""
 
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
+
+from hub.telegram.types import BotIdentity, Member, TrustedEvent
 
 
 class VehicleLocationState(StrEnum):
@@ -20,7 +22,12 @@ class ProviderConnection:
 
 
 class TelegramProvider(Protocol):
-    async def connection(self, technician_id: UUID) -> ProviderConnection: ...
+    async def initialize(self) -> BotIdentity: ...
+    async def webhook_configured(self) -> bool: ...
+    async def updates(self, offset: int | None) -> list[TrustedEvent]: ...
+    async def member(self, chat_id: int, user_id: int) -> Member: ...
+    async def send(self, chat_id: int, message: str) -> int: ...
+    async def close(self) -> None: ...
 
 
 class CalendarProvider(Protocol):

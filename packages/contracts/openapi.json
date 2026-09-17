@@ -2,9 +2,460 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Technician Hub API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "manager authentication"
+        ],
+        "summary": "Sign In",
+        "operationId": "sign_in_api_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Login"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "manager authentication"
+        ],
+        "summary": "Current Manager",
+        "operationId": "current_manager_api_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagerRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "manager authentication"
+        ],
+        "summary": "Logout",
+        "operationId": "logout_api_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        }
+      }
+    },
+    "/api/telegram/runtime": {
+      "get": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Runtime",
+        "operationId": "runtime_api_telegram_runtime_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram": {
+      "get": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "State",
+        "operationId": "state_api_technicians__identifier__telegram_get",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramState"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram/invitations": {
+      "post": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Issue",
+        "operationId": "issue_api_technicians__identifier__telegram_invitations_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IssueInvitation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedInvitation"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram/invitations/{invitation_id}/revoke": {
+      "post": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Revoke",
+        "operationId": "revoke_api_technicians__identifier__telegram_invitations__invitation_id__revoke_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invitation Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram/invitations/{invitation_id}/review": {
+      "post": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Review",
+        "operationId": "review_api_technicians__identifier__telegram_invitations__invitation_id__review_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invitation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInvitation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram/invitations/{invitation_id}/retry": {
+      "post": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Retry",
+        "operationId": "retry_api_technicians__identifier__telegram_invitations__invitation_id__retry_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          },
+          {
+            "name": "invitation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invitation Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Retry Api Technicians  Identifier  Telegram Invitations  Invitation Id  Retry Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram/disconnect": {
+      "post": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Disconnect",
+        "operationId": "disconnect_api_technicians__identifier__telegram_disconnect_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Disconnect"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{identifier}/telegram/test-message": {
+      "post": {
+        "tags": [
+          "Telegram onboarding"
+        ],
+        "summary": "Test Message",
+        "operationId": "test_message_api_technicians__identifier__telegram_test_message_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestMessage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/technicians": {
       "get": {
         "tags": [
@@ -734,6 +1185,82 @@
         ],
         "title": "CalendarSummary"
       },
+      "ConnectionRead": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          },
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "availability": {
+            "type": "string",
+            "title": "Availability"
+          },
+          "telegram_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telegram Id"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "replacement_pending": {
+            "type": "boolean",
+            "title": "Replacement Pending",
+            "default": false
+          },
+          "invitation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvitationRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "approved",
+          "generation",
+          "availability"
+        ],
+        "title": "ConnectionRead"
+      },
       "DeleteConfirmation": {
         "properties": {
           "confirmation": {
@@ -748,6 +1275,82 @@
           "confirmation"
         ],
         "title": "DeleteConfirmation"
+      },
+      "DeliveryRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "destination",
+          "kind",
+          "state",
+          "error_code",
+          "created_at"
+        ],
+        "title": "DeliveryRead"
+      },
+      "Disconnect": {
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "PRIVATE_ACCOUNT",
+              "WORK_GROUP"
+            ],
+            "title": "Purpose"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "title": "Expected Generation"
+          },
+          "confirmation": {
+            "type": "string",
+            "const": "DISCONNECT",
+            "title": "Confirmation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "purpose",
+          "expected_generation",
+          "confirmation"
+        ],
+        "title": "Disconnect"
       },
       "HTTPValidationError": {
         "properties": {
@@ -827,6 +1430,341 @@
         },
         "type": "object",
         "title": "IntegrationSummary"
+      },
+      "InvitationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "PRIVATE_ACCOUNT",
+              "WORK_GROUP"
+            ],
+            "title": "Purpose"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "candidate_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate User Id"
+          },
+          "candidate_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Display Name"
+          },
+          "candidate_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Username"
+          },
+          "candidate_chat_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Chat Id"
+          },
+          "candidate_chat_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Chat Title"
+          },
+          "initiator_admin": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Initiator Admin"
+          },
+          "bot_admin": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bot Admin"
+          },
+          "technician_member": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Member"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "setup_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Setup Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "purpose",
+          "expires_at",
+          "state"
+        ],
+        "title": "InvitationRead"
+      },
+      "IssueInvitation": {
+        "properties": {
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "PRIVATE_ACCOUNT",
+              "WORK_GROUP"
+            ],
+            "title": "Purpose"
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          },
+          "expected_generation": {
+            "type": "integer",
+            "title": "Expected Generation"
+          },
+          "confirmation": {
+            "type": "string",
+            "enum": [
+              "CONNECT",
+              "REPLACE"
+            ],
+            "title": "Confirmation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "purpose",
+          "expected_generation",
+          "confirmation"
+        ],
+        "title": "IssueInvitation"
+      },
+      "IssuedInvitation": {
+        "properties": {
+          "invitation": {
+            "$ref": "#/components/schemas/InvitationRead"
+          },
+          "link": {
+            "type": "string",
+            "title": "Link"
+          },
+          "fallback_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Command"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invitation",
+          "link"
+        ],
+        "title": "IssuedInvitation"
+      },
+      "Login": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Login"
+      },
+      "ManagerRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "csrf_token": {
+            "type": "string",
+            "title": "Csrf Token"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "csrf_token",
+          "expires_at"
+        ],
+        "title": "ManagerRead"
+      },
+      "ReviewInvitation": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Decision"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "ReviewInvitation"
+      },
+      "RuntimeRead": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "bot_username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bot Username"
+          },
+          "heartbeat_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat At"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode",
+          "state",
+          "bot_username"
+        ],
+        "title": "RuntimeRead"
       },
       "TechnicianCreate": {
         "properties": {
@@ -1130,6 +2068,63 @@
         "additionalProperties": false,
         "type": "object",
         "title": "TechnicianUpdate"
+      },
+      "TelegramState": {
+        "properties": {
+          "private": {
+            "$ref": "#/components/schemas/ConnectionRead"
+          },
+          "group": {
+            "$ref": "#/components/schemas/ConnectionRead"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/RuntimeRead"
+          },
+          "deliveries": {
+            "items": {
+              "$ref": "#/components/schemas/DeliveryRead"
+            },
+            "type": "array",
+            "title": "Deliveries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "private",
+          "group",
+          "runtime",
+          "deliveries"
+        ],
+        "title": "TelegramState"
+      },
+      "TestMessage": {
+        "properties": {
+          "destination": {
+            "type": "string",
+            "enum": [
+              "PRIVATE_ACCOUNT",
+              "WORK_GROUP"
+            ],
+            "title": "Destination"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "title": "Expected Generation"
+          },
+          "confirmation": {
+            "type": "string",
+            "const": "SEND TEST",
+            "title": "Confirmation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "destination",
+          "expected_generation",
+          "confirmation"
+        ],
+        "title": "TestMessage"
       },
       "ValidationError": {
         "properties": {

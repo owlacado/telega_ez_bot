@@ -4,6 +4,193 @@
  */
 
 export interface paths {
+    "/api/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign In */
+        post: operations["sign_in_api_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current Manager */
+        get: operations["current_manager_api_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/telegram/runtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Runtime */
+        get: operations["runtime_api_telegram_runtime_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** State */
+        get: operations["state_api_technicians__identifier__telegram_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue */
+        post: operations["issue_api_technicians__identifier__telegram_invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram/invitations/{invitation_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke */
+        post: operations["revoke_api_technicians__identifier__telegram_invitations__invitation_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram/invitations/{invitation_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review */
+        post: operations["review_api_technicians__identifier__telegram_invitations__invitation_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram/invitations/{invitation_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retry */
+        post: operations["retry_api_technicians__identifier__telegram_invitations__invitation_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect */
+        post: operations["disconnect_api_technicians__identifier__telegram_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{identifier}/telegram/test-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test Message */
+        post: operations["test_message_api_technicians__identifier__telegram_test_message_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/technicians": {
         parameters: {
             query?: never;
@@ -229,6 +416,29 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** ConnectionRead */
+        ConnectionRead: {
+            /** State */
+            state: string;
+            /** Approved */
+            approved: boolean;
+            /** Generation */
+            generation: number;
+            /** Availability */
+            availability: string;
+            /** Telegram Id */
+            telegram_id?: string | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Username */
+            username?: string | null;
+            /**
+             * Replacement Pending
+             * @default false
+             */
+            replacement_pending: boolean;
+            invitation?: components["schemas"]["InvitationRead"] | null;
+        };
         /** DeleteConfirmation */
         DeleteConfirmation: {
             /**
@@ -236,6 +446,42 @@ export interface components {
              * @constant
              */
             confirmation: "DELETE";
+        };
+        /** DeliveryRead */
+        DeliveryRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Destination */
+            destination: string;
+            /** Kind */
+            kind: string;
+            /** State */
+            state: string;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** Disconnect */
+        Disconnect: {
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            /** Expected Generation */
+            expected_generation: number;
+            /**
+             * Confirmation
+             * @constant
+             */
+            confirmation: "DISCONNECT";
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -275,6 +521,119 @@ export interface components {
              * @enum {string}
              */
             gps_status: "NOT_CONNECTED" | "PENDING" | "CONNECTED" | "ERROR";
+        };
+        /** InvitationRead */
+        InvitationRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** State */
+            state: string;
+            /** Candidate User Id */
+            candidate_user_id?: string | null;
+            /** Candidate Display Name */
+            candidate_display_name?: string | null;
+            /** Candidate Username */
+            candidate_username?: string | null;
+            /** Candidate Chat Id */
+            candidate_chat_id?: string | null;
+            /** Candidate Chat Title */
+            candidate_chat_title?: string | null;
+            /** Initiator Admin */
+            initiator_admin?: boolean | null;
+            /** Bot Admin */
+            bot_admin?: boolean | null;
+            /** Technician Member */
+            technician_member?: boolean | null;
+            /** Verified At */
+            verified_at?: string | null;
+            /** Setup Error */
+            setup_error?: string | null;
+        };
+        /** IssueInvitation */
+        IssueInvitation: {
+            /**
+             * Purpose
+             * @enum {string}
+             */
+            purpose: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /** Expected Generation */
+            expected_generation: number;
+            /**
+             * Confirmation
+             * @enum {string}
+             */
+            confirmation: "CONNECT" | "REPLACE";
+        };
+        /** IssuedInvitation */
+        IssuedInvitation: {
+            invitation: components["schemas"]["InvitationRead"];
+            /** Link */
+            link: string;
+            /** Fallback Command */
+            fallback_command?: string | null;
+        };
+        /** Login */
+        Login: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string;
+        };
+        /** ManagerRead */
+        ManagerRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Username */
+            username: string;
+            /** Csrf Token */
+            csrf_token: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** ReviewInvitation */
+        ReviewInvitation: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "APPROVE" | "REJECT";
+        };
+        /** RuntimeRead */
+        RuntimeRead: {
+            /** Mode */
+            mode: string;
+            /** State */
+            state: string;
+            /** Bot Username */
+            bot_username: string | null;
+            /** Heartbeat At */
+            heartbeat_at?: string | null;
+            /** Error Code */
+            error_code?: string | null;
         };
         /** TechnicianCreate */
         TechnicianCreate: {
@@ -368,6 +727,29 @@ export interface components {
             /** Ssn Last4 */
             ssn_last4?: string | null;
         };
+        /** TelegramState */
+        TelegramState: {
+            private: components["schemas"]["ConnectionRead"];
+            group: components["schemas"]["ConnectionRead"];
+            runtime: components["schemas"]["RuntimeRead"];
+            /** Deliveries */
+            deliveries: components["schemas"]["DeliveryRead"][];
+        };
+        /** TestMessage */
+        TestMessage: {
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            /** Expected Generation */
+            expected_generation: number;
+            /**
+             * Confirmation
+             * @constant
+             */
+            confirmation: "SEND TEST";
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -390,6 +772,329 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    sign_in_api_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Login"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    current_manager_api_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ManagerRead"];
+                };
+            };
+        };
+    };
+    logout_api_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    runtime_api_telegram_runtime_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeRead"];
+                };
+            };
+        };
+    };
+    state_api_technicians__identifier__telegram_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TelegramState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    issue_api_technicians__identifier__telegram_invitations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IssueInvitation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedInvitation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_api_technicians__identifier__telegram_invitations__invitation_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    review_api_technicians__identifier__telegram_invitations__invitation_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewInvitation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_api_technicians__identifier__telegram_invitations__invitation_id__retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_api_technicians__identifier__telegram_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Disconnect"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_message_api_technicians__identifier__telegram_test_message_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identifier: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestMessage"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_technicians_api_technicians_get: {
         parameters: {
             query?: {

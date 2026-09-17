@@ -1,9 +1,10 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from hub.audit.service import audit
 from hub.calendars.models import CalendarAssignment
 from hub.calendars.schemas import AssignmentInput, AssignmentRead
 from hub.calendars.service import assign_calendar, unassign_calendar
@@ -17,6 +18,8 @@ from hub.technicians.schemas import (
     TechnicianUpdate,
 )
 from hub.technicians.service import detail, require_technician, summary
+from hub.telegram.common import invalidate
+from hub.telegram.locks import advisory_guard
 
 router = APIRouter(prefix="/api/technicians", tags=["technicians"])
 
@@ -62,24 +65,35 @@ async def get_technician(
 
 @router.patch("/{technician_id}", response_model=TechnicianDetail)
 async def update_technician(
-    technician_id: UUID, payload: TechnicianUpdate, db: AsyncSession = Depends(session)
+    technician_id: UUID,
+    payload: TechnicianUpdate,
+    request: Request,
+    db: AsyncSession = Depends(session),
 ) -> TechnicianDetail:
-    technician = await require_technician(db, technician_id, lock=True)
-    values = payload.model_dump(mode="json", exclude_unset=True)
-    for key, value in values.items():
-        setattr(technician, key, value)
-    await db.commit()
-    return detail(await require_technician(db, technician_id))
+    async with advisory_guard(request.app.state.engine, "technician", technician_id):
+        technician = await require_technician(db, technician_id, lock=True)
+        values = payload.model_dump(mode="json", exclude_unset=True)
+        for key, value in values.items():
+            setattr(technician, key, value)
+        if values.get("status") == "INACTIVE":
+            await invalidate(db, technician_id)
+        await db.commit()
+        return detail(await require_technician(db, technician_id))
 
 
 @router.delete("/{technician_id}", status_code=204)
 async def delete_technician(
-    technician_id: UUID, payload: DeleteConfirmation, db: AsyncSession = Depends(session)
+    technician_id: UUID,
+    payload: DeleteConfirmation,
+    request: Request,
+    db: AsyncSession = Depends(session),
 ) -> Response:
-    technician = await require_technician(db, technician_id, lock=True)
-    await db.delete(technician)
-    await db.commit()
-    return Response(status_code=204)
+    async with advisory_guard(request.app.state.engine, "technician", technician_id):
+        technician = await require_technician(db, technician_id, lock=True)
+        audit(db, "technician.deleted", technician_id, actor_id=request.state.manager_id)
+        await db.delete(technician)
+        await db.commit()
+        return Response(status_code=204)
 
 
 @router.get("/{technician_id}/calendar-assignments", response_model=list[AssignmentRead])

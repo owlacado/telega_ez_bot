@@ -20,4 +20,5 @@ Check 'npm.cmd' @('run', 'typecheck')
 Check 'npx.cmd' @('playwright', 'install', 'chromium')
 Check 'npm.cmd' @('run', 'test:e2e')
 Check 'git' @('diff', '--check')
-Write-Host 'All Stage 0 checks passed.'
+Check '.\.venv\Scripts\python.exe' @('scripts/scan_secrets.py')
+Write-Host 'All Stage 1 native checks passed. See docs/STAGE1_VERIFICATION.md for production Compose checks.'

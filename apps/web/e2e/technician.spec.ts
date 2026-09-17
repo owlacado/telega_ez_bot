@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 test("dashboard to permanent deletion, with a real local calendar", async ({
   page,
   request,

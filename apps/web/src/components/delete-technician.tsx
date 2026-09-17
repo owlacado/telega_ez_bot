@@ -55,7 +55,8 @@ export function DeleteTechnician({
         This permanently removes the technician profile, sensitive profile
         fields, assignment history, and integration bindings from Technician
         Hub. Local calendars remain available. Nothing is deleted from external
-        providers.
+        providers. Pending Telegram invitations and notifications are removed.
+        Already delivered messages are not erased.
       </p>
       <p className="warning-text">This action cannot be undone.</p>
       <label>

@@ -1,14 +1,6 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import {
-  Check,
-  Link2,
-  MapPin,
-  MessageCircle,
-  Save,
-  UsersRound,
-  UserRound,
-} from "lucide-react";
+import { Check, Link2, MapPin, Save, UserRound } from "lucide-react";
 import type {
   Calendar,
   TechnicianDetail,
@@ -16,7 +8,8 @@ import type {
 } from "@hub/contracts";
 import { api, errorMessage, json } from "@/lib/api";
 import { useResource } from "@/lib/use-resource";
-import { DisabledAction, ErrorNotice, Status } from "./ui";
+import { DisabledAction, ErrorNotice } from "./ui";
+import { TelegramConnections } from "./telegram-connections";
 export function ProfilePanel({
   technician: t,
   onUpdate,
@@ -75,8 +68,6 @@ export function ProfilePanel({
       setAssigning(false);
     }
   }
-  const telegramReason =
-    "Telegram integration will be added in the next stage.";
   return (
     <section className="panel profile-panel">
       <div className="panel-heading">
@@ -145,7 +136,8 @@ export function ProfilePanel({
             </label>
           </div>
           <p className="field-hint sensitive-hint">
-            Only the final 4 digits. Never enter a full SSN.
+            Do not enter real DL or SSN values while field encryption is
+            deferred.
           </p>
           <div className="profile-form-footer">
             <label>
@@ -200,31 +192,11 @@ export function ProfilePanel({
           </p>
           <ErrorNotice message={calendars.error} retry={calendars.reload} />
         </div>
-        <div className="connection-section">
-          <h3>TELEGRAM</h3>
-          <div className="connection-row">
-            <span>
-              <MessageCircle size={16} />
-              Private bot
-            </span>
-            <Status value={t.integrations.telegram_private} />
-          </div>
-          <div className="connection-row">
-            <span>
-              <UsersRound size={16} />
-              Work group
-            </span>
-            <Status value={t.integrations.telegram_group} />
-          </div>
-          <div className="connection-actions">
-            <DisabledAction reason={telegramReason}>
-              Connect Telegram
-            </DisabledAction>
-            <DisabledAction reason={telegramReason}>
-              Connect Work Group
-            </DisabledAction>
-          </div>
-        </div>
+        <TelegramConnections
+          technicianId={t.id}
+          technicianName={`${t.first_name} ${t.last_name}`}
+          active={t.status === "ACTIVE"}
+        />
         <div className="connection-section">
           <h3>GPS TRACKING</h3>
           <div className="connection-row">
