@@ -2,7 +2,7 @@
 
 A local operations workspace built around the human technician. PostgreSQL owns identity; calendars and future provider connections attach to an immutable UUID.
 
-**Stage 0 only.** No Telegram, Google, accounting, Moto Watchdog, Discord, email, or SMS calls are implemented. No provider credentials are needed. This is an unauthenticated local development foundation; keep it on localhost and use fictional data. Authentication, authorization, audit logging, encrypted sensitive fields, retention policy, and deployment hardening are required before real operational use.
+**Stage 1: secure Telegram onboarding.** All business data requires a manager session. Telegram defaults to disabled and its worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live Telegram validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
 
 ## Quick start on Windows
 
@@ -10,16 +10,19 @@ Install Docker Desktop with Linux containers and start its engine. Open PowerShe
 
 ```powershell
 cd C:\HVAC_TECHNICIAN_HUB
-docker compose up
+docker compose up -d --build --wait
+docker compose exec api python -m hub.auth.cli create-manager --username manager
 ```
 
 The first run builds both apps, waits for PostgreSQL, and applies Alembic migrations automatically. No manual `.env` file is required for the local defaults.
 
 - Application: <http://localhost:3000>
-- API documentation: <http://localhost:8000/docs>
+- API documentation: <http://localhost:8000/docs> (requires an authenticated session on the same hostname)
 - Database-backed health: <http://localhost:8000/api/health>
 
-In a second PowerShell window, seed three clearly labeled fictional calendars:
+The manager CLI prompts twice for a hidden password (14–128 characters). There is no default account/password and no public registration. Sign in at the application URL. To revoke sessions: `docker compose exec api python -m hub.auth.cli revoke-sessions --username manager`.
+
+Optionally seed three clearly labeled fictional calendars:
 
 ```powershell
 cd C:\HVAC_TECHNICIAN_HUB
@@ -44,6 +47,7 @@ py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --no-deps -e apps/api
 npm.cmd ci
 .\.venv\Scripts\python.exe -m alembic -c apps/api/alembic.ini upgrade head
+.\.venv\Scripts\python.exe -m hub.auth.cli create-manager --username manager
 .\.venv\Scripts\python.exe -m hub.seed
 .\.venv\Scripts\python.exe -m uvicorn hub.main:app --reload --host 127.0.0.1 --port 8000
 ```
@@ -94,19 +98,13 @@ docker compose config --quiet
 git diff --check
 ```
 
-Playwright starts an API on port 8001 against the test database and a Next.js dev server on port 3001. To test an already running production Compose stack instead:
-
-```powershell
-$env:E2E_BASE_URL = 'http://127.0.0.1:3000'
-npm.cmd run test:e2e
-Remove-Item Env:E2E_BASE_URL
-```
+Playwright starts an authenticated API on 8001 and Next.js on 3001. It uses random temporary manager credentials and a stdin-only local fake Telegram harness, never a public simulation endpoint. Do not point these tests at the development database. Production-image tests use an independent stack on 3002/5438; see [Stage 1 verification](docs/STAGE1_VERIFICATION.md).
 
 ## Structure and contracts
 
 ```text
 apps/web/           Next.js App Router UI
-apps/api/hub/       FastAPI: technicians, calendars, integration ports, core
+apps/api/hub/       FastAPI: auth, audit, Telegram, technicians, calendars, core
 apps/api/migrations/  Alembic PostgreSQL migrations
 packages/contracts/  OpenAPI snapshot and generated TypeScript API types
 packages/shared/     Pure display helpers; no backend dependency
@@ -133,4 +131,6 @@ Commit both the OpenAPI snapshot and generated types. Runtime requests are valid
 - Permanent deletion requires an exact `DELETE First Last` in the browser and a 10-second wait. The API independently requires `{ "confirmation": "DELETE" }`. It permanently deletes the technician and bindings, leaving local calendars intact.
 - Calendar removal requires confirmation and an explicit detach flag when assigned. It removes only the Hub record; no Google calls exist. Historical assignments keep a name snapshot.
 
-See [architecture](docs/ARCHITECTURE.md), [Stage 0 scope](docs/STAGE0_SCOPE.md), and [verification](docs/VERIFICATION.md).
+Open a technician's **Connect Telegram** dialog, generate a link, review the claiming account, and explicitly approve it. Then connect and approve a separate work group. Replacement keeps the current identity until approval; replacing/disconnecting private access suspends group delivery until revalidation. Test messages require a selected approved destination and confirmation. Already delivered messages are not erased by local deletion.
+
+Read [Stage 1 scope](docs/STAGE1_SCOPE.md), [onboarding and dedicated-test-bot runbook](docs/TELEGRAM_ONBOARDING.md), [security and privacy](docs/TELEGRAM_SECURITY.md), [architecture](docs/ARCHITECTURE.md), and [verification evidence](docs/STAGE1_VERIFICATION.md). [Stage 0 scope](docs/STAGE0_SCOPE.md) and [historical verification](docs/VERIFICATION.md) describe the starting foundation.
