@@ -61,8 +61,27 @@ class TrustedEvent:
     migrated_chat_id: int | None = None
 
 
+SAFE_PROVIDER_CODES = frozenset(
+    {
+        "POLLING_CONFLICT",
+        "INVALID_BOT_CREDENTIALS",
+        "ACCESS_DENIED",
+        "CHAT_UNAVAILABLE",
+        "RATE_LIMITED",
+        "REQUEST_REJECTED",
+        "NETWORK_UNCERTAIN",
+        "PROVIDER_UNAVAILABLE",
+        "BOT_NOT_CONFIGURED",
+        "BOT_IDENTITY_MISMATCH",
+        "EXISTING_WEBHOOK_REFUSED",
+        "PROCESSING_FAILED",
+    }
+)
+
+
 class ProviderError(Exception):
     def __init__(self, code: str, *, retry_after: int = 0):
+        code = code if code in SAFE_PROVIDER_CODES else "PROCESSING_FAILED"
         super().__init__(code)
         self.code = code
         self.retry_after = retry_after

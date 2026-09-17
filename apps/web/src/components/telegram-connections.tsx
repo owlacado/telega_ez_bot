@@ -169,7 +169,7 @@ export function TelegramConnections({
     setError("");
     try {
       await operation();
-      await refresh();
+      if (alive.current) await refresh();
     } catch (failure) {
       setError(errorMessage(failure));
     } finally {
@@ -191,6 +191,7 @@ export function TelegramConnections({
         confirmation: replace ? "REPLACE" : "CONNECT",
       }),
     });
+    if (!alive.current) return;
     setData((value) =>
       value
         ? {
@@ -629,8 +630,13 @@ export function TelegramConnections({
           )}
           {pending?.automatic && pending.setup_error && (
             <p role="alert">
-              {setup[pending.setup_error] ??
-                "Connection could not be verified. Generate a new invitation and try again."}
+              {pending.setup_error === "ACCESS_DENIED" ||
+              pending.setup_error === "CHAT_UNAVAILABLE"
+                ? "Restore the bot's group access and permission to send messages, then generate a new invitation."
+                : pending.setup_error === "NETWORK_UNCERTAIN"
+                  ? "Telegram verification could not be confirmed. Generate a new invitation when connectivity returns."
+                  : (setup[pending.setup_error] ??
+                    "Connection could not be verified. Generate a new invitation and try again.")}
             </p>
           )}
           <ErrorNotice message={error} />

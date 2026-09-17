@@ -15,7 +15,7 @@ from hub.core.config import Settings
 from hub.integrations.ports import TelegramProvider
 from hub.telegram.delivery import deliver_one, recover_processing
 from hub.telegram.locks import advisory_guard
-from hub.telegram.models import TelegramWorkerState
+from hub.telegram.models import TelegramProcessedUpdate, TelegramWorkerState
 from hub.telegram.types import ProviderError
 from hub.telegram.updates import process_update
 
@@ -67,13 +67,22 @@ class Worker:
                     TelegramWorkerState.bot_id == self.bot_id
                 )
             )
+            # Telegram may choose a lower random update ID after a week without updates.
+            # Do not acknowledge a new epoch with the preceding epoch's high offset.
+            previous = (
+                await db.get(TelegramProcessedUpdate, (self.bot_id, offset - 1)) if offset else None
+            )
+            if offset and (
+                not previous or (now() - previous.processed_at).total_seconds() >= 6 * 86400
+            ):
+                offset = None
         updates = await self.provider.updates(offset)
         for event in sorted(updates, key=lambda value: value.update_id):
             result = await process_update(self.factory, self.provider, event, self.bot_id)
             # Processing and its deduplication record are committed before offset advancement.
             async with self.factory() as db, db.begin():
                 state = await db.get(TelegramWorkerState, self.bot_id, with_for_update=True)
-                state.next_update_id = max(state.next_update_id or 0, event.update_id + 1)
+                state.next_update_id = event.update_id + 1
                 state.heartbeat_at = now()
             if result.reply and event.chat_id is not None:
                 try:
@@ -101,11 +110,12 @@ class Worker:
                             error.code
                             not in {"NETWORK_UNCERTAIN", "RATE_LIMITED", "PROVIDER_UNAVAILABLE"}
                             or attempts >= 5
+                            or error.retry_after > 3600
                         ):
                             raise
                         attempts += 1
                         await self.state("RETRYING", error.code)
-                        delay = min(60, max(2**attempts, error.retry_after))
+                        delay = max(2**attempts, error.retry_after)
                         try:
                             await asyncio.wait_for(stop.wait(), timeout=delay)
                         except TimeoutError:

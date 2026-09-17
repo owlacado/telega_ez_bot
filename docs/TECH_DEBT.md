@@ -1,6 +1,6 @@
 # Technical debt register
 
-Scope: Telegram onboarding completion from 14d2073, retaining all Stage 0 audit and Stage 1 debt. **22 entries: 10 RESOLVED, 12 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 8, LOW 2**. Resolved counts: HIGH 3, MEDIUM 7. This completion adds TD-022 and closes no existing item without evidence. Prior reconciliation evidence remains in AUDIT_RECONCILIATION.md; current verification is in TELEGRAM_COMPLETION_VERIFICATION.md. Original milestones remain unchanged; TD-014 is still outstanding.
+Scope: independent Stage 1 Telegram quality audit from c480fe2. **24 entries: 10 RESOLVED, 14 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 9, LOW 3**. Resolved counts: HIGH 3, MEDIUM 7. This audit adds TD-023 and TD-024; no existing item is closed. Evidence is in AUDIT_STAGE1_TELEGRAM.md. TD-014 was due BEFORE STAGE 1 and remains overdue; it is a BEFORE NEXT STAGE blocker, not a newly deferred obligation.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.
 
@@ -19,7 +19,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 | TD-011 | HIGH     | Sensitive data protection             | BEFORE INTERNAL PILOT | OPEN     |
 | TD-012 | MEDIUM   | Deployment / credentials / origins    | BEFORE INTERNAL PILOT | OPEN     |
 | TD-013 | MEDIUM   | Concurrent profile editing            | BEFORE INTERNAL PILOT | OPEN     |
-| TD-014 | MEDIUM   | Provider state invariants             | BEFORE STAGE 1        | OPEN     |
+| TD-014 | MEDIUM   | Provider state invariants             | BEFORE NEXT STAGE     | OPEN     |
 | TD-015 | MEDIUM   | Scaling / response size               | LATER SCALE           | OPEN     |
 | TD-016 | MEDIUM   | Durability / operations               | BEFORE PRODUCTION     | OPEN     |
 | TD-017 | MEDIUM   | Observability / timeouts              | BEFORE INTERNAL PILOT | OPEN     |
@@ -28,6 +28,8 @@ Future stages must update this register when debt is discovered, resolved, or a 
 | TD-020 | LOW      | Accessibility coverage                | BEFORE PRODUCTION     | OPEN     |
 | TD-021 | MEDIUM   | Search consistency                    | BEFORE STAGE 1        | RESOLVED |
 | TD-022 | MEDIUM   | Telegram membership / live acceptance | BEFORE INTERNAL PILOT | OPEN     |
+| TD-023 | MEDIUM   | Telegram abuse / retention            | BEFORE INTERNAL PILOT | OPEN     |
+| TD-024 | LOW      | Telegram metadata freshness           | LATER SCALE           | OPEN     |
 
 ## TD-001: Identity / navigation
 
@@ -137,6 +139,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** `delete_technician`, `hub/audit/models.py`, Stage 1 worker deletion tests, and `test_version_guard_preserves_stage1_delete_audit`. A stale rejection writes no successful deletion event; a successful deletion retains the manager and target identity.
 - **Recommended remediation:** Design an append-only audit trail with actor identity and minimal non-sensitive tombstones, retention and access policy. Preserve atomic deletion semantics. Stage 1 supplies identity and the transactional event; retention and append-only guarantees remain outside this reconciliation.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Audit evidence:** Telegram events and `technician.deleted` survive deletion because target_id has no cascade FK; actor_id becomes null if the manager is deleted. Existing regression confirms this. Retention, append-only enforcement and durable actor attribution still lack a policy.
 - **Status:** OPEN
 
 ## TD-011: Sensitive data protection
@@ -180,7 +183,8 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Why it matters:** Future binding code could persist states that the UI cannot interpret reliably.
 - **Evidence:** `integrations/models.py` still permits contradictory status/identifier combinations at the database layer. Stage 1 Telegram services enforce a tested state machine with generations and advisory locks; completion adds atomic automatic claim, exact group actor matching, uniqueness-race and rollback tests, while the database still lacks complete status/identifier CHECK constraints; GPS remains a placeholder. Direct-writer database invariants remain incomplete.
 - **Recommended remediation:** Before each provider is enabled, specify its state machine and add database constraints/transaction tests for supported combinations. Retain Stage 1 state-machine/concurrency tests; add missing database invariants in a separately scoped change.
-- **Required before milestone:** BEFORE STAGE 1
+- **Required before milestone:** BEFORE NEXT STAGE (original BEFORE STAGE 1 deadline remains overdue)
+- **Audit evidence:** `test_live_schema_constraints_and_documented_gap` directly verifies deployed uniqueness/FKs/partial invitation index and reproduces CONNECTED with a null identifier. No schema change is justified without a complete state policy and existing-data repair plan; GPS is outside this audit.
 - **Status:** OPEN
 
 ## TD-015: Scaling / response size
@@ -192,6 +196,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** technicians/router.py, technicians/service.py, Technician relationships and calendar_rows; scripts/audit_performance.py measures 10/50/250.
 - **Recommended remediation:** When volume warrants, add paginated lists/history, aggregate dashboard counts, selected columns and active-assignment projections. Avoid speculative caching before measuring a realistic workload.
 - **Required before milestone:** LATER SCALE
+- **Audit evidence:** The quality audit profiles list, detail and Telegram status with bindings and pending invitations at 10/50/250 records; query counts remain bounded. Dashboard attention derives from two list requests, with no per-technician status fetching. Row/history growth remains unbounded.
 - **Status:** OPEN
 
 ## TD-016: Durability / operations
@@ -214,6 +219,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** core/errors.py, main.py engine configuration, health endpoint and frontend fetch.
 - **Recommended remediation:** Add redacted structured events, correlation IDs, bounded connect/query/request timeouts and health/latency alerts. SQL parameter hiding, bounded worker retries, sanitized worker status events and malformed-update handling are present; they do not constitute a full application logging/timeout policy.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Audit evidence:** This audit fixes pooled advisory waiter starvation, stale polling offsets, Retry-After truncation and closed provider error codes. PostgreSQL pool-contention and worker regressions pass. Global DB deadlines, correlation IDs, alerting and lock-wait budgets remain incomplete.
 - **Status:** OPEN
 
 ## TD-018: External profile images
@@ -269,4 +275,27 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** Official getChatMember/Update documentation and TELEGRAM_ONBOARDING.md; fake tests prove exact actor, bot membership/send restriction, private-change revalidation and provider-failure behavior. No live provider was contacted.
 - **Recommended remediation:** Before pilot, execute the documented dedicated TEST-bot acceptance and approve an explicit membership/revalidation policy. Before adding sensitive group delivery, revisit authorization/consent and reliable membership verification; never silently request admin rights or treat failed lookup as permission.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Audit evidence:** Ordinary-member send checks now include default group permissions; missing permission data fails closed. Bot removal/private blocking is observable while my_chat_member updates are delivered; third-party departures are not reliably observable. Provider failures suspend availability, and group migration requires revalidation. Manual live acceptance remains unperformed.
+- **Status:** OPEN
+
+## TD-023: Telegram abuse controls and event retention
+
+- **Severity:** MEDIUM
+- **Area:** Telegram operational reliability
+- **Description:** Invitation creation is bounded per manager/technician (12 per 15 minutes), login and fixed test messages are throttled, but incoming invalid commands/ordinary private messages have no per-sender response budget. Each accepted update adds a deduplication row; no retention policy exists.
+- **Why it matters:** A public bot can be flooded with unauthenticated messages, exhausting outbound quotas or delaying legitimate onboarding without guessing any token. Lifetime event accumulation increases storage cost.
+- **Evidence:** worker.cycle processes up to 50 updates sequentially and emits best-effort replies; process_update persists each update; TelegramProcessedUpdate has no cleanup job. Safe generic errors and bounded polling do not prevent sender spam.
+- **Recommended remediation:** Before exposing a pilot bot publicly, define per-sender/global response budgets, rate-limit observations and a safe deduplication retention window coordinated with Telegram update retention and offset recovery. Do not treat token entropy as denial-of-service protection.
+- **Required before milestone:** BEFORE INTERNAL PILOT
+- **Status:** OPEN
+
+## TD-024: Telegram profile and group-title metadata freshness
+
+- **Severity:** LOW
+- **Area:** Telegram display metadata
+- **Description:** User name/username and group title are bounded metadata captured during claim; subsequent username/title changes do not automatically refresh the manager display.
+- **Why it matters:** A stale label can confuse operators, but cannot transfer identity or routing because IDs remain authoritative. Empty usernames and Unicode render safely.
+- **Evidence:** claims.py captures metadata; lifecycle.py handles identity migration and availability rather than title/profile refresh. Quality tests prove bounded Unicode and canonical-name isolation.
+- **Recommended remediation:** Add a narrowly scoped refresh policy when operational demand warrants it, preserving IDs and canonical names. Do not identify technicians by username or group title.
+- **Required before milestone:** LATER SCALE
 - **Status:** OPEN

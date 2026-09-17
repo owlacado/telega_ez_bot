@@ -35,7 +35,9 @@ def safe_error(error: Exception) -> ProviderError:
             retry_after=int(value.total_seconds() if hasattr(value, "total_seconds") else value),
         )
     if isinstance(error, BadRequest):
-        return ProviderError("REQUEST_REJECTED")
+        return ProviderError(
+            "CHAT_UNAVAILABLE" if str(error).lower() == "chat not found" else "REQUEST_REJECTED"
+        )
     if isinstance(error, (TimedOut, NetworkError)):
         return ProviderError("NETWORK_UNCERTAIN")
     return ProviderError("PROVIDER_UNAVAILABLE")
@@ -110,11 +112,16 @@ class TelegramBotAdapter:
     async def member(self, chat_id: int, user_id: int) -> Member:
         try:
             value = await self.bot.get_chat_member(chat_id, user_id)
+            can_send = getattr(value, "can_send_messages", True)
+            if str(value.status) == "member" and user_id == self.settings.telegram_expected_bot_id:
+                # ChatMemberMember omits send rights. Default group permissions still apply.
+                chat = await self.bot.get_chat(chat_id)
+                can_send = bool(chat.permissions and chat.permissions.can_send_messages)
             return Member(
                 str(value.status),
                 getattr(value, "is_member", False),
                 getattr(value, "is_anonymous", False),
-                getattr(value, "can_send_messages", True),
+                can_send,
             )
         except TelegramError as error:
             raise safe_error(error) from None

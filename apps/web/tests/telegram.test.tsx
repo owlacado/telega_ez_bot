@@ -447,3 +447,105 @@ it("stops failed polling and restarts on explicit retry", async () => {
   );
   expect(mockedApi.mock.calls.length).toBeGreaterThan(count);
 });
+
+it("does not restore an old credential or fetch after an issuance finishes on an unmounted profile", async () => {
+  let resolveIssue!: (value: unknown) => void;
+  mockedApi.mockImplementation(async (path) =>
+    path.endsWith("/invitations")
+      ? new Promise((resolve) => {
+          resolveIssue = resolve;
+        })
+      : structuredClone(data),
+  );
+  const first = renderConnections();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Connect Telegram" }),
+  );
+  const before = mockedApi.mock.calls.length;
+  first.unmount();
+  await act(async () =>
+    resolveIssue({
+      invitation: { ...candidate, automatic: true, state: "PENDING" },
+      link: "https://t.me/test_bot?start=" + "x".repeat(43),
+    }),
+  );
+  expect(mockedApi.mock.calls.length).toBe(before);
+  render(
+    <TelegramConnections
+      technicianId="new-id"
+      technicianName="Other Technician"
+      active
+    />,
+  );
+  await screen.findByRole("button", { name: "Connect Telegram" });
+  expect(screen.queryByLabelText("Invitation link")).not.toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("repeated modal close and reopen keeps one polling loop and clears it on unmount", async () => {
+  vi.useFakeTimers();
+  automaticApi();
+  const view = renderConnections();
+  await act(async () => {});
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Connect Telegram" })),
+  );
+  for (let i = 0; i < 3; i++) {
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Close dialog" })),
+    );
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Connect Telegram" })),
+    );
+  }
+  const count = mockedApi.mock.calls.length;
+  await act(async () => vi.advanceTimersByTimeAsync(6100));
+  expect(mockedApi.mock.calls.length - count).toBe(3);
+  view.unmount();
+  const finalCount = mockedApi.mock.calls.length;
+  await act(async () => vi.advanceTimersByTimeAsync(30000));
+  expect(mockedApi.mock.calls.length).toBe(finalCount);
+});
+
+it("automatic group recovery never requests administrator escalation or legacy retry", async () => {
+  data.private = {
+    ...data.private,
+    approved: true,
+    state: "CONNECTED",
+    availability: "AVAILABLE",
+  };
+  data.group.invitation = {
+    ...candidate,
+    automatic: true,
+    purpose: "WORK_GROUP",
+    state: "ERROR",
+    setup_error: "ACCESS_DENIED",
+  };
+  data.group.state = "ERROR";
+  renderConnections();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Connect Work Group" }),
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "generate a new invitation",
+  );
+  expect(screen.getByRole("alert")).not.toHaveTextContent("administrator");
+  expect(
+    screen.queryByRole("button", { name: "Retry checks" }),
+  ).not.toBeInTheDocument();
+});
+
+it("renders hostile Telegram metadata as plain text", async () => {
+  const name = '<img src=x onerror="alert(1)">';
+  data.private = {
+    ...data.private,
+    approved: true,
+    state: "CONNECTED",
+    availability: "AVAILABLE",
+    display_name: name,
+    username: null,
+  };
+  const view = renderConnections();
+  expect(await screen.findByText(name)).toBeVisible();
+  expect(view.container.querySelector("img")).toBeNull();
+});

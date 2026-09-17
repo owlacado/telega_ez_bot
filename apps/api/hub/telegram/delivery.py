@@ -88,11 +88,13 @@ async def finish(
         job.finished_at = now() if state != "QUEUED" else None
         if state == "QUEUED":
             job.available_at = now() + timedelta(seconds=max(1, retry_after))
-        if error == "ACCESS_DENIED":
+        if error in {"ACCESS_DENIED", "CHAT_UNAVAILABLE"}:
             current = await db.get(TelegramBinding, job.technician_id)
             if current and generation(current, job.destination) == job.generation:
                 if job.destination == "PRIVATE_TELEGRAM":
-                    current.private_availability = "BLOCKED"
+                    current.private_availability = (
+                        "BLOCKED" if error == "ACCESS_DENIED" else "UNAVAILABLE"
+                    )
                 else:
                     current.group_availability = "UNAVAILABLE"
         audit(

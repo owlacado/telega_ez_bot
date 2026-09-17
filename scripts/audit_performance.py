@@ -4,17 +4,21 @@ import asyncio
 import json
 import os
 import secrets
+from datetime import timedelta
 from statistics import median
 from time import perf_counter
 from uuid import uuid4
 
 from httpx import ASGITransport, AsyncClient
 from hub.auth.models import Manager
+from hub.auth.security import digest, now, random_token
 from hub.auth.service import create_manager
 from hub.calendars.models import Calendar, CalendarAssignment
 from hub.core.config import Settings
+from hub.integrations.models import TelegramBinding
 from hub.main import create_app
 from hub.technicians.models import Technician
+from hub.telegram.models import TelegramInvitation
 from sqlalchemy import delete, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -53,6 +57,35 @@ async def main():
                         for t, c in zip(people, calendars, strict=True)
                     ],
                 )
+                await db.execute(
+                    TelegramBinding.__table__.insert(),
+                    [
+                        {
+                            "technician_id": t["id"],
+                            "telegram_user_id": 1000 + i,
+                            "private_status": "CONNECTED",
+                            "private_availability": "AVAILABLE",
+                            "bot_id": 9000001,
+                            "private_generation": 1,
+                        }
+                        for i, t in enumerate(people)
+                    ],
+                )
+                await db.execute(
+                    TelegramInvitation.__table__.insert(),
+                    [
+                        {
+                            "technician_id": t["id"],
+                            "bot_id": 9000001,
+                            "purpose": "WORK_GROUP",
+                            "token_hash": digest(random_token()),
+                            "expected_generation": 0,
+                            "expected_private_generation": 1,
+                            "expires_at": now() + timedelta(minutes=15),
+                        }
+                        for t in people
+                    ],
+                )
             app = create_app(Settings(database_url=url, app_env="test"))
             async with app.router.lifespan_context(app):
                 count = 0
@@ -75,7 +108,12 @@ async def main():
                         "/api/auth/login", json={"username": manager.username, "password": password}
                     )
                     assert login.status_code == 200
-                    for endpoint in ["/api/technicians", "/api/calendars"]:
+                    for endpoint in [
+                        "/api/technicians",
+                        "/api/calendars",
+                        f"/api/technicians/{people[0]['id']}",
+                        f"/api/technicians/{people[0]['id']}/telegram",
+                    ]:
                         samples, queries = [], []
                         for _ in range(4):
                             count = 0
@@ -83,7 +121,9 @@ async def main():
                             response = await client.get(endpoint)
                             samples.append((perf_counter() - start) * 1000)
                             queries.append(count)
-                            assert response.status_code == 200 and len(response.json()) == size
+                            assert response.status_code == 200
+                            if endpoint in {"/api/technicians", "/api/calendars"}:
+                                assert len(response.json()) == size
                         results.append(
                             {
                                 "records": size,
@@ -94,7 +134,9 @@ async def main():
                                 "response_bytes": len(response.content),
                             }
                         )
-                        assert max(queries) <= 6, "Unexpected query growth / N+1"
+                        assert max(queries) <= (12 if endpoint.endswith("/telegram") else 6), (
+                            "Unexpected query growth / N+1"
+                        )
     finally:
         async with engine.begin() as db:
             await db.execute(text("TRUNCATE technicians, calendars CASCADE"))

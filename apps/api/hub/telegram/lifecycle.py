@@ -12,6 +12,18 @@ from hub.telegram.types import TrustedEvent
 
 
 async def lifecycle(db: AsyncSession, event: TrustedEvent, bot_id: int) -> str:
+    # Reject incomplete lifecycle events before NULL can match an unbound identity.
+    if event.chat_id is None or event.chat_id == 0:
+        return "IGNORED"
+    if event.kind != "MIGRATION" and (
+        event.chat_type not in {"private", "group", "supergroup"}
+        or (event.chat_type == "private") != (event.chat_id > 0)
+        or event.member_user_id is None
+        or event.member_user_id <= 0
+        or event.member_status
+        not in {"creator", "administrator", "member", "restricted", "left", "kicked"}
+    ):
+        return "IGNORED"
     field = (
         TelegramBinding.telegram_user_id
         if event.chat_type == "private"

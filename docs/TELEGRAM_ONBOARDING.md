@@ -94,3 +94,13 @@ docker compose up -d --wait api web
 ```
 
 For a native worker: `.\.venv\Scripts\python.exe -m hub.telegram.worker`; Ctrl+C requests graceful shutdown. Never run two polling workers for the same bot. The automated suite uses a guarded stdin-only fake harness and makes no real Telegram API calls.
+
+## Quality-audit operational clarifications
+
+The independent findings and verification are in [AUDIT_STAGE1_TELEGRAM.md](AUDIT_STAGE1_TELEGRAM.md). Ordinary bot membership is checked together with default group send permissions; unavailable permission data fails closed. Automatic invitation recovery never requires administrator escalation. A known `chat not found` failure marks the destination unavailable while preserving identity; other unrecognized provider descriptions remain a generic rejected request.
+
+A polling offset whose last processed update is at least six days old (or missing locally) is not sent to Telegram, because the next update ID may restart randomly after a quiet week. The next committed event establishes the new offset. This conservative window is longer than Telegram's pending-update retention. Processed IDs still deduplicate retries. Polling respects Retry-After up to one hour and fails visibly for longer requests rather than retrying early; shutdown interrupts waits. Worker restart does not guarantee that an uncertain confirmation was sent: UNKNOWN requires operator assessment, not automatic replay.
+
+Copying an invitation intentionally crosses into the operating-system clipboard, which may have history or device sync outside this application. Clear it after sharing the credential privately. Opening Telegram places the link in Telegram/browser history; the application itself does not persist it in storage or its route URL. No frontend analytics or remote QR service receives it.
+
+For manual TEST-bot acceptance, additionally test a default read-only group with the bot as a regular member, explicit bot restriction, loss/restoration of group access, username/group rename, and basic-group to supergroup migration. Verify that identities remain reserved while delivery is unavailable and migration requires revalidation. Live tests remain manual only. Resolve TD-022 membership policy and TD-023 public-bot abuse controls before internal pilot.
