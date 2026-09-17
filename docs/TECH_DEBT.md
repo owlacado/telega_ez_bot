@@ -1,32 +1,33 @@
 # Technical debt register
 
-Scope: Stage 0 audit (`79ff1fa`) reconciled into Stage 1 (`9b2d87c`) on `codex/stage1-telegram-onboarding`. All 21 entries are retained: 10 RESOLVED, 11 OPEN. Of the audit's 12 open entries, only TD-009 is now resolved by Stage 1. See [AUDIT_RECONCILIATION.md](AUDIT_RECONCILIATION.md) for integration and verification evidence. Original milestones remain unchanged; TD-014 remains outstanding despite Stage 1 implementation.
+Scope: Telegram onboarding completion from 14d2073, retaining all Stage 0 audit and Stage 1 debt. **22 entries: 10 RESOLVED, 12 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 8, LOW 2**. Resolved counts: HIGH 3, MEDIUM 7. This completion adds TD-022 and closes no existing item without evidence. Prior reconciliation evidence remains in AUDIT_RECONCILIATION.md; current verification is in TELEGRAM_COMPLETION_VERIFICATION.md. Original milestones remain unchanged; TD-014 is still outstanding.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.
 
-| ID     | Severity | Area                               | Required Before       | Status   |
-| ------ | -------- | ---------------------------------- | --------------------- | -------- |
-| TD-001 | HIGH     | Identity / navigation              | BEFORE STAGE 1        | RESOLVED |
-| TD-002 | HIGH     | Permanent deletion                 | BEFORE STAGE 1        | RESOLVED |
-| TD-003 | MEDIUM   | Database integrity                 | BEFORE STAGE 1        | RESOLVED |
-| TD-004 | MEDIUM   | Transactions / response            | BEFORE STAGE 1        | RESOLVED |
-| TD-005 | MEDIUM   | Input validation                   | BEFORE STAGE 1        | RESOLVED |
-| TD-006 | MEDIUM   | Frontend mutations                 | BEFORE STAGE 1        | RESOLVED |
-| TD-007 | MEDIUM   | Failure recovery                   | BEFORE STAGE 1        | RESOLVED |
-| TD-008 | MEDIUM   | Accessibility / layout             | BEFORE INTERNAL PILOT | RESOLVED |
-| TD-009 | HIGH     | Authentication / authorization     | BEFORE STAGE 1        | RESOLVED |
-| TD-010 | HIGH     | Deletion audit / accountability    | BEFORE INTERNAL PILOT | OPEN     |
-| TD-011 | HIGH     | Sensitive data protection          | BEFORE INTERNAL PILOT | OPEN     |
-| TD-012 | MEDIUM   | Deployment / credentials / origins | BEFORE INTERNAL PILOT | OPEN     |
-| TD-013 | MEDIUM   | Concurrent profile editing         | BEFORE INTERNAL PILOT | OPEN     |
-| TD-014 | MEDIUM   | Provider state invariants          | BEFORE STAGE 1        | OPEN     |
-| TD-015 | MEDIUM   | Scaling / response size            | LATER SCALE           | OPEN     |
-| TD-016 | MEDIUM   | Durability / operations            | BEFORE PRODUCTION     | OPEN     |
-| TD-017 | MEDIUM   | Observability / timeouts           | BEFORE INTERNAL PILOT | OPEN     |
-| TD-018 | MEDIUM   | External profile images            | BEFORE INTERNAL PILOT | OPEN     |
-| TD-019 | LOW      | Runtime contracts                  | BEFORE PRODUCTION     | OPEN     |
-| TD-020 | LOW      | Accessibility coverage             | BEFORE PRODUCTION     | OPEN     |
-| TD-021 | MEDIUM   | Search consistency                 | BEFORE STAGE 1        | RESOLVED |
+| ID     | Severity | Area                                  | Required Before       | Status   |
+| ------ | -------- | ------------------------------------- | --------------------- | -------- |
+| TD-001 | HIGH     | Identity / navigation                 | BEFORE STAGE 1        | RESOLVED |
+| TD-002 | HIGH     | Permanent deletion                    | BEFORE STAGE 1        | RESOLVED |
+| TD-003 | MEDIUM   | Database integrity                    | BEFORE STAGE 1        | RESOLVED |
+| TD-004 | MEDIUM   | Transactions / response               | BEFORE STAGE 1        | RESOLVED |
+| TD-005 | MEDIUM   | Input validation                      | BEFORE STAGE 1        | RESOLVED |
+| TD-006 | MEDIUM   | Frontend mutations                    | BEFORE STAGE 1        | RESOLVED |
+| TD-007 | MEDIUM   | Failure recovery                      | BEFORE STAGE 1        | RESOLVED |
+| TD-008 | MEDIUM   | Accessibility / layout                | BEFORE INTERNAL PILOT | RESOLVED |
+| TD-009 | HIGH     | Authentication / authorization        | BEFORE STAGE 1        | RESOLVED |
+| TD-010 | HIGH     | Deletion audit / accountability       | BEFORE INTERNAL PILOT | OPEN     |
+| TD-011 | HIGH     | Sensitive data protection             | BEFORE INTERNAL PILOT | OPEN     |
+| TD-012 | MEDIUM   | Deployment / credentials / origins    | BEFORE INTERNAL PILOT | OPEN     |
+| TD-013 | MEDIUM   | Concurrent profile editing            | BEFORE INTERNAL PILOT | OPEN     |
+| TD-014 | MEDIUM   | Provider state invariants             | BEFORE STAGE 1        | OPEN     |
+| TD-015 | MEDIUM   | Scaling / response size               | LATER SCALE           | OPEN     |
+| TD-016 | MEDIUM   | Durability / operations               | BEFORE PRODUCTION     | OPEN     |
+| TD-017 | MEDIUM   | Observability / timeouts              | BEFORE INTERNAL PILOT | OPEN     |
+| TD-018 | MEDIUM   | External profile images               | BEFORE INTERNAL PILOT | OPEN     |
+| TD-019 | LOW      | Runtime contracts                     | BEFORE PRODUCTION     | OPEN     |
+| TD-020 | LOW      | Accessibility coverage                | BEFORE PRODUCTION     | OPEN     |
+| TD-021 | MEDIUM   | Search consistency                    | BEFORE STAGE 1        | RESOLVED |
+| TD-022 | MEDIUM   | Telegram membership / live acceptance | BEFORE INTERNAL PILOT | OPEN     |
 
 ## TD-001: Identity / navigation
 
@@ -177,7 +178,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Area:** Provider state invariants
 - **Description:** Provider schemas constrain enums and unique IDs but permit combinations such as CONNECTED with no identifier and GPS NONE with CONNECTED.
 - **Why it matters:** Future binding code could persist states that the UI cannot interpret reliably.
-- **Evidence:** `integrations/models.py` still permits contradictory status/identifier combinations at the database layer. Stage 1 Telegram services now enforce a tested state machine with generations and advisory locks; GPS remains a placeholder. Direct-writer database invariants remain incomplete.
+- **Evidence:** `integrations/models.py` still permits contradictory status/identifier combinations at the database layer. Stage 1 Telegram services enforce a tested state machine with generations and advisory locks; completion adds atomic automatic claim, exact group actor matching, uniqueness-race and rollback tests, while the database still lacks complete status/identifier CHECK constraints; GPS remains a placeholder. Direct-writer database invariants remain incomplete.
 - **Recommended remediation:** Before each provider is enabled, specify its state machine and add database constraints/transaction tests for supported combinations. Retain Stage 1 state-machine/concurrency tests; add missing database invariants in a separately scoped change.
 - **Required before milestone:** BEFORE STAGE 1
 - **Status:** OPEN
@@ -211,7 +212,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Description:** Safe error envelopes lack correlation IDs and centralized structured logging/metrics. Database/network timeout policy is implicit.
 - **Why it matters:** Failures can be sanitized for users yet difficult to diagnose, and stalled requests may occupy connections too long.
 - **Evidence:** core/errors.py, main.py engine configuration, health endpoint and frontend fetch.
-- **Recommended remediation:** Add redacted structured events, correlation IDs, bounded connect/query/request timeouts and health/latency alerts. SQL parameter hiding and Stage 1 bounded worker retries are present; they do not constitute a full application logging/timeout policy.
+- **Recommended remediation:** Add redacted structured events, correlation IDs, bounded connect/query/request timeouts and health/latency alerts. SQL parameter hiding, bounded worker retries, sanitized worker status events and malformed-update handling are present; they do not constitute a full application logging/timeout policy.
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Status:** OPEN
 
@@ -258,3 +259,14 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Match all trimmed search terms against first or last name in both layers; retain Unicode display and UUID identity.
 - **Required before milestone:** BEFORE STAGE 1
 - **Status:** RESOLVED
+
+## TD-022: Telegram membership visibility / live acceptance
+
+- **Severity:** MEDIUM
+- **Area:** Telegram provider semantics
+- **Description:** New onboarding works with a regular bot member. Telegram does not guarantee third-party membership queries or departure events for such bots. Trusted linked-account group commands prove presence at claim time, not continued membership. Actual client group-add/fallback UI and permissions have not been live-tested.
+- **Why it matters:** A group can remain reserved after the linked person leaves; no future sensitive workflow may assume that reservation proves current audience authorization.
+- **Evidence:** Official getChatMember/Update documentation and TELEGRAM_ONBOARDING.md; fake tests prove exact actor, bot membership/send restriction, private-change revalidation and provider-failure behavior. No live provider was contacted.
+- **Recommended remediation:** Before pilot, execute the documented dedicated TEST-bot acceptance and approve an explicit membership/revalidation policy. Before adding sensitive group delivery, revisit authorization/consent and reliable membership verification; never silently request admin rights or treat failed lookup as permission.
+- **Required before milestone:** BEFORE INTERNAL PILOT
+- **Status:** OPEN

@@ -1314,7 +1314,7 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "PRIVATE_ACCOUNT",
+              "PRIVATE_TELEGRAM",
               "WORK_GROUP"
             ],
             "title": "Purpose"
@@ -1419,6 +1419,10 @@
       },
       "InvitationRead": {
         "properties": {
+          "automatic": {
+            "type": "boolean",
+            "title": "Automatic"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -1427,7 +1431,7 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "PRIVATE_ACCOUNT",
+              "PRIVATE_TELEGRAM",
               "WORK_GROUP"
             ],
             "title": "Purpose"
@@ -1555,6 +1559,7 @@
         },
         "type": "object",
         "required": [
+          "automatic",
           "id",
           "purpose",
           "expires_at",
@@ -1567,7 +1572,7 @@
           "purpose": {
             "type": "string",
             "enum": [
-              "PRIVATE_ACCOUNT",
+              "PRIVATE_TELEGRAM",
               "WORK_GROUP"
             ],
             "title": "Purpose"
@@ -2109,7 +2114,7 @@
           "destination": {
             "type": "string",
             "enum": [
-              "PRIVATE_ACCOUNT",
+              "PRIVATE_TELEGRAM",
               "WORK_GROUP"
             ],
             "title": "Destination"

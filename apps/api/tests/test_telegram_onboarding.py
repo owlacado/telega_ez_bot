@@ -22,10 +22,12 @@ from tests.telegram_helpers import (
     connected_group,
     connected_private,
     event,
-    issue,
     review,
     state,
     technician,
+)
+from tests.telegram_helpers import (
+    legacy_issue as issue,
 )
 
 
@@ -344,7 +346,7 @@ async def test_disconnect_independent_stale_tab_and_private_suspension(client, e
         await client.post(
             path,
             json={
-                "purpose": "PRIVATE_ACCOUNT",
+                "purpose": "PRIVATE_TELEGRAM",
                 "expected_generation": current["private"]["generation"],
                 "confirmation": "DISCONNECT",
             },
@@ -417,7 +419,7 @@ async def test_browser_cannot_supply_provider_identity_or_raw_updates(client):
         await client.post(
             f"/api/technicians/{identifier}/telegram/test-message",
             json={
-                "destination": "PRIVATE_ACCOUNT",
+                "destination": "PRIVATE_TELEGRAM",
                 "expected_generation": 0,
                 "confirmation": "SEND TEST",
                 "chat_id": 111,

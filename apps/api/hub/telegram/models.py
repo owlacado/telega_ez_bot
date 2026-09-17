@@ -21,7 +21,7 @@ from hub.core.database import Base
 class TelegramInvitation(Base):
     __tablename__ = "telegram_invitations"
     __table_args__ = (
-        CheckConstraint("purpose IN ('PRIVATE_ACCOUNT', 'WORK_GROUP')", name="purpose"),
+        CheckConstraint("purpose IN ('PRIVATE_TELEGRAM', 'WORK_GROUP')", name="purpose"),
         Index(
             "uq_open_telegram_invitation",
             "technician_id",
@@ -34,6 +34,7 @@ class TelegramInvitation(Base):
     technician_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("technicians.id", ondelete="CASCADE"), index=True
     )
+    automatic: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     bot_id: Mapped[int] = mapped_column(BigInteger)
     purpose: Mapped[str] = mapped_column(String(20))
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
@@ -70,7 +71,7 @@ class TelegramOutbox(Base):
         CheckConstraint(
             "state IN ('QUEUED','PROCESSING','SENT','FAILED','UNKNOWN','CANCELLED')", name="state"
         ),
-        CheckConstraint("destination IN ('PRIVATE_ACCOUNT','WORK_GROUP')", name="destination"),
+        CheckConstraint("destination IN ('PRIVATE_TELEGRAM','WORK_GROUP')", name="destination"),
         CheckConstraint("kind IN ('APPROVED','TEST','VERIFY_GROUP')", name="kind"),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)

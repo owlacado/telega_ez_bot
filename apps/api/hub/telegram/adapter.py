@@ -114,6 +114,7 @@ class TelegramBotAdapter:
                 str(value.status),
                 getattr(value, "is_member", False),
                 getattr(value, "is_anonymous", False),
+                getattr(value, "can_send_messages", True),
             )
         except TelegramError as error:
             raise safe_error(error) from None

@@ -20,7 +20,7 @@ from hub.telegram.schemas import (
 
 def invitation_state(value: TelegramInvitation) -> str:
     if value.approved_at:
-        return "APPROVED"
+        return "CLAIMED" if value.automatic else "APPROVED"
     if value.rejected_at:
         return "REJECTED"
     if value.revoked_at:
@@ -29,11 +29,12 @@ def invitation_state(value: TelegramInvitation) -> str:
         return "EXPIRED"
     if value.consumed_at:
         return "ERROR" if value.setup_error else "AWAITING_APPROVAL"
-    return "LINK_ISSUED"
+    return "PENDING" if value.automatic else "LINK_ISSUED"
 
 
 def invitation_read(value: TelegramInvitation) -> InvitationRead:
     return InvitationRead(
+        automatic=value.automatic,
         id=value.id,
         purpose=value.purpose,
         expires_at=value.expires_at,
@@ -86,7 +87,7 @@ async def read_state(db: AsyncSession, identifier: UUID, settings: Settings) -> 
     technician = await require_technician(db, identifier)
     current = await db.get(TelegramBinding, identifier)
     results = {}
-    for key, purpose in [("private", "PRIVATE_ACCOUNT"), ("group", "WORK_GROUP")]:
+    for key, purpose in [("private", "PRIVATE_TELEGRAM"), ("group", "WORK_GROUP")]:
         latest = await db.scalar(
             select(TelegramInvitation)
             .where(
@@ -110,12 +111,16 @@ async def read_state(db: AsyncSession, identifier: UUID, settings: Settings) -> 
             and current.private_availability != "AVAILABLE"
         ):
             availability = "PRIVATE_UNAVAILABLE"
-        state = "CONNECTED" if telegram_id is not None else "NOT_CONNECTED"
+        state = getattr(current, f"{key}_status") if current else "NOT_CONNECTED"
         if pending and pending.state not in {"REJECTED", "REVOKED"}:
             state = pending.state
         results[key] = ConnectionRead(
             state=state,
-            approved=telegram_id is not None,
+            approved=bool(
+                current
+                and telegram_id is not None
+                and getattr(current, f"{key}_status") == "CONNECTED"
+            ),
             generation=generation(current, purpose) if current else 0,
             availability=availability,
             telegram_id=str(telegram_id) if telegram_id is not None else None,
@@ -126,7 +131,7 @@ async def read_state(db: AsyncSession, identifier: UUID, settings: Settings) -> 
             replacement_pending=bool(
                 telegram_id is not None
                 and pending
-                and pending.state in {"LINK_ISSUED", "AWAITING_APPROVAL", "ERROR"}
+                and pending.state in {"PENDING", "LINK_ISSUED", "AWAITING_APPROVAL", "ERROR"}
             ),
             invitation=pending,
         )

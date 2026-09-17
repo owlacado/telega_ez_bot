@@ -189,3 +189,83 @@ alembic("upgrade", "head")
 asyncio.run(fixture(check=True))
 alembic("check")
 print("Existing Stage 1 and audited Stage 0 upgrade paths and Stage 1 data preservation passed.")
+
+
+async def completion_fixture(seed=False, upgraded=True):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if seed:
+                await db.execute(
+                    text(
+                        "INSERT INTO telegram_invitations "
+                        "(id,technician_id,bot_id,purpose,token_hash,expected_generation,"
+                        "expected_private_generation,expires_at,created_by_manager_id) "
+                        "VALUES (:id,:tech,9000001,'PRIVATE_ACCOUNT',:hash,0,0,"
+                        "now()+interval '15 minutes',:tech)"
+                    ),
+                    {"id": assignment, "tech": tech, "hash": "0" * 64},
+                )
+                await db.execute(
+                    text(
+                        "INSERT INTO telegram_outbox "
+                        "(id,technician_id,invitation_id,bot_id,destination,kind,generation,"
+                        "private_generation,state,requested_by) VALUES "
+                        "(:id,:tech,:invite,9000001,'PRIVATE_ACCOUNT','APPROVED',0,0,'QUEUED',:tech)"
+                    ),
+                    {"id": calendar, "tech": tech, "invite": assignment},
+                )
+            else:
+                expected = "PRIVATE_TELEGRAM" if upgraded else "PRIVATE_ACCOUNT"
+                assert (
+                    await db.scalar(
+                        text("SELECT purpose FROM telegram_invitations WHERE id=:id"),
+                        {"id": assignment},
+                    )
+                    == expected
+                )
+                assert (
+                    await db.scalar(
+                        text("SELECT destination FROM telegram_outbox WHERE id=:id"),
+                        {"id": calendar},
+                    )
+                    == expected
+                )
+                if upgraded:
+                    assert (
+                        await db.scalar(
+                            text("SELECT automatic FROM telegram_invitations WHERE id=:id"),
+                            {"id": assignment},
+                        )
+                        is False
+                    )
+                    assert (
+                        await db.scalar(
+                            text(
+                                "SELECT column_default FROM information_schema.columns "
+                                "WHERE table_name='telegram_invitations' "
+                                "AND column_name='automatic'"
+                            )
+                        )
+                        == "true"
+                    )
+    finally:
+        await engine.dispose()
+
+
+alembic("downgrade", "base")
+alembic("upgrade", "d6c2f8a14001")
+asyncio.run(fixture())
+asyncio.run(stage1_record(seed=True))
+asyncio.run(completion_fixture(seed=True))
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+asyncio.run(stage1_record())
+asyncio.run(completion_fixture())
+alembic("downgrade", "d6c2f8a14001")
+asyncio.run(completion_fixture(upgraded=False))
+alembic("upgrade", "head")
+asyncio.run(completion_fixture())
+alembic("check")
+alembic("heads")
+print("Populated reconciliation upgrade preserves pending review credentials and queued delivery.")

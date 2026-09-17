@@ -91,7 +91,7 @@ async def finish(
         if error == "ACCESS_DENIED":
             current = await db.get(TelegramBinding, job.technician_id)
             if current and generation(current, job.destination) == job.generation:
-                if job.destination == "PRIVATE_ACCOUNT":
+                if job.destination == "PRIVATE_TELEGRAM":
                     current.private_availability = "BLOCKED"
                 else:
                     current.group_availability = "UNAVAILABLE"
@@ -179,12 +179,30 @@ async def deliver_one(
             try:
                 if job.destination == "WORK_GROUP":
                     bot = await provider.member(target, bot_id)
-                    member = await provider.member(target, current.telegram_user_id)
-                    if bot.status != "administrator" or not member.present:
+                    member = (
+                        await provider.member(target, current.telegram_user_id)
+                        if bot.status == "administrator"
+                        else None
+                    )
+                    if (
+                        not bot.present
+                        or not bot.can_send_messages
+                        or (member and not member.present)
+                    ):
                         raise ProviderError("ACCESS_DENIED")
                 # Dedicated advisory lock serializes sends with disconnect/replacement/deletion.
                 # No transaction remains open while Telegram is being contacted.
-                message_id = await provider.send(target, MESSAGES[job.kind])
+                message = MESSAGES[job.kind]
+                if job.kind == "APPROVED":
+                    message = (
+                        "You're connected to Technician Hub."
+                        if job.destination == "PRIVATE_TELEGRAM"
+                        else (
+                            f"Technician Hub connected this group to {technician.first_name} "
+                            f"{technician.last_name}."
+                        )
+                    )
+                message_id = await provider.send(target, message)
                 await finish(factory, job_id, "SENT", message_id=message_id)
             except ProviderError as error:
                 if error.code == "RATE_LIMITED" and 0 <= error.retry_after <= 600:

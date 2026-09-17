@@ -1,5 +1,7 @@
 # Architecture
 
+Current Telegram completion supersedes the original review-only flow described below for **new** invitations. New PRIVATE_TELEGRAM/WORK_GROUP credentials automatically activate the existing binding in the same transaction as claim/audit/outbox. A new group claim requires the exact linked private actor and bot membership/send capability, without administration. Legacy invitations retain review semantics through the server-owned automatic=false migration value. All existing generations, advisory locks, unique IDs, manager auth, provider boundaries, outbox and deletion protections remain. See [the current runbook](TELEGRAM_ONBOARDING.md) and [completion verification](TELEGRAM_COMPLETION_VERIFICATION.md).
+
 Technician Hub is a modular monorepo, deployed locally as a web process, API process, PostgreSQL database, and optional Telegram worker. This provides explicit module boundaries without distributed service infrastructure.
 
 ## Dependency direction
@@ -95,3 +97,5 @@ See [Telegram security](TELEGRAM_SECURITY.md) for retention and authentication d
 Stage 0 audit migration `a04e70c92001` branches from `863590d3075e`. Reconciliation revision `d6c2f8a14001` joins that branch and Stage 1 `4344e0e76774`, preserving both existing migration histories and supporting upgrades from either installed head.
 
 Audit evidence and current debt are tracked in [AUDIT_STAGE0.md](AUDIT_STAGE0.md), [TECH_DEBT.md](TECH_DEBT.md), and [AUDIT_RECONCILIATION.md](AUDIT_RECONCILIATION.md).
+
+Migration e7b310920001 follows the reconciliation head and preserves old credentials/queued messages while translating the private-purpose vocabulary. Both fresh and populated upgrade/downgrade paths are checked; see scripts/validate_migrations.py.

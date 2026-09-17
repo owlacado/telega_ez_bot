@@ -16,6 +16,7 @@ class IssueInvitation(InputModel):
 
 
 class InvitationRead(BaseModel):
+    automatic: bool
     id: UUID
     purpose: Purpose
     expires_at: datetime

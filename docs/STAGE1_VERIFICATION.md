@@ -1,5 +1,7 @@
 # Stage 1 verification
 
+Historical initial Stage 1 verification. Current completion results and self-audit are in [TELEGRAM_COMPLETION_VERIFICATION.md](TELEGRAM_COMPLETION_VERIFICATION.md); current behavior is in [TELEGRAM_ONBOARDING.md](TELEGRAM_ONBOARDING.md).
+
 Verified locally on Windows on September 16, 2026 (UTC runs continued September 17), using PostgreSQL 18.6, Python 3.13, Node 24, Next 16.3.5, React 19.3 and the repository's existing lockfiles. Stage 0 starting HEAD was personally inspected: `f10509369879df4ed6e0ab757e0887779f6f7129`, branch `codex/stage0-foundation`, clean working tree. Stage 1 branch: `codex/stage1-telegram-onboarding`. No push.
 
 ## Implemented versus verified

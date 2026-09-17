@@ -51,11 +51,11 @@ async def binding(db: AsyncSession, identifier: UUID) -> TelegramBinding:
 
 
 def generation(value: TelegramBinding, purpose: str) -> int:
-    return value.private_generation if purpose == "PRIVATE_ACCOUNT" else value.group_generation
+    return value.private_generation if purpose == "PRIVATE_TELEGRAM" else value.group_generation
 
 
 def approved_id(value: TelegramBinding, purpose: str) -> int | None:
-    return value.telegram_user_id if purpose == "PRIVATE_ACCOUNT" else value.telegram_group_chat_id
+    return value.telegram_user_id if purpose == "PRIVATE_TELEGRAM" else value.telegram_group_chat_id
 
 
 def can_deliver(value: TelegramBinding, purpose: str, bot_id: int) -> bool:
@@ -66,7 +66,7 @@ def can_deliver(value: TelegramBinding, purpose: str, bot_id: int) -> bool:
         or value.private_availability != "AVAILABLE"
     ):
         return False
-    return purpose == "PRIVATE_ACCOUNT" or (
+    return purpose == "PRIVATE_TELEGRAM" or (
         value.group_status == "CONNECTED"
         and value.telegram_group_chat_id is not None
         and value.group_availability == "AVAILABLE"

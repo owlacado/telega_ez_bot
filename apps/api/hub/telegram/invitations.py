@@ -37,9 +37,9 @@ async def issue(
     if payload.purpose == "WORK_GROUP" and (
         current.telegram_user_id is None or current.private_status != "CONNECTED"
     ):
-        raise HTTPException(409, "Approve the private Telegram account first.")
+        raise HTTPException(409, "Connect the private Telegram account first.")
     await rate_limit(db, f"invite:{manager_id}:{identifier}", limit=12, seconds=900)
-    await db.execute(
+    replaced = await db.execute(
         update(TelegramInvitation)
         .where(
             TelegramInvitation.technician_id == identifier,
@@ -48,6 +48,14 @@ async def issue(
         )
         .values(revoked_at=now(), closed_at=now())
     )
+    if replaced.rowcount:
+        audit(
+            db,
+            "telegram.invitation_replaced",
+            identifier,
+            actor_id=manager_id,
+            outcome=payload.purpose,
+        )
     token = random_token()
     invitation = TelegramInvitation(
         technician_id=identifier,
@@ -69,7 +77,7 @@ async def issue(
         outcome="REPLACEMENT" if approved_id(current, payload.purpose) is not None else "NEW",
     )
     await db.commit()
-    parameter = "start" if payload.purpose == "PRIVATE_ACCOUNT" else "startgroup"
+    parameter = "start" if payload.purpose == "PRIVATE_TELEGRAM" else "startgroup"
     link = f"https://t.me/{settings.telegram_expected_bot_username}?{parameter}={token}"
     fallback = (
         f"/start@{settings.telegram_expected_bot_username} {token}"

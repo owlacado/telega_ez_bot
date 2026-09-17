@@ -26,7 +26,8 @@ from hub.telegram.updates import process_update
 from hub.telegram.worker import Worker
 from tests.conftest import TEST_URL
 from tests.fakes import BOT_ID, BOT_USERNAME, FakeTelegram
-from tests.telegram_helpers import connected_group, connected_private, issue, state
+from tests.telegram_helpers import connected_group, connected_private, state
+from tests.telegram_helpers import legacy_issue as issue
 
 
 @pytest.fixture(autouse=True)
@@ -205,7 +206,7 @@ async def test_disconnect_and_deletion_cancel_undelivered_work(client, engine, p
         await client.post(
             f"/api/technicians/{identifier}/telegram/disconnect",
             json={
-                "purpose": "PRIVATE_ACCOUNT",
+                "purpose": "PRIVATE_TELEGRAM",
                 "expected_generation": current["private"]["generation"],
                 "confirmation": "DISCONNECT",
             },
@@ -291,7 +292,9 @@ async def test_lost_group_permissions_preserve_identity(client, engine, provider
     )
     await process_update(factory, provider, event, BOT_ID)
     current = await state(client, identifier)
-    assert current["group"]["approved"] and current["group"]["availability"] == "UNAVAILABLE"
+    assert (
+        current["group"]["approved"] and current["group"]["availability"] == "REVALIDATION_REQUIRED"
+    )
     await process_update(
         factory, provider, replace(event, update_id=34, member_status="administrator"), BOT_ID
     )

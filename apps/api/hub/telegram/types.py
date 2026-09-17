@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
-Purpose = Literal["PRIVATE_ACCOUNT", "WORK_GROUP"]
+Purpose = Literal["PRIVATE_TELEGRAM", "WORK_GROUP"]
 
 
 @dataclass(frozen=True)
@@ -15,6 +15,7 @@ class Member:
     status: str
     is_member: bool = False
     is_anonymous: bool = False
+    can_send_messages: bool = True
 
     @property
     def present(self) -> bool:

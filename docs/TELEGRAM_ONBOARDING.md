@@ -1,98 +1,96 @@
-# Telegram onboarding and later dedicated-test-bot runbook
+# Telegram technician onboarding
 
-## Manager flow
+## Manager and technician flow
 
-1. Sign in and open an active technician. The private and work-group rows show approved identity and availability independently of a pending invitation. Runtime status distinguishes disabled, bot unconfigured and stale/unavailable worker; web health never implies worker health.
-2. Open **Connect Telegram — Generate invitation**. Copy the link, open Telegram, or scan its locally generated QR. Links are returned once, kept only in component memory, and cleared when the dialog closes. Regenerate if lost. Send the link to the intended technician yourself.
-3. The technician opens Telegram and presses **Start** in a private conversation. The worker obtains the actual user ID from the update. The candidate has no access until a manager reviews the display name, optional username and numeric ID against the intended Hub profile and selects **Approve account**. Forwarded links cannot bypass this review.
-4. After private approval, select **Connect Work Group — Generate invitation**. A human owner/administrator selects or creates a group in Telegram. Add the approved technician account and grant the bot administrator status for reliable `getChatMember` queries. Do not grant blanket moderation privileges. Some clients force their own minimal admin-rights selection; verify the selected rights manually.
-5. An existing group also works. If its Telegram client does not dispatch the startgroup payload when the bot is already present, paste the exact scoped `/start@configured_bot payload` command shown in that dialog into the intended group. It has identical expiry, single-use and review checks. This message contains an invitation secret; do not post it elsewhere. The app does not create public group links or automate user accounts.
-6. Review group title/ID, initiating account, administrator checks and technician membership; select **Approve group**. A title or username is never an identity key. Anonymous senders and channels are rejected. Fix failed checks and use **Retry checks**; the worker verifies them outside DB transactions. Proof older than two minutes must be retried before approval.
-7. **Test private account / Test work group** opens a destination-specific confirmation. **Send test message** enqueues a fixed message. Recent activity shows QUEUED, PROCESSING, SENT, FAILED, UNKNOWN or CANCELLED. SENT means accepted by Telegram, not read. An UNKNOWN result is not retried automatically; a later deliberate test could duplicate an uncertain previous send.
+1. Sign in as a manager, create/open an active technician and select **Connect Telegram**. This creates a purpose-specific private invitation immediately. The dialog displays a live countdown, **Open Telegram**, **Copy link**, **Copy setup instructions**, a locally generated QR code and **Revoke invitation** (cancel). No Telegram ID entry is needed.
+2. Send the credential privately to the intended technician. They open it using their own Telegram account and press **Start**. This is a bearer credential: the first valid private claimant connects automatically. A forwarded/stolen private link can connect the wrong person; deliver it only to the intended recipient. Revoke and disconnect immediately if misdelivered. The canonical technician name is never overwritten by Telegram metadata.
+3. The worker atomically captures the trusted user ID, connects the binding, consumes/closes the invitation, writes an audit event and queues a short confirmation. The web dialog polls about every two seconds and changes to **Telegram connected** without reload. Username/name is primary; IDs are under **Technical details**.
+4. **Connect Work Group** becomes available after private connection. It creates a separate WORK_GROUP credential. The linked technician opens **Add Bot to Group**, chooses an existing group or creates one in Telegram, and sends the Start command from the exact account linked in step 2. The bot needs ordinary membership and permission to send messages; admin rights and disabled privacy mode are not required.
+5. If an administrator must add the bot, have them add it first. The linked technician then sends the dialog's scoped `/start@configured_bot payload` fallback in that group. The same fallback handles clients that do not resend Start when the bot is already present. Do not publish it: it contains the invitation credential. Channels, anonymous senders, bots and a different initiating user are rejected. Group titles are metadata, never identity keys.
+6. A valid group claim connects automatically, updates the modal and queues a brief group confirmation naming the technician. A group already reserved by another technician cannot be taken. Fixed, manager-confirmed **Test private account / Test work group** behavior is preserved; it is not schedule delivery.
 
-Approval messages are also durable. A failed notification never rolls back a valid identity binding. Tests are limited to one per technician/destination/minute; verification retries to three/minute; invite issuance to twelve/manager/technician per fifteen minutes.
+The application does not contact Telegram when creating an invitation. Opening links and starting the separately configured real worker are explicit human actions. Automated verification uses fakes only.
 
-## Lifecycle
+## Credentials, lifetime and concurrency
 
-Replacement requires confirmation and keeps the approved connection until candidate approval. Expiry, rejection and revocation leave that connection intact. Generations reject stale browser approvals/actions. Replacing or disconnecting a private account suspends group delivery and preserves the old group reservation. After establishing the intended private account, generate a replacement group invitation and re-approve membership before resuming delivery. Group disconnect is independent.
+New purposes are PRIVATE_TELEGRAM and WORK_GROUP. `TELEGRAM_INVITE_SECONDS` defaults to 900 (15 minutes), bounded to 60–3600 seconds. The countdown is informational: backend expiry is rechecked under locks before consumption. Tokens use 32 cryptographically random bytes (256 bits), encoded as 43 base64url characters, with no embedded identity. PostgreSQL stores only their SHA-256 digest, never the token/deep link. API creation returns the link once; state/list endpoints omit both token and hash. UI component memory holds the displayed credential only while useful; success, terminal status, expiry, fetch failure and dialog close clear it. No browser persistence or external QR service is used.
 
-Inactive profiles retain their identity but cannot claim, approve or deliver. Blocking, lost permissions and membership loss change availability; they cannot attach a new identity. Group-to-supergroup migration is accepted only through a trusted Telegram update. Conflicting migration targets are not stolen. Migrated groups require revalidation.
+The existing TelegramInvitation model is extended with a server-owned `automatic` flag. Existing rows migrate to false and retain their manager-review policy; newly issued rows default to true. No client input can disable/override that policy. Existing metadata/timestamps encode pending, consumed, approved/claimed, expired, rejected and revoked states; closed rows remain unusable. State output exposes PENDING/CLAIMED for the automatic policy and preserves the old review states for migrated credentials.
 
-Deleting a technician requires the existing exact-name confirmation and ten-second countdown, with backend confirmation and manager authorization. Pending invitations, candidate PII and local notification rows cascade away. A late claim cannot recreate the profile. Telegram groups/accounts, local calendars and already delivered external messages are not deleted.
+One open invitation per technician/purpose is enforced with the existing partial unique index. Issuance serializes on the technician row and atomically revokes a preceding open invitation; replacement is audited. A connected identity requires explicit replacement confirmation, remains connected while waiting, and changes only after a successful claim. Failed replacement does not destroy it.
 
-## Default Windows startup: no Telegram calls
+Claims recheck bot, purpose/chat type, active technician, expiry, revocation, consumption and binding generations in PostgreSQL. Technician advisory locks coordinate claims with in-flight sends and deletion; row locks serialize claim/revoke/replace. Identity advisory locks plus unique columns serialize the same account/group across different technicians. Only one simultaneous claim wins. Binding, invitation closure, audit and confirmation outbox commit together; failure rolls all of them back. Telegram network verification happens outside SQL transactions, followed by generation/actor revalidation. Duplicate Bot API update IDs are persisted and ignored.
+
+Group permission/provider failure consumes the attempted credential into ERROR without binding it. Restore access and generate a new invitation. Failed tokens cannot be replayed; old migrated review credentials keep their existing retry/review path. Arbitrary invalid, expired, wrong-context or used links produce a generic response without exposing technician existence.
+
+## Disconnect and recovery
+
+Disconnect requires manager confirmation and the current binding generation. Group disconnect leaves the private account untouched. Private disconnect removes the private identity and invalidates pending credentials/queued work, but preserves the group reservation and unrelated integrations. The UI shows that partial state as linked but unavailable. After reconnecting private Telegram with a new invitation, explicitly replace/revalidate the group before delivery resumes. A new private account never silently inherits an old group's delivery authorization.
+
+Inactive/deleted technicians cannot claim; deletion cascades invitations and local notifications. Deletion still requires reviewed profile version, exact-name confirmation and the ten-second UI delay. Telegram accounts/groups, independent local calendars and already sent messages remain outside local deletion.
+
+Polling pauses on hidden pages, cancels on unmount and stops the invitation poll on connection, expiry, revocation or error. Explicit retry resumes failed status checks. Outside an invitation dialog, visible-page background refresh is every 15 seconds. Confirmation delivery uses the existing durable outbox: SENT means accepted by Telegram, not read. Uncertain sends become UNKNOWN and are not automatically repeated; explicit rate-limit rejection permits bounded retry. A failed notification does not undo a valid binding. Raw `/start`, ordinary private messages and `/status` show a connected home response or safe guidance to request a manager link. No reports, schedules, expenses or other technician workflows were added.
+
+## Official Telegram semantics and minimum permissions
+
+Verified against official Telegram documentation for this completion:
+
+- [Bot features / deep linking](https://core.telegram.org/bots/features#deep-linking) and [bot links](https://core.telegram.org/api/links#bot-links): private `https://t.me/<configured_username>?start=<token>` leads to `/start <token>`; group `startgroup` opens group selection and supplies `/start@bot <token>`. Payloads allow A–Z, a–z, digits, underscore and hyphen, up to 64 characters. These links do not themselves establish identity; only a trusted bot update does.
+- [Bots FAQ](https://core.telegram.org/bots/faq#what-messages-will-my-bot-get): privacy-enabled bots receive explicitly addressed commands. Keep privacy mode enabled; no `admin` parameter is added to new group links.
+- [getChatMember](https://core.telegram.org/bots/api#getchatmember): lookup of other users is only guaranteed for administrators. New onboarding therefore proves the technician's presence using the trusted, non-anonymous command sender, which must equal the already-bound private user; it checks the bot's own membership/send restriction. It does not treat failed third-party lookup as proof of identity.
+- [Update](https://core.telegram.org/bots/api#update): `my_chat_member` reports bot membership; receiving arbitrary `chat_member` updates requires administration. A regular bot cannot guarantee ongoing observation of another member leaving. Bot access changes and trusted group migration still invalidate availability; private changes force group revalidation. This limitation is tracked as TD-022 and must be accepted/verified before pilot. No automatic privilege escalation is performed.
+- [getUpdates](https://core.telegram.org/bots/api#getupdates) and [getWebhookInfo](https://core.telegram.org/bots/api#getwebhookinfo): the separate existing polling worker persists offsets after processing and refuses a configured webhook or competing poller. It never clears webhooks or drops pending updates.
+
+A regular group member may lack permission to add bots: the administrator-add/linked-technician-command alternative preserves the actor match. Per-client selection/permission UI and actual delivery need manual sandbox acceptance. No permissions for future schedule/form features are requested or assumed here.
+
+## Configuration and process
+
+Existing variable names are retained rather than introducing aliases:
+
+| Variable                       | Meaning                                                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| TELEGRAM_MODE                  | disabled by default; real only for explicitly authorized operation; fake restricted to test DB          |
+| TELEGRAM_EXPECTED_BOT_USERNAME | Configured username used for links and startup identity verification                                    |
+| TELEGRAM_EXPECTED_BOT_ID       | Positive numeric bot identity checked with getMe                                                        |
+| TELEGRAM_INVITE_SECONDS        | 900 by default; server-enforced expiry                                                                  |
+| TELEGRAM_TOKEN_FILE            | Ignored local secret file for a native worker; Compose mounts `.local/telegram-bot-token.txt` read-only |
+| TELEGRAM_BOT_TOKEN             | Optional native-worker secret environment input; never a public/frontend variable                       |
+
+The worker remains a separate process and an opt-in Compose profile. Real mode without credentials exits with BOT_NOT_CONFIGURED; disabled mode initializes no provider. Startup/exception messages are sanitized, library HTTP/update logs are suppressed, and worker state logs contain only event/status/error codes. API and worker engines hide SQL parameters. The API/web containers do not receive the bot token. Never put real secrets into examples, Git, command arguments or screenshots.
+
+Before upgrading an existing installation, stop its worker, back up the database, apply `alembic upgrade head`, and deploy matching API/web/worker code together. Revision e7b310920001 follows d6c2f8a14001; it renames the private purpose in invitation/outbox rows and preserves existing invitations as manual-review credentials. Old migrations are unchanged. Downgrade translates purposes back; a subsequent upgrade conservatively treats surviving invitations as legacy review. Do not run old and new workers against the same bot/database during migration.
+
+Default local startup (no Telegram calls):
 
 ```powershell
-cd C:HVAC_TECHNICIAN_HUB
+cd C:\HVAC_TECHNICIAN_HUB
 docker compose up -d --build --wait
 docker compose exec api python -m hub.auth.cli create-manager --username manager
 ```
 
-Enter a new 14–128 character password interactively; never pass it as an argument. Sign in at `http://localhost:3000`. Run bootstrap once per desired manager. No account is automatically created.
+## Manual sandbox verification — not run automatically
 
-Explicit migrations if using the native API:
+Use a new dedicated TEST bot, a fictional technician, your own test account and an isolated test group. Never use an operational bot or contact a real technician.
 
-```powershell
-..venvScriptspython.exe -m alembic -c apps/api/alembic.ini upgrade head
-..venvScriptspython.exe -m hub.auth.cli create-manager --username manager
-..venvScriptspython.exe -m uvicorn hub.main:app --host 127.0.0.1 --port 8000
-# In a second terminal:
-npm.cmd run dev
-```
-
-`TELEGRAM_MODE=disabled` is the default. Ordinary `docker compose up` excludes the worker. Do not run a worker merely because a token happens to exist.
-
-## Later manual test — not performed in this coding stage
-
-Use a **new dedicated TEST bot**, one fictional technician, your test private account, and one test work group. Never use an operational bot or real technician/group.
-
-1. In Telegram, use BotFather to create that TEST bot. Record its username and numeric bot identity (the numeric prefix of its bot token is checked against `getMe` by the worker). Keep its token private.
-2. Place the token alone in ignored `.local/telegram-bot-token.txt`, using a local editor. Avoid terminal commands that echo it or add it to shell history. Example preparation (does not contact Telegram):
+1. Create the TEST bot in BotFather, retain privacy mode and record its username and numeric bot identity. Put its secret token in ignored `.local/telegram-bot-token.txt` using a local editor, without echoing it or adding it to shell history. Native workers may use an absolute TELEGRAM_TOKEN_FILE instead.
+2. In ignored `.env`, set TELEGRAM_MODE=real and the two EXPECTED_BOT identity values. Keep loopback origins/ports. Do not put a secret in NEXT_PUBLIC variables. Stop other pollers; do not remove an existing webhook to force ownership.
+3. Only when intentionally ready for live TEST traffic, start the API/web and then the worker:
 
 ```powershell
-cd C:HVAC_TECHNICIAN_HUB
-New-Item -ItemType Directory -Force .local | Out-Null
-notepad.exe .local/telegram-bot-token.txt
-```
-
-3. Set these non-secret values in ignored `.env` with your actual TEST bot values:
-
-```dotenv
-TELEGRAM_MODE=real
-TELEGRAM_EXPECTED_BOT_USERNAME=your_dedicated_test_bot
-TELEGRAM_EXPECTED_BOT_ID=your_numeric_test_bot_id
-```
-
-The sample ID above is a placeholder, not a valid configuration. Do not put the token in any `NEXT_PUBLIC` variable. API/web containers receive no token. If changing web ports, update `ALLOWED_ORIGINS` to the exact loopback origin.
-
-4. Only when intentionally ready to contact that TEST bot, run:
-
-```powershell
-docker compose up -d --wait api web
+docker compose up -d --build --wait api web
 docker compose --profile telegram up -d --build telegram-worker
 docker compose --profile telegram logs --tail 30 telegram-worker
 ```
 
-Startup calls `getMe` and checks exact configured bot ID/username, then `getWebhookInfo`. Any existing webhook is a hard refusal. No deleteWebhook/setWebhook/drop-pending helper is called. An existing poller yields a clear conflict and shutdown. Resolve ownership outside this app; never clear a webhook to force this test through. The adapter uses low-level `Bot.initialize`, not `Updater`/`Application.run_polling` takeover helpers.
-
-5. In the app confirm a fresh running heartbeat, then perform the private and group flow above. Opening Start, choosing the group, adding the technician and granting minimum group administration are intentional human steps. Check pending candidates do not report connected; approve each separately. Try wrong-context, missing-member and missing-bot-admin cases, retry verification, test each destination, replace/reject, disconnect and delete the fictional profile. Confirm no messages go to unrelated chats.
-6. Stop explicitly and restore disabled mode:
+4. Confirm the worker heartbeat, create the fictional technician, issue a private link and press Start using the intended test account. Verify automatic connection and the short private confirmation. Reopen the used link and verify rejection. Verify plain Start/home does not create profiles.
+5. Issue a new group link. Have the linked account send the group Start command with the bot as a normal member. If an administrator adds the bot, have the linked technician send the fallback afterward. Verify automatic connection and the short group confirmation. A different user, channel, anonymous sender or group already bound elsewhere must fail. Do not grant admin rights merely to make the test pass.
+6. Exercise expiry, revoke/regenerate, permission loss and notification failure recovery. Confirm group/private disconnect independently, partial-state warning, reconnect requiring new credentials, and no unrelated destinations receiving messages. Test the old review path only with existing migrated invitations.
+7. Stop the worker and restore disabled mode:
 
 ```powershell
 docker compose --profile telegram stop telegram-worker
-# Edit .env back to TELEGRAM_MODE=disabled, then:
+# Edit .env: TELEGRAM_MODE=disabled
 docker compose up -d --wait api web
 ```
 
-For a native worker, set `TELEGRAM_TOKEN_FILE` to the absolute ignored file path and run `..venvScriptspython.exe -m hub.telegram.worker`; Ctrl+C requests graceful shutdown. Do not run native and Compose pollers for the same bot. Docker grants 50 seconds for shutdown. Network calls have bounded timeouts; poll transport retries stop after five backoffs.
-
-## Telegram assumptions and references
-
-- [Deep linking](https://core.telegram.org/bots/features#deep-linking): URL-safe payload limited to 64 characters. Ours is 43 characters from 32 random bytes. Client UX differs; fallback is scoped to the same invitation.
-- [getChatMember](https://core.telegram.org/bots/api#getchatmember): reliable information about other users requires bot administration. Privacy mode need not be disabled for addressed `/start@bot` commands. We do not request blanket moderation rights.
-- [getUpdates](https://core.telegram.org/bots/api#getupdates): acknowledgement follows the next request with a larger offset, after processing is durable. No negative offset or pending-update drop is used.
-- [getWebhookInfo](https://core.telegram.org/bots/api#getwebhookinfo): a configured webhook prevents this polling worker from starting.
-- [Update](https://core.telegram.org/bots/api#update): explicit message, my_chat_member and chat_member update selection; trusted message migration fields preserve signed 64-bit group IDs.
-- [python-telegram-bot Bot](https://docs.python-telegram-bot.org/en/stable/telegram.bot.html): pinned async adapter version 22.8. Installed startup source was inspected: low-level Bot initialization initializes HTTP and gets bot identity; Updater startup can delete webhooks and is intentionally unused.
-
-The exact client permission UI, real account claims, real migration events and provider error behavior still need that manual TEST-bot verification. Membership proofs are time-bound observations, not a guarantee against a person leaving a group immediately afterward. Group sends check bot/technician membership again.
+For a native worker: `.\.venv\Scripts\python.exe -m hub.telegram.worker`; Ctrl+C requests graceful shutdown. Never run two polling workers for the same bot. The automated suite uses a guarded stdin-only fake harness and makes no real Telegram API calls.

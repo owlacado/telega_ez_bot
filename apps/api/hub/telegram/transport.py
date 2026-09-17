@@ -13,7 +13,19 @@ def identifier(value: object) -> int | None:
     )
 
 
-def parse_update(update: dict, bot_username: str) -> TrustedEvent:
+def parse_update(update: object, bot_username: str) -> TrustedEvent:
+    if not isinstance(update, dict):
+        raise ValueError("MALFORMED_UPDATE_ID")
+    update_id = identifier(update.get("update_id"))
+    if update_id is None or update_id < 0:
+        raise ValueError("MALFORMED_UPDATE_ID")
+    try:
+        return _parse_update(update, bot_username)
+    except (AttributeError, TypeError, ValueError):
+        return TrustedEvent(update_id, "IGNORED")
+
+
+def _parse_update(update: dict, bot_username: str) -> TrustedEvent:
     update_id = identifier(update.get("update_id"))
     if update_id is None:
         raise ValueError("MALFORMED_UPDATE_ID")
@@ -52,6 +64,8 @@ def parse_update(update: dict, bot_username: str) -> TrustedEvent:
             migrated_chat_id=chat_id,
         )
     raw = message.get("text", "")
+    if not isinstance(raw, str) or len(raw) > 4096 or message.get("forward_origin"):
+        return TrustedEvent(update_id, "IGNORED")
     words = raw.strip().split(maxsplit=1)
     command, payload = None, None
     if words:
@@ -72,7 +86,7 @@ def parse_update(update: dict, bot_username: str) -> TrustedEvent:
         chat_id=chat_id,
         chat_type=chat.get("type"),
         user_id=user_id,
-        user_is_bot=bool(user.get("is_bot", False)),
+        user_is_bot=user.get("is_bot") is not False,
         anonymous=message.get("sender_chat") is not None or user_id is None,
         display_name=" ".join(filter(None, [user.get("first_name"), user.get("last_name")]))[:200]
         or None,

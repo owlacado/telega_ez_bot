@@ -82,7 +82,7 @@ async def lifecycle(db: AsyncSession, event: TrustedEvent, bot_id: int) -> str:
             current.private_availability = "AVAILABLE" if event.member_present else "BLOCKED"
         elif event.chat_type in {"group", "supergroup"}:
             current.group_availability = (
-                "REVALIDATION_REQUIRED" if event.member_status == "administrator" else "UNAVAILABLE"
+                "REVALIDATION_REQUIRED" if event.member_present else "UNAVAILABLE"
             )
         else:
             return "IGNORED"

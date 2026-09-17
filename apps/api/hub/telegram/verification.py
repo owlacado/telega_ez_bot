@@ -27,3 +27,19 @@ async def verify_group(
         else "TECHNICIAN_NOT_MEMBER"
     )
     return GroupChecks(actor_ok, bot_ok, technician.present, error)
+
+
+async def verify_automatic_group(
+    provider: TelegramProvider, chat_id: int, bot_id: int
+) -> GroupChecks:
+    """The trusted command sender already proves the linked technician is in the group."""
+    try:
+        bot = await provider.member(chat_id, bot_id)
+    except ProviderError as error:
+        return GroupChecks(False, False, True, error.code)
+    return GroupChecks(
+        False,
+        bot.status == "administrator",
+        True,
+        None if bot.present and bot.can_send_messages else "BOT_CANNOT_SEND",
+    )

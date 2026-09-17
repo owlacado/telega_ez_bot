@@ -24,8 +24,9 @@ vi.mock("@/lib/api", async (original) => ({
 const mockedApi = vi.mocked(api);
 let data: TelegramState;
 const candidate = {
+  automatic: false,
   id: "invite-id",
-  purpose: "PRIVATE_ACCOUNT" as const,
+  purpose: "PRIVATE_TELEGRAM" as const,
   expires_at: "2099-01-01T00:00:00Z",
   state: "AWAITING_APPROVAL",
   candidate_user_id: "12345678",
@@ -155,7 +156,7 @@ it("keeps separate statuses and requires explicit replacement confirmation", asy
     await screen.findByRole("button", { name: "Manage private account" }),
   );
   expect(
-    within(screen.getByTestId("PRIVATE_ACCOUNT")).getByText("Connected"),
+    within(screen.getByTestId("PRIVATE_TELEGRAM")).getByText("Connected"),
   ).toBeVisible();
   expect(
     within(screen.getByTestId("WORK_GROUP")).getByText("Not connected"),
@@ -170,7 +171,7 @@ it("keeps separate statuses and requires explicit replacement confirmation", asy
       "/technicians/tech-id/telegram/invitations",
       expect.objectContaining({
         body: JSON.stringify({
-          purpose: "PRIVATE_ACCOUNT",
+          purpose: "PRIVATE_TELEGRAM",
           replace: true,
           expected_generation: 3,
           confirmation: "REPLACE",
@@ -227,4 +228,222 @@ it("submits invitation generation once during a same-tick double click", async (
     within(screen.getByRole("dialog")).getByRole("alert"),
   ).toHaveTextContent("Generation failed");
   expect(button).toBeEnabled();
+});
+
+function automaticInvitation(
+  purpose: "PRIVATE_TELEGRAM" | "WORK_GROUP" = "PRIVATE_TELEGRAM",
+  seconds = 900,
+) {
+  return {
+    ...candidate,
+    automatic: true,
+    purpose,
+    state: "PENDING",
+    candidate_user_id: null,
+    expires_at: new Date(Date.now() + seconds * 1000).toISOString(),
+  };
+}
+function automaticApi(
+  purpose: "PRIVATE_TELEGRAM" | "WORK_GROUP" = "PRIVATE_TELEGRAM",
+  seconds = 900,
+) {
+  const key = purpose === "PRIVATE_TELEGRAM" ? "private" : "group";
+  const invitation = automaticInvitation(purpose, seconds);
+  const link =
+    "https://t.me/hub_dedicated_test_bot?" +
+    (key === "private" ? "start" : "startgroup") +
+    "=" +
+    "q".repeat(43);
+  mockedApi.mockImplementation(async (path) => {
+    if (path.endsWith("/invitations")) {
+      data[key] = { ...data[key], state: "PENDING", invitation };
+      return {
+        invitation,
+        link,
+        fallback_command:
+          key === "group"
+            ? "/start@hub_dedicated_test_bot " + "q".repeat(43)
+            : null,
+      };
+    }
+    if (path.endsWith("/revoke"))
+      data[key] = {
+        ...data[key],
+        state: "NOT_CONNECTED",
+        invitation: { ...invitation, state: "REVOKED" },
+      };
+    if (path.endsWith("/disconnect"))
+      data[key] = {
+        ...data[key],
+        state: "NOT_CONNECTED",
+        approved: false,
+        telegram_id: null,
+      };
+    return structuredClone(data);
+  });
+  return { key, invitation, link };
+}
+it("connect immediately creates one invitation, countdown and safe copy/open actions", async () => {
+  vi.useFakeTimers();
+  const copy = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: copy },
+  });
+  const { link } = automaticApi();
+  renderConnections();
+  await act(async () => {});
+  const button = screen.getByRole("button", { name: "Connect Telegram" });
+  await act(async () => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  });
+  expect(
+    mockedApi.mock.calls.filter(([path]) => path.endsWith("/invitations")),
+  ).toHaveLength(1);
+  expect(screen.getByLabelText("Invitation link")).toHaveValue(link);
+  expect(screen.getByRole("link", { name: "Open Telegram" })).toHaveAttribute(
+    "rel",
+    "noopener noreferrer",
+  );
+  expect(screen.getByText(/Invitation expires in 15:00/)).toBeVisible();
+  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  expect(screen.getByText(/Invitation expires in 14:58/)).toBeVisible();
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy setup instructions" }),
+    ),
+  );
+  expect(copy).toHaveBeenCalledWith(expect.stringContaining(link));
+  expect(copy).toHaveBeenCalledWith(expect.stringContaining("Demo Technician"));
+});
+it.each(["CONNECTED", "EXPIRED", "REVOKED", "ERROR"])(
+  "polls then stops for %s and clears credential",
+  async (terminal) => {
+    vi.useFakeTimers();
+    const { invitation } = automaticApi();
+    renderConnections();
+    await act(async () => {});
+    await act(async () =>
+      fireEvent.click(screen.getByRole("button", { name: "Connect Telegram" })),
+    );
+    data.private = {
+      ...data.private,
+      state: terminal,
+      approved: terminal === "CONNECTED",
+      availability: "AVAILABLE",
+      username: "demo_tech",
+      telegram_id: terminal === "CONNECTED" ? "123" : null,
+      invitation:
+        terminal === "CONNECTED" ? null : { ...invitation, state: terminal },
+    };
+    await act(async () => vi.advanceTimersByTimeAsync(2100));
+    expect(screen.queryByLabelText("Invitation link")).not.toBeInTheDocument();
+    if (terminal === "CONNECTED") {
+      expect(screen.getByText("Telegram connected")).toBeVisible();
+      expect(
+        within(screen.getByTestId("PRIVATE_TELEGRAM")).getByText("@demo_tech"),
+      ).toBeVisible();
+      expect(
+        within(screen.getByTestId("PRIVATE_TELEGRAM")).getByText(/Telegram ID/),
+      ).not.toBeVisible();
+    }
+    const count = mockedApi.mock.calls.length;
+    await act(async () => vi.advanceTimersByTimeAsync(10000));
+    expect(mockedApi.mock.calls.length).toBe(count);
+  },
+);
+it("local expiry hides the link while the server remains authoritative", async () => {
+  vi.useFakeTimers();
+  automaticApi("PRIVATE_TELEGRAM", 2);
+  renderConnections();
+  await act(async () => {});
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Connect Telegram" })),
+  );
+  await act(async () => vi.advanceTimersByTimeAsync(2100));
+  expect(screen.queryByLabelText("Invitation link")).not.toBeInTheDocument();
+  expect(screen.getByText(/Invitation expired/)).toBeVisible();
+});
+it("cancels a pending credential and preserves separate group connection", async () => {
+  automaticApi();
+  renderConnections();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Connect Telegram" }),
+  );
+  await screen.findByLabelText("Invitation link");
+  fireEvent.click(screen.getByRole("button", { name: "Revoke invitation" }));
+  await waitFor(() =>
+    expect(screen.queryByLabelText("Invitation link")).not.toBeInTheDocument(),
+  );
+  expect(mockedApi.mock.calls.some(([path]) => path.endsWith("/revoke"))).toBe(
+    true,
+  );
+});
+it("connects a work group automatically and confirms disconnect", async () => {
+  vi.useFakeTimers();
+  automaticApi("WORK_GROUP");
+  data.private = {
+    ...data.private,
+    approved: true,
+    state: "CONNECTED",
+    availability: "AVAILABLE",
+    telegram_id: "123",
+  };
+  renderConnections();
+  await act(async () => {});
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Connect Work Group" })),
+  );
+  expect(
+    screen.getByRole("link", { name: "Add Bot to Group" }),
+  ).toHaveAttribute("href", expect.stringContaining("startgroup="));
+  expect(screen.getByText(/Waiting for Telegram group/)).toBeVisible();
+  data.group = {
+    ...data.group,
+    approved: true,
+    state: "CONNECTED",
+    availability: "AVAILABLE",
+    display_name: "Demo HVAC",
+    telegram_id: "-1001",
+    invitation: null,
+  };
+  await act(async () => vi.advanceTimersByTimeAsync(2100));
+  expect(screen.getByText("Work group connected")).toBeVisible();
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: "Disconnect work group" }),
+    ),
+  );
+  expect(
+    mockedApi.mock.calls.some(([path]) => path.endsWith("/disconnect")),
+  ).toBe(false);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Confirm disconnect" })),
+  );
+  expect(
+    within(screen.getByTestId("WORK_GROUP")).getByText("Not connected"),
+  ).toBeVisible();
+  expect(
+    within(screen.getByTestId("PRIVATE_TELEGRAM")).getByText("Connected"),
+  ).toBeVisible();
+});
+it("stops failed polling and restarts on explicit retry", async () => {
+  vi.useFakeTimers();
+  automaticApi();
+  renderConnections();
+  await act(async () => {});
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Connect Telegram" })),
+  );
+  mockedApi.mockRejectedValue(new Error("State unavailable"));
+  await act(async () => vi.advanceTimersByTimeAsync(2100));
+  const count = mockedApi.mock.calls.length;
+  await act(async () => vi.advanceTimersByTimeAsync(10000));
+  expect(mockedApi.mock.calls.length).toBe(count);
+  mockedApi.mockResolvedValue(data);
+  await act(async () =>
+    fireEvent.click(screen.getByRole("button", { name: "Try again" })),
+  );
+  expect(mockedApi.mock.calls.length).toBeGreaterThan(count);
 });

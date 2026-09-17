@@ -22,3 +22,7 @@ Planned legacy command labels remain **Submit a report**, **Daily report**, **Ex
 There were no dependency upgrades or downgrades to the established stack. Added pinned Argon2 and python-telegram-bot dependencies, their required transitive packages, and qrcode.react. No credentials were requested or discovered. No live Telegram calls were made. `C:\HVAC_TECH_CODEX` and `C:\MotoWatchdogProbe` were not read or modified.
 
 This stage is automatically verified with fakes and local PostgreSQL, not yet live-verified or certified for production security.
+
+## Onboarding completion from 14d2073
+
+Extended the working implementation: new invitations connect automatically; PRIVATE_TELEGRAM and WORK_GROUP are separate credentials; group actor must equal the connected technician and bot administrator rights are unnecessary. Added live countdown, setup instructions, immediate creation, terminal polling stops and secondary technical IDs. Existing pre-upgrade invitations retain manager review, replacement/disconnect, outbox and all audit regressions remain. No calendar synchronization, schedule delivery, reports, accounting or GPS work was added. See TELEGRAM_COMPLETION_INVENTORY.md, TELEGRAM_ONBOARDING.md and TELEGRAM_COMPLETION_VERIFICATION.md for current scope/evidence.

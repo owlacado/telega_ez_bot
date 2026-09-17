@@ -2,7 +2,9 @@
 
 A local operations workspace built around the human technician. PostgreSQL owns identity; calendars and future provider connections attach to an immutable UUID.
 
-**Stage 1: secure Telegram onboarding.** All business data requires a manager session. Telegram defaults to disabled and its worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live Telegram validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
+**Stage 1: completed Telegram identity and group onboarding.** All business data requires a manager session. Telegram defaults to disabled and its worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live Telegram validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
+
+Connect Telegram now creates a one-time invitation and binds automatically when the intended technician presses Start. Work-group linking uses a separate invitation and requires that same linked account to send the group command; ordinary bot membership is sufficient. Existing invitations retain their old manager-review policy after upgrade. See [the onboarding runbook](docs/TELEGRAM_ONBOARDING.md) for safe link handling, configuration, disconnect/reconnect behavior and the manual TEST-bot procedure, and [completion verification](docs/TELEGRAM_COMPLETION_VERIFICATION.md) for current evidence.
 
 ## Quick start on Windows
 

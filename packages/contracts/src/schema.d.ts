@@ -466,7 +466,7 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            purpose: "PRIVATE_TELEGRAM" | "WORK_GROUP";
             /** Expected Generation */
             expected_generation: number;
             /**
@@ -516,6 +516,8 @@ export interface components {
         };
         /** InvitationRead */
         InvitationRead: {
+            /** Automatic */
+            automatic: boolean;
             /**
              * Id
              * Format: uuid
@@ -525,7 +527,7 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            purpose: "PRIVATE_TELEGRAM" | "WORK_GROUP";
             /**
              * Expires At
              * Format: date-time
@@ -560,7 +562,7 @@ export interface components {
              * Purpose
              * @enum {string}
              */
-            purpose: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            purpose: "PRIVATE_TELEGRAM" | "WORK_GROUP";
             /**
              * Replace
              * @default false
@@ -746,7 +748,7 @@ export interface components {
              * Destination
              * @enum {string}
              */
-            destination: "PRIVATE_ACCOUNT" | "WORK_GROUP";
+            destination: "PRIVATE_TELEGRAM" | "WORK_GROUP";
             /** Expected Generation */
             expected_generation: number;
             /**

@@ -28,9 +28,6 @@ test("authenticated private and group onboarding with an isolated fake transport
     const privateDialog = page.getByRole("dialog", {
       name: "Private account connection",
     });
-    await privateDialog
-      .getByRole("button", { name: "Generate invitation" })
-      .click();
     const privateLink = await privateDialog
       .getByLabel("Invitation link")
       .inputValue();
@@ -44,17 +41,12 @@ test("authenticated private and group onboarding with an isolated fake transport
       update_id: stamp,
     });
     await expect(
-      privateDialog.getByRole("button", { name: "Approve account" }),
+      privateDialog.getByText("Telegram connected", { exact: true }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(
-      privateDialog.getByText("(no username)", { exact: false }),
-    ).toBeVisible();
-    await privateDialog
-      .getByRole("button", { name: "Approve account" })
-      .click();
+    await expect(privateDialog.getByLabel("Invitation link")).toHaveCount(0);
     await expect(
       page
-        .getByTestId("PRIVATE_ACCOUNT")
+        .getByTestId("PRIVATE_TELEGRAM")
         .getByText("Connected", { exact: true }),
     ).toBeVisible();
     await privateDialog.getByRole("button", { name: "Close dialog" }).click();
@@ -64,9 +56,6 @@ test("authenticated private and group onboarding with an isolated fake transport
     const groupDialog = page.getByRole("dialog", {
       name: "Work group connection",
     });
-    await groupDialog
-      .getByRole("button", { name: "Generate invitation" })
-      .click();
     const groupLink = await groupDialog
       .getByLabel("Invitation link")
       .inputValue();
@@ -78,12 +67,9 @@ test("authenticated private and group onboarding with an isolated fake transport
       update_id: stamp + 1,
     });
     await expect(
-      groupDialog.getByRole("button", { name: "Approve group" }),
+      groupDialog.getByText("Work group connected", { exact: true }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(
-      groupDialog.getByText(`Group ID: ${chat}`, { exact: false }),
-    ).toBeVisible();
-    await groupDialog.getByRole("button", { name: "Approve group" }).click();
+    await expect(groupDialog.getByLabel("Invitation link")).toHaveCount(0);
     await expect(
       page.getByTestId("WORK_GROUP").getByText("Connected", { exact: true }),
     ).toBeVisible();
@@ -122,8 +108,19 @@ test("authenticated private and group onboarding with an isolated fake transport
     ).toBeVisible();
     await expect(
       page
-        .getByTestId("PRIVATE_ACCOUNT")
+        .getByTestId("PRIVATE_TELEGRAM")
         .getByText("Connected", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Close dialog" }).click();
+    await page.getByRole("button", { name: "Manage private account" }).click();
+    await privateDialog
+      .getByRole("button", { name: "Disconnect private account" })
+      .click();
+    await page.getByRole("button", { name: "Confirm disconnect" }).click();
+    await expect(
+      page
+        .getByTestId("PRIVATE_TELEGRAM")
+        .getByText("Not connected", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Close dialog" }).click();
     await page

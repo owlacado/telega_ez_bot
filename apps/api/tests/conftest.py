@@ -90,3 +90,15 @@ async def client(anonymous: AsyncClient, credentials) -> AsyncIterator[AsyncClie
     assert response.status_code == 200, response.text
     anonymous.headers["X-CSRF-Token"] = response.json()["csrf_token"]
     yield anonymous
+
+
+@pytest.fixture(autouse=True)
+def forbid_live_telegram(monkeypatch):
+    """Fail before any real Bot API operation, even if local credentials exist."""
+    from hub.telegram.adapter import TelegramBotAdapter
+
+    async def forbidden(*args, **kwargs):
+        raise AssertionError("Automated tests must use the fake Telegram provider.")
+
+    for method in ("initialize", "webhook_configured", "updates", "member", "send"):
+        monkeypatch.setattr(TelegramBotAdapter, method, forbidden)

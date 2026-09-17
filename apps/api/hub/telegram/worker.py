@@ -1,6 +1,7 @@
 """Opt-in long polling. Importing this module or starting the web API does not run it."""
 
 import asyncio
+import json
 import logging
 import signal
 
@@ -28,6 +29,9 @@ class Worker:
         self.bot_id = settings.telegram_expected_bot_id
 
     async def state(self, status: str, error: str | None = None) -> None:
+        logger.info(
+            json.dumps({"event": "telegram_worker_state", "status": status, "error": error})
+        )
         async with self.factory() as db, db.begin():
             await db.execute(
                 insert(TelegramWorkerState)
@@ -118,7 +122,11 @@ class Worker:
 
 
 async def main() -> None:
-    settings = Settings()
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    try:
+        settings = Settings()
+    except Exception:
+        raise SystemExit("Telegram worker stopped: invalid local configuration.") from None
     if settings.telegram_mode == "disabled":
         print("Telegram is disabled. No provider was initialized.")
         return

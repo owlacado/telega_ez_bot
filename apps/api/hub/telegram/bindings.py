@@ -58,6 +58,10 @@ async def review(
     await lock_technician(db, identifier)
     current = await binding(db, identifier)
     value = await pending_invitation(db, identifier, invitation_id)
+    if value.automatic:
+        raise HTTPException(
+            409, "This invitation connects automatically. Generate a new link if needed."
+        )
     if (
         value.closed_at
         or value.expires_at <= now()
@@ -99,11 +103,11 @@ async def review(
             ),
         )
     candidate_id = (
-        value.candidate_user_id if value.purpose == "PRIVATE_ACCOUNT" else value.candidate_chat_id
+        value.candidate_user_id if value.purpose == "PRIVATE_TELEGRAM" else value.candidate_chat_id
     )
     field = (
         TelegramBinding.telegram_user_id
-        if value.purpose == "PRIVATE_ACCOUNT"
+        if value.purpose == "PRIVATE_TELEGRAM"
         else TelegramBinding.telegram_group_chat_id
     )
     await db.execute(
@@ -122,8 +126,15 @@ async def review(
             manager_id,
             "This Telegram identity is already assigned to another technician.",
         )
+    await activate(db, current, value, bot_id, manager_id)
+    await db.commit()
+
+
+async def activate(db, current, value, bot_id, manager_id):
+    """Shared atomic activation; caller owns transaction and technician/identity locks."""
+    identifier = current.technician_id
     current.bot_id = bot_id
-    if value.purpose == "PRIVATE_ACCOUNT":
+    if value.purpose == "PRIVATE_TELEGRAM":
         current.telegram_user_id = value.candidate_user_id
         current.private_display_name = value.candidate_display_name
         current.private_username = value.candidate_username
@@ -147,12 +158,16 @@ async def review(
         current.group_private_generation = current.private_generation
         await invalidate(db, identifier, "WORK_GROUP", except_invite=value.id)
     value.approved_at = value.closed_at = now()
-    value.reviewed_by_manager_id = manager_id
+    value.reviewed_by_manager_id = manager_id if not value.automatic else None
     enqueue(db, current, value.purpose, "APPROVED", manager_id)
     audit(
-        db, "telegram.connection_approved", identifier, actor_id=manager_id, outcome=value.purpose
+        db,
+        "telegram.connected" if value.automatic else "telegram.connection_approved",
+        identifier,
+        actor_id=manager_id,
+        outcome=value.purpose,
+        actor_kind="TELEGRAM_WORKER" if value.automatic else "MANAGER",
     )
-    await db.commit()
 
 
 async def disconnect(
@@ -162,7 +177,7 @@ async def disconnect(
     current = await binding(db, identifier)
     if generation(current, payload.purpose) != payload.expected_generation:
         raise HTTPException(409, "Connection changed. Refresh before disconnecting.")
-    if payload.purpose == "PRIVATE_ACCOUNT":
+    if payload.purpose == "PRIVATE_TELEGRAM":
         current.telegram_user_id = None
         current.private_display_name = current.private_username = None
         current.private_status = "NOT_CONNECTED"
@@ -215,7 +230,8 @@ async def request_verification(
     current = await binding(db, identifier)
     value = await pending_invitation(db, identifier, invitation_id)
     if (
-        value.purpose != "WORK_GROUP"
+        value.automatic
+        or value.purpose != "WORK_GROUP"
         or not value.consumed_at
         or value.closed_at
         or value.expires_at <= now()

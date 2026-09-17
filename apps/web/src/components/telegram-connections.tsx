@@ -21,7 +21,9 @@ const labels: Record<string, string> = {
   RETRYING: "Worker retrying",
   FAILED: "Worker unavailable",
   NOT_CONNECTED: "Not connected",
+  PENDING: "Waiting for technician",
   LINK_ISSUED: "Waiting for technician",
+  CLAIMED: "Connected",
   AWAITING_APPROVAL: "Waiting for manager approval",
   CONNECTED: "Connected",
   EXPIRED: "Invitation expired",
@@ -30,6 +32,10 @@ const labels: Record<string, string> = {
   REJECTED: "Candidate rejected",
 };
 const setup: Record<string, string> = {
+  BOT_CANNOT_SEND:
+    "Add the bot as a member and allow it to send messages, then generate a new invitation.",
+  IDENTITY_IN_USE:
+    "This Telegram identity is already linked. Disconnect it from its current technician before generating a new invitation.",
   INITIATOR_NOT_ADMIN:
     "Ask a non-anonymous group owner or administrator to open a new group invitation.",
   BOT_ADMIN_REQUIRED:
@@ -42,7 +48,7 @@ const setup: Record<string, string> = {
     "Telegram verification could not be confirmed. Retry checks when connectivity returns.",
 };
 const title = (purpose: TelegramPurpose) =>
-  purpose === "PRIVATE_ACCOUNT" ? "Private account" : "Work group";
+  purpose === "PRIVATE_TELEGRAM" ? "Private account" : "Work group";
 function connectionLabel(value: ConnectionRead) {
   return value.approved
     ? value.availability === "AVAILABLE"
@@ -71,17 +77,41 @@ export function TelegramConnections({
   const [dialog, setDialog] = useState<TelegramPurpose | null>(null);
   const [issued, setIssued] = useState<IssuedInvitation | null>(null);
   const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const [retry, setRetry] = useState(0);
   const [confirm, setConfirm] = useState<Confirmation | null>(null);
   const alive = useRef(true);
   const submitting = useRef(false);
+  const sequence = useRef(0);
   const endpoint = `/technicians/${technicianId}/telegram`;
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
+      const request = ++sequence.current;
       try {
         const value = await api<TelegramState>(endpoint, { signal });
-        if (alive.current && !signal?.aborted) setData(value);
+        if (alive.current && !signal?.aborted && request === sequence.current) {
+          setData(value);
+          setIssued((credential) => {
+            if (!credential) return null;
+            const state =
+              credential.invitation.purpose === "PRIVATE_TELEGRAM"
+                ? value.private
+                : value.group;
+            return state.invitation?.id === credential.invitation.id &&
+              ["PENDING", "LINK_ISSUED"].includes(state.invitation.state) &&
+              Date.parse(credential.invitation.expires_at) > Date.now()
+              ? credential
+              : null;
+          });
+          setError("");
+        }
+        return value;
       } catch (failure) {
-        if (alive.current && !signal?.aborted) setError(errorMessage(failure));
+        if (alive.current && !signal?.aborted && request === sequence.current) {
+          setError(errorMessage(failure));
+          setIssued(null);
+        }
+        return null;
       }
     },
     [endpoint],
@@ -92,8 +122,21 @@ export function TelegramConnections({
     let timer: ReturnType<typeof setTimeout>;
     let stopped = false;
     const poll = async () => {
-      if (!document.hidden) await refresh(controller.signal);
-      if (!stopped) timer = setTimeout(poll, dialog ? 3000 : 15000);
+      if (!document.hidden && !submitting.current) {
+        const result = await refresh(controller.signal);
+        if (dialog) {
+          const selected =
+            dialog === "PRIVATE_TELEGRAM" ? result?.private : result?.group;
+          if (
+            !selected?.invitation ||
+            !["PENDING", "LINK_ISSUED", "AWAITING_APPROVAL"].includes(
+              selected.invitation.state,
+            )
+          )
+            return;
+        }
+      }
+      if (!stopped) timer = setTimeout(poll, dialog ? 2000 : 15000);
     };
     void poll();
     return () => {
@@ -102,12 +145,26 @@ export function TelegramConnections({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [refresh, dialog, active]);
+  }, [refresh, dialog, active, retry]);
+  useEffect(() => {
+    if (!dialog) return;
+    const timer = setInterval(() => {
+      const time = Date.now();
+      setNow(time);
+      setIssued((credential) =>
+        credential && Date.parse(credential.invitation.expires_at) <= time
+          ? null
+          : credential,
+      );
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [dialog]);
   const connection = (purpose: TelegramPurpose) =>
-    purpose === "PRIVATE_ACCOUNT" ? data!.private : data!.group;
+    purpose === "PRIVATE_TELEGRAM" ? data!.private : data!.group;
   const perform = async (operation: () => Promise<void>) => {
     if (submitting.current) return;
     submitting.current = true;
+    sequence.current += 1;
     setBusy(true);
     setError("");
     try {
@@ -134,9 +191,22 @@ export function TelegramConnections({
         confirmation: replace ? "REPLACE" : "CONNECT",
       }),
     });
+    setData((value) =>
+      value
+        ? {
+            ...value,
+            [purpose === "PRIVATE_TELEGRAM" ? "private" : "group"]: {
+              ...(purpose === "PRIVATE_TELEGRAM" ? value.private : value.group),
+              invitation: result.invitation,
+              state: result.invitation.state,
+            },
+          }
+        : value,
+    );
     setIssued(result);
     setCopied(false);
     setDialog(purpose);
+    setRetry((value) => value + 1);
   };
   const generate = (purpose: TelegramPurpose) => {
     const value = connection(purpose);
@@ -180,15 +250,26 @@ export function TelegramConnections({
   };
   const current = dialog && data ? connection(dialog) : null;
   const pending = current?.invitation;
+  const seconds = pending
+    ? Math.max(0, Math.ceil((Date.parse(pending.expires_at) - now) / 1000))
+    : 0;
+  const pendingState =
+    pending &&
+    seconds === 0 &&
+    ["PENDING", "LINK_ISSUED"].includes(pending.state)
+      ? "EXPIRED"
+      : pending?.state;
   const open =
     pending &&
-    ["LINK_ISSUED", "AWAITING_APPROVAL", "ERROR"].includes(pending.state);
+    ["PENDING", "LINK_ISSUED", "AWAITING_APPROVAL", "ERROR"].includes(
+      pendingState ?? "",
+    );
   const configured =
     data && !["DISABLED", "NOT_CONFIGURED"].includes(data.runtime.state);
   const shownLink =
     issued &&
     pending?.id === issued.invitation.id &&
-    pending.state === "LINK_ISSUED"
+    ["PENDING", "LINK_ISSUED"].includes(pendingState ?? "")
       ? issued
       : null;
   const review = (decision: "APPROVE" | "REJECT") =>
@@ -219,7 +300,7 @@ export function TelegramConnections({
         </p>
       )}
       {data &&
-        (["PRIVATE_ACCOUNT", "WORK_GROUP"] as const).map((purpose) => {
+        (["PRIVATE_TELEGRAM", "WORK_GROUP"] as const).map((purpose) => {
           const value = connection(purpose);
           return (
             <div
@@ -229,7 +310,7 @@ export function TelegramConnections({
             >
               <div className="connection-row">
                 <span>
-                  {purpose === "PRIVATE_ACCOUNT" ? (
+                  {purpose === "PRIVATE_TELEGRAM" ? (
                     <MessageCircle size={16} />
                   ) : (
                     <UsersRound size={16} />
@@ -244,11 +325,18 @@ export function TelegramConnections({
               </div>
               {value.approved && (
                 <p className="field-hint">
-                  {value.display_name || title(purpose)} · ID{" "}
-                  {value.telegram_id}
+                  {value.username
+                    ? `@${value.username}`
+                    : value.display_name || title(purpose)}
                   {value.availability !== "AVAILABLE" &&
                     ` · ${value.availability.replaceAll("_", " ")}`}
                 </p>
+              )}
+              {value.telegram_id && (
+                <details className="field-hint">
+                  <summary>Technical details</summary>Telegram ID:{" "}
+                  {value.telegram_id}
+                </details>
               )}
               {value.replacement_pending && (
                 <p className="warning-text">
@@ -268,11 +356,12 @@ export function TelegramConnections({
                   onClick={() => {
                     setIssued(null);
                     setDialog(purpose);
+                    if (!value.approved && !value.invitation) generate(purpose);
                   }}
                 >
                   {value.approved
                     ? `Manage ${title(purpose).toLowerCase()}`
-                    : purpose === "PRIVATE_ACCOUNT"
+                    : purpose === "PRIVATE_TELEGRAM"
                       ? "Connect Telegram"
                       : "Connect Work Group"}
                 </button>
@@ -302,7 +391,10 @@ export function TelegramConnections({
             </div>
           );
         })}
-      <ErrorNotice message={error} retry={() => void refresh()} />
+      <ErrorNotice
+        message={error}
+        retry={() => setRetry((value) => value + 1)}
+      />
       {data && data.deliveries.length > 0 && (
         <details className="delivery-results">
           <summary>Recent connection activity</summary>
@@ -313,12 +405,12 @@ export function TelegramConnections({
           <ul>
             {data.deliveries.map((job) => (
               <li key={job.id}>
-                {job.destination === "PRIVATE_ACCOUNT" ? "Private" : "Group"} ·{" "}
+                {job.destination === "PRIVATE_TELEGRAM" ? "Private" : "Group"} ·{" "}
                 {job.kind === "VERIFY_GROUP"
                   ? "Membership check"
                   : job.kind === "TEST"
                     ? "Test message"
-                    : "Approval message"}
+                    : "Connection message"}
                 : <strong>{job.state}</strong>
                 {job.error_code && ` (${job.error_code.replaceAll("_", " ")})`}
               </li>
@@ -338,24 +430,36 @@ export function TelegramConnections({
           </p>
           {current.approved && (
             <p>
-              Approved identity: {current.display_name || title(dialog)} ·{" "}
-              {current.telegram_id}. A replacement stays pending until you
-              approve it.
+              <span role="status">
+                {dialog === "PRIVATE_TELEGRAM"
+                  ? "Telegram connected"
+                  : "Work group connected"}
+              </span>{" "}
+              {current.username
+                ? `@${current.username}`
+                : current.display_name || title(dialog)}
+              . A replacement connects when its new invitation is claimed.
             </p>
           )}
           {dialog === "WORK_GROUP" && (
             <p className="field-hint">
-              Select an existing group or create one in Telegram. A
-              non-anonymous group administrator must open the invitation. Add
-              the approved technician and make the bot an administrator for
-              reliable membership checks. Broad moderation permissions are
-              unnecessary.
+              Select an existing group or create one in Telegram. A group member
+              using this technician&apos;s linked Telegram account must send the
+              Start command. The bot needs membership and permission to send
+              messages, not administrator privileges. If a group administrator
+              must add the bot, the technician must then use the fallback
+              command.
             </p>
           )}
           {pending && (
             <p className="field-hint">
-              {labels[pending.state] ?? pending.state} · Expires{" "}
-              {new Date(pending.expires_at).toLocaleString()}
+              {dialog === "WORK_GROUP" && pendingState === "PENDING"
+                ? "Waiting for Telegram group"
+                : (labels[pendingState ?? ""] ?? pendingState)}{" "}
+              /{" "}
+              {seconds > 0
+                ? `Invitation expires in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
+                : "Invitation expired"}
             </p>
           )}
           {shownLink && (
@@ -391,8 +495,27 @@ export function TelegramConnections({
                   rel="noopener noreferrer"
                   referrerPolicy="no-referrer"
                 >
-                  Open Telegram
+                  {dialog === "WORK_GROUP"
+                    ? "Add Bot to Group"
+                    : "Open Telegram"}
                 </a>
+                <button
+                  className="button secondary"
+                  onClick={() =>
+                    void navigator.clipboard
+                      .writeText(
+                        dialog === "PRIVATE_TELEGRAM"
+                          ? `Connect ${technicianName} to Technician Hub: open ${shownLink.link} and press Start using the technician's Telegram account. This private invitation expires shortly; do not forward it.`
+                          : `Connect ${technicianName}'s work group: use the technician's already-linked Telegram account to open ${shownLink.link}. Add the bot as a member with permission to send messages. If it is already present, send ${shownLink.fallback_command} in that group from the linked account. This invitation expires shortly; do not forward it.`,
+                      )
+                      .then(() => setCopied(true))
+                      .catch(() =>
+                        setError("Copy failed. Copy the link manually."),
+                      )
+                  }
+                >
+                  Copy setup instructions
+                </button>
               </div>
               <div className="invite-qr">
                 <QRCodeSVG
@@ -419,7 +542,7 @@ export function TelegramConnections({
               )}
             </div>
           )}
-          {open && pending.candidate_user_id && (
+          {open && !pending.automatic && pending.candidate_user_id && (
             <div className="candidate-review">
               <h3>Review candidate for {technicianName}</h3>
               {dialog === "WORK_GROUP" && (
@@ -474,7 +597,7 @@ export function TelegramConnections({
                   }
                   onClick={() => review("APPROVE")}
                 >
-                  {dialog === "PRIVATE_ACCOUNT"
+                  {dialog === "PRIVATE_TELEGRAM"
                     ? "Approve account"
                     : "Approve group"}
                 </button>
@@ -503,6 +626,12 @@ export function TelegramConnections({
                 )}
               </div>
             </div>
+          )}
+          {pending?.automatic && pending.setup_error && (
+            <p role="alert">
+              {setup[pending.setup_error] ??
+                "Connection could not be verified. Generate a new invitation and try again."}
+            </p>
           )}
           <ErrorNotice message={error} />
           <div className="modal-actions telegram-modal-actions">
@@ -572,8 +701,8 @@ export function TelegramConnections({
             {confirm.kind === "test"
               ? "Send one connection-test message to this approved destination?"
               : confirm.kind === "replace"
-                ? "Generate a replacement invitation? The current identity remains approved until the new candidate is approved. Replacing the private account suspends group delivery until revalidation."
-                : confirm.purpose === "PRIVATE_ACCOUNT"
+                ? "Generate a replacement invitation? The current identity remains connected until the new invitation is claimed. Replacing the private account suspends group delivery until revalidation."
+                : confirm.purpose === "PRIVATE_TELEGRAM"
                   ? "Disconnect this private account and suspend group delivery? The group identity stays reserved until revalidated or disconnected."
                   : "Disconnect this work group? The private account remains connected."}
           </p>

@@ -19,9 +19,9 @@ async def state(client, identifier):
     return response.json()
 
 
-async def issue(client, identifier, purpose="PRIVATE_ACCOUNT", replace=False):
+async def issue(client, identifier, purpose="PRIVATE_TELEGRAM", replace=False):
     current = (await state(client, identifier))[
-        "private" if purpose == "PRIVATE_ACCOUNT" else "group"
+        "private" if purpose == "PRIVATE_TELEGRAM" else "group"
     ]
     response = await client.post(
         f"/api/technicians/{identifier}/telegram/invitations",
@@ -34,6 +34,32 @@ async def issue(client, identifier, purpose="PRIVATE_ACCOUNT", replace=False):
     )
     assert response.status_code == 201, response.text
     return response.json()
+
+
+async def legacy_issue(client, identifier, purpose="PRIVATE_TELEGRAM", replace=False):
+    """Seed pre-upgrade review policy; the current API always issues automatic invitations."""
+    from uuid import UUID
+
+    from sqlalchemy import update
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from hub.telegram.models import TelegramInvitation
+    from tests.conftest import TEST_URL
+
+    result = await issue(client, identifier, purpose, replace)
+    engine = create_async_engine(TEST_URL, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            await db.execute(
+                update(TelegramInvitation)
+                .where(TelegramInvitation.id == UUID(result["invitation"]["id"]))
+                .values(automatic=False)
+            )
+    finally:
+        await engine.dispose()
+    result["invitation"]["automatic"] = False
+    result["invitation"]["state"] = "LINK_ISSUED"
+    return result
 
 
 def event(invitation, update_id=1, user_id=12345678, chat_type="private", chat_id=None, **extra):
@@ -73,7 +99,7 @@ async def review(client, identifier, invitation, decision="APPROVE"):
 
 async def connected_private(client, engine, provider, *, user_id=12345678, update_id=1):
     identifier = await technician(client)
-    invitation = await issue(client, identifier)
+    invitation = await legacy_issue(client, identifier)
     assert (
         await claim(engine, provider, invitation, user_id=user_id, update_id=update_id)
     ).outcome == "AWAITING_APPROVAL"
@@ -87,7 +113,7 @@ async def connected_group(
     identifier = await connected_private(
         client, engine, provider, user_id=user_id, update_id=update_id
     )
-    invitation = await issue(client, identifier, "WORK_GROUP")
+    invitation = await legacy_issue(client, identifier, "WORK_GROUP")
     provider.group(chat_id, user_id, user_id)
     result = await claim(
         engine,

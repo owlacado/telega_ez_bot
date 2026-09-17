@@ -76,8 +76,8 @@ async def main():
                 BOT_USERNAME,
             )
             result = await process_update(factory, provider, event, BOT_ID)
-            if result.outcome != "AWAITING_APPROVAL":
-                raise RuntimeError("Fake claim did not enter review")
+            if result.outcome != "CONNECTED":
+                raise RuntimeError("Fake claim did not connect")
         elif action == "deliver":
             provider.group(payload["chat_id"], payload["user_id"], payload["user_id"])
             for _ in range(20):
