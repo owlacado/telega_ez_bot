@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from datetime import datetime
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from sqlalchemy import DateTime, MetaData, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -28,4 +28,8 @@ class Timestamps:
 
 async def session(request: Request) -> AsyncIterator[AsyncSession]:
     async with request.app.state.session_factory() as db:
-        yield db
+        try:
+            yield db
+        except (OSError, TimeoutError) as exc:
+            # Drivers can raise raw socket failures before SQLAlchemy wraps them.
+            raise HTTPException(503, "The database is unavailable. Try again shortly.") from exc

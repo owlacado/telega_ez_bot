@@ -77,10 +77,16 @@ test("dashboard to permanent deletion, with a real local calendar", async ({
       page.getByRole("link", { name: `Open Updated Smoke${suffix}` }),
     ).toHaveCount(0);
   } finally {
-    if (technicianId)
-      await request.delete(`/api/technicians/${technicianId}`, {
-        data: { confirmation: "DELETE" },
-      });
+    if (technicianId) {
+      const current = await request.get(`/api/technicians/${technicianId}`);
+      if (current.ok())
+        await request.delete(`/api/technicians/${technicianId}`, {
+          data: {
+            confirmation: "DELETE",
+            expected_updated_at: (await current.json()).updated_at,
+          },
+        });
+    }
     await request.delete(`/api/calendars/${calendar.id}`, {
       data: { confirmation: "DELETE", detach_assigned: true },
     });

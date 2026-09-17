@@ -200,3 +200,31 @@ it("pauses hidden polling and cancels it on unmount", async () => {
   await act(async () => vi.advanceTimersByTimeAsync(45000));
   expect(mockedApi).toHaveBeenCalledTimes(initial + 1);
 });
+
+it("submits invitation generation once during a same-tick double click", async () => {
+  let reject!: (error: Error) => void;
+  mockedApi.mockImplementation((path) =>
+    path.endsWith("/invitations")
+      ? new Promise((_, fail) => {
+          reject = fail;
+        })
+      : Promise.resolve(data),
+  );
+  renderConnections();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Connect Telegram" }),
+  );
+  const button = screen.getByRole("button", { name: "Generate invitation" });
+  act(() => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  });
+  expect(
+    mockedApi.mock.calls.filter(([path]) => path.endsWith("/invitations")),
+  ).toHaveLength(1);
+  await act(async () => reject(new Error("Generation failed")));
+  expect(
+    within(screen.getByRole("dialog")).getByRole("alert"),
+  ).toHaveTextContent("Generation failed");
+  expect(button).toBeEnabled();
+});

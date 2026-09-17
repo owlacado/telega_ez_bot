@@ -59,7 +59,7 @@ def install_auth(app: FastAPI, settings: Settings) -> None:
                         )
                     )
                 ).first()
-        except SQLAlchemyError:
+        except (SQLAlchemyError, OSError):
             return failure(503, "unavailable", "The database is unavailable. Try again shortly.")
         if not row:
             return failure(401, "unauthenticated", "Sign in to continue.")

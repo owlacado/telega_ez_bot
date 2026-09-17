@@ -182,6 +182,8 @@ async def test_calendar_conflict_preserves_old_assignment(client):
 @pytest.mark.parametrize("body", [None, {}, {"confirmation": "delete"}, {"confirmation": ""}])
 async def test_delete_confirmation_required(client, body):
     person = await create(client)
+    if body is not None:
+        body = {**body, "expected_updated_at": person["updated_at"]}
     response = await client.request(
         "DELETE", f"/api/technicians/{person['id']}", **({"json": body} if body is not None else {})
     )
@@ -197,7 +199,14 @@ async def test_permanent_delete_removes_database_row_and_bindings(client, engine
         await db.execute(TelegramBinding.__table__.insert().values(technician_id=identifier))
         await db.execute(GpsBinding.__table__.insert().values(technician_id=identifier))
     response = await client.request(
-        "DELETE", f"/api/technicians/{identifier}", json={"confirmation": "DELETE"}
+        "DELETE",
+        f"/api/technicians/{identifier}",
+        json={
+            "confirmation": "DELETE",
+            "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
+                "updated_at"
+            ],
+        },
     )
     assert response.status_code == 204
     assert (await client.get(f"/api/technicians/{identifier}")).status_code == 404

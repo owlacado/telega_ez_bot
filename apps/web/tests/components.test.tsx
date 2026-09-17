@@ -6,6 +6,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import TechniciansPage from "@/app/(workspace)/technicians/page";
+import { Avatar } from "@/components/ui";
 import { Sidebar } from "@/components/sidebar";
 import { TechnicianCard } from "@/components/technician-card";
 import { AddTechnician } from "@/components/add-technician";
@@ -195,7 +197,10 @@ describe("Stage 0 components", () => {
     );
     expect(mockedApi).toHaveBeenCalledWith(`/technicians/${technician.id}`, {
       method: "DELETE",
-      body: '{"confirmation":"DELETE"}',
+      body: JSON.stringify({
+        confirmation: "DELETE",
+        expected_updated_at: technician.updated_at,
+      }),
     });
     expect(push).toHaveBeenCalledWith("/technicians");
   });
@@ -211,4 +216,101 @@ describe("Stage 0 components", () => {
       screen.getByRole("button", { name: "Delete permanently (10)" }),
     ).toBeDisabled();
   });
+});
+
+it("resets deletion approval when the displayed record version changes", () => {
+  vi.useFakeTimers();
+  const props = { technician, onClose: vi.fn() };
+  const { rerender } = render(<DeleteTechnician {...props} />);
+  fireEvent.change(screen.getByLabelText("Deletion confirmation"), {
+    target: { value: "DELETE Demo Technician" },
+  });
+  act(() => vi.advanceTimersByTime(10000));
+  rerender(
+    <DeleteTechnician
+      {...props}
+      technician={{ ...technician, updated_at: "2026-02-01T00:00:00Z" }}
+    />,
+  );
+  expect(screen.getByLabelText("Deletion confirmation")).toHaveValue("");
+  expect(
+    screen.getByRole("button", { name: "Delete permanently (10)" }),
+  ).toBeDisabled();
+});
+it("keeps profile inputs locked during a slow save and recovers on failure", async () => {
+  let fail!: (error: Error) => void;
+  mockedApi.mockImplementation((path, options) =>
+    options?.method === "PATCH"
+      ? new Promise((_, reject) => {
+          fail = reject;
+        })
+      : Promise.resolve(
+          path === "/calendars"
+            ? []
+            : path.endsWith("/telegram")
+              ? telegramState
+              : technician,
+        ),
+  );
+  const update = vi.fn();
+  render(<ProfilePanel technician={technician} onUpdate={update} />);
+  fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
+  expect(screen.getByLabelText("First name")).toBeDisabled();
+  await act(async () => fail(new Error("Save failed")));
+  expect(screen.getByRole("alert")).toHaveTextContent("Save failed");
+  expect(screen.getByLabelText("First name")).toBeEnabled();
+  expect(update).not.toHaveBeenCalled();
+  expect(screen.queryByText("Profile saved.")).not.toBeInTheDocument();
+});
+it("submits deletion once, preserves confirmation on failure, and allows retry", async () => {
+  vi.useFakeTimers();
+  let fail!: (error: Error) => void;
+  mockedApi.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        fail = reject;
+      }),
+  );
+  render(<DeleteTechnician technician={technician} onClose={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Deletion confirmation"), {
+    target: { value: "DELETE Demo Technician" },
+  });
+  act(() => vi.advanceTimersByTime(10000));
+  const button = screen.getByRole("button", { name: "DELETE PERMANENTLY" });
+  act(() => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  });
+  expect(mockedApi).toHaveBeenCalledTimes(1);
+  await act(async () => fail(new Error("Delete failed")));
+  expect(screen.getByRole("alert")).toHaveTextContent("Delete failed");
+  expect(push).not.toHaveBeenCalled();
+  expect(button).toBeEnabled();
+  await act(async () => fireEvent.click(button));
+  expect(mockedApi).toHaveBeenCalledTimes(2);
+  expect(push).toHaveBeenCalledWith("/technicians");
+});
+
+it("finds reversed name terms separated by extra spaces", async () => {
+  mockedApi.mockResolvedValue([technician]);
+  render(<TechniciansPage />);
+  await screen.findByRole("link", { name: "Open Demo Technician" });
+  fireEvent.change(screen.getByLabelText("Search technicians"), {
+    target: { value: "  Technician   Demo  " },
+  });
+  expect(
+    screen.getByRole("link", { name: "Open Demo Technician" }),
+  ).toBeInTheDocument();
+});
+it("falls back to initials when a profile photo fails", () => {
+  render(
+    <Avatar
+      firstName="Demo"
+      lastName="Technician"
+      url="https://example.invalid/photo.png"
+    />,
+  );
+  fireEvent.error(screen.getByRole("img"));
+  expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  expect(screen.getByText("DT")).toBeInTheDocument();
 });

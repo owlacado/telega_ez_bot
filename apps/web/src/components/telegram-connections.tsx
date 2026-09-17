@@ -73,6 +73,7 @@ export function TelegramConnections({
   const [copied, setCopied] = useState(false);
   const [confirm, setConfirm] = useState<Confirmation | null>(null);
   const alive = useRef(true);
+  const submitting = useRef(false);
   const endpoint = `/technicians/${technicianId}/telegram`;
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -105,6 +106,8 @@ export function TelegramConnections({
   const connection = (purpose: TelegramPurpose) =>
     purpose === "PRIVATE_ACCOUNT" ? data!.private : data!.group;
   const perform = async (operation: () => Promise<void>) => {
+    if (submitting.current) return;
+    submitting.current = true;
     setBusy(true);
     setError("");
     try {
@@ -113,6 +116,7 @@ export function TelegramConnections({
     } catch (failure) {
       setError(errorMessage(failure));
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   };

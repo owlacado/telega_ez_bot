@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,8 +11,8 @@ from hub.calendars.service import assign_calendar, unassign_calendar
 from hub.core.database import session
 from hub.technicians.models import Technician
 from hub.technicians.schemas import (
-    DeleteConfirmation,
     TechnicianCreate,
+    TechnicianDelete,
     TechnicianDetail,
     TechnicianSummary,
     TechnicianUpdate,
@@ -26,7 +26,8 @@ router = APIRouter(prefix="/api/technicians", tags=["technicians"])
 
 @router.get("", response_model=list[TechnicianSummary])
 async def list_technicians(
-    q: str = Query(default="", max_length=200), db: AsyncSession = Depends(session)
+    q: str = Query(default="", max_length=200, pattern=r"^[^\x00-\x1f\x7f]*$"),
+    db: AsyncSession = Depends(session),
 ) -> list[TechnicianSummary]:
     query = select(Technician).order_by(Technician.last_name, Technician.first_name, Technician.id)
     for term in q.strip().split():
@@ -52,8 +53,9 @@ async def create_technician(
     await db.flush()
     if payload.calendar_id:
         await assign_calendar(db, technician.id, payload.calendar_id)
+    response = detail(await require_technician(db, technician.id))
     await db.commit()
-    return detail(await require_technician(db, technician.id))
+    return response
 
 
 @router.get("/{technician_id}", response_model=TechnicianDetail)
@@ -77,19 +79,23 @@ async def update_technician(
             setattr(technician, key, value)
         if values.get("status") == "INACTIVE":
             await invalidate(db, technician_id)
+        await db.flush()
+        response = detail(await require_technician(db, technician_id))
         await db.commit()
-        return detail(await require_technician(db, technician_id))
+        return response
 
 
 @router.delete("/{technician_id}", status_code=204)
 async def delete_technician(
     technician_id: UUID,
-    payload: DeleteConfirmation,
+    payload: TechnicianDelete,
     request: Request,
     db: AsyncSession = Depends(session),
 ) -> Response:
     async with advisory_guard(request.app.state.engine, "technician", technician_id):
         technician = await require_technician(db, technician_id, lock=True)
+        if technician.updated_at != payload.expected_updated_at:
+            raise HTTPException(409, "Profile changed. Reload the page and confirm deletion again.")
         audit(db, "technician.deleted", technician_id, actor_id=request.state.manager_id)
         await db.delete(technician)
         await db.commit()
@@ -115,11 +121,11 @@ async def assignment_history(
 @router.put("/{technician_id}/calendar", response_model=AssignmentRead)
 async def set_calendar(
     technician_id: UUID, payload: AssignmentInput, db: AsyncSession = Depends(session)
-) -> CalendarAssignment:
+) -> AssignmentRead:
     assignment = await assign_calendar(db, technician_id, payload.calendar_id)
+    response = AssignmentRead.model_validate(assignment)
     await db.commit()
-    await db.refresh(assignment)
-    return assignment
+    return response
 
 
 @router.delete("/{technician_id}/calendar", status_code=204)

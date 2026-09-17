@@ -439,14 +439,6 @@ export interface components {
             replacement_pending: boolean;
             invitation?: components["schemas"]["InvitationRead"] | null;
         };
-        /** DeleteConfirmation */
-        DeleteConfirmation: {
-            /**
-             * Confirmation
-             * @constant
-             */
-            confirmation: "DELETE";
-        };
         /** DeliveryRead */
         DeliveryRead: {
             /**
@@ -645,6 +637,19 @@ export interface components {
             photo_url?: string | null;
             /** Calendar Id */
             calendar_id?: string | null;
+        };
+        /** TechnicianDelete */
+        TechnicianDelete: {
+            /**
+             * Confirmation
+             * @constant
+             */
+            confirmation: "DELETE";
+            /**
+             * Expected Updated At
+             * Format: date-time
+             */
+            expected_updated_at: string;
         };
         /** TechnicianDetail */
         TechnicianDetail: {
@@ -1201,7 +1206,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["DeleteConfirmation"];
+                "application/json": components["schemas"]["TechnicianDelete"];
             };
         };
         responses: {

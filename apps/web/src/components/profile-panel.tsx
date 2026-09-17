@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Check, Link2, MapPin, Save, UserRound } from "lucide-react";
 import type {
   Calendar,
@@ -17,6 +17,7 @@ export function ProfilePanel({
   technician: TechnicianDetail;
   onUpdate: (value: TechnicianDetail) => void;
 }) {
+  const pending = useRef(false);
   const calendars = useResource<Calendar[]>("/calendars");
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -24,6 +25,8 @@ export function ProfilePanel({
   const [saved, setSaved] = useState(false);
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending.current) return;
+    pending.current = true;
     setSaving(true);
     setError("");
     setSaved(false);
@@ -47,10 +50,13 @@ export function ProfilePanel({
     } catch (error) {
       setError(errorMessage(error));
     } finally {
+      pending.current = false;
       setSaving(false);
     }
   }
   async function assign(id: string) {
+    if (pending.current) return;
+    pending.current = true;
     setAssigning(true);
     setError("");
     try {
@@ -65,6 +71,7 @@ export function ProfilePanel({
     } catch (error) {
       setError(errorMessage(error));
     } finally {
+      pending.current = false;
       setAssigning(false);
     }
   }
@@ -79,84 +86,89 @@ export function ProfilePanel({
       </div>
       <div className="panel-body">
         <form onSubmit={save} onChange={() => setSaved(false)}>
-          <div className="form-grid">
+          <fieldset disabled={saving || assigning}>
+            <div className="form-grid">
+              <label>
+                First name
+                <input
+                  name="first_name"
+                  required
+                  maxLength={100}
+                  defaultValue={t.first_name}
+                />
+              </label>
+              <label>
+                Last name
+                <input
+                  name="last_name"
+                  required
+                  maxLength={100}
+                  defaultValue={t.last_name}
+                />
+              </label>
+            </div>
             <label>
-              First name
+              Photo URL
               <input
-                name="first_name"
-                required
-                maxLength={100}
-                defaultValue={t.first_name}
+                name="photo_url"
+                type="url"
+                maxLength={2048}
+                defaultValue={t.photo_url ?? ""}
+                placeholder="https://…"
               />
             </label>
-            <label>
-              Last name
-              <input
-                name="last_name"
-                required
-                maxLength={100}
-                defaultValue={t.last_name}
-              />
-            </label>
-          </div>
-          <label>
-            Photo URL
-            <input
-              name="photo_url"
-              type="url"
-              maxLength={2048}
-              defaultValue={t.photo_url ?? ""}
-              placeholder="https://…"
-            />
-          </label>
-          <div className="form-grid">
-            <label>
-              Driver License ID
-              <input
-                name="driver_license_id"
-                maxLength={100}
-                defaultValue={t.driver_license_id ?? ""}
-                autoComplete="off"
-                placeholder="Optional"
-              />
-            </label>
-            <label>
-              SSN last 4
-              <input
-                name="ssn_last4"
-                type="password"
-                inputMode="numeric"
-                pattern="[0-9]{4}"
-                minLength={4}
-                maxLength={4}
-                defaultValue={t.ssn_last4 ?? ""}
-                autoComplete="new-password"
-                placeholder="Optional"
-              />
-            </label>
-          </div>
-          <p className="field-hint sensitive-hint">
-            Do not enter real DL or SSN values while field encryption is
-            deferred.
-          </p>
-          <div className="profile-form-footer">
-            <label>
-              Status
-              <select name="status" defaultValue={t.status}>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </label>
-            <button className="button secondary" disabled={saving || assigning}>
-              {saved ? <Check size={16} /> : <Save size={16} />}
-              {saving ? "Saving…" : saved ? "Saved" : "Save profile"}
-            </button>
-          </div>
-          {saved && (
-            <span role="status" className="save-notice">
-              Profile saved.
-            </span>
-          )}
+            <div className="form-grid">
+              <label>
+                Driver License ID
+                <input
+                  name="driver_license_id"
+                  maxLength={100}
+                  defaultValue={t.driver_license_id ?? ""}
+                  autoComplete="off"
+                  placeholder="Optional"
+                />
+              </label>
+              <label>
+                SSN last 4
+                <input
+                  name="ssn_last4"
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]{4}"
+                  minLength={4}
+                  maxLength={4}
+                  defaultValue={t.ssn_last4 ?? ""}
+                  autoComplete="new-password"
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+            <p className="field-hint sensitive-hint">
+              Do not enter real DL or SSN values while field encryption is
+              deferred.
+            </p>
+            <div className="profile-form-footer">
+              <label>
+                Status
+                <select name="status" defaultValue={t.status}>
+                  <option value="ACTIVE">Active</option>
+                  <option value="INACTIVE">Inactive</option>
+                </select>
+              </label>
+              <button
+                className="button secondary"
+                disabled={saving || assigning}
+              >
+                {saved ? <Check size={16} /> : <Save size={16} />}
+                {saving ? "Saving…" : saved ? "Saved" : "Save profile"}
+              </button>
+            </div>
+            {saved && (
+              <span role="status" className="save-notice">
+                Profile saved.
+              </span>
+            )}
+          </fieldset>
         </form>
         <ErrorNotice message={error} />
         <div className="connection-section">

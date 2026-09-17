@@ -471,6 +471,7 @@
             "schema": {
               "type": "string",
               "maxLength": 200,
+              "pattern": "^[^\\x00-\\x1f\\x7f]*$",
               "default": "",
               "title": "Q"
             }
@@ -659,7 +660,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DeleteConfirmation"
+                "$ref": "#/components/schemas/TechnicianDelete"
               }
             }
           }
@@ -1261,21 +1262,6 @@
         ],
         "title": "ConnectionRead"
       },
-      "DeleteConfirmation": {
-        "properties": {
-          "confirmation": {
-            "type": "string",
-            "const": "DELETE",
-            "title": "Confirmation"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "confirmation"
-        ],
-        "title": "DeleteConfirmation"
-      },
       "DeliveryRead": {
         "properties": {
           "id": {
@@ -1814,6 +1800,27 @@
           "last_name"
         ],
         "title": "TechnicianCreate"
+      },
+      "TechnicianDelete": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "DELETE",
+            "title": "Confirmation"
+          },
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expected Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmation",
+          "expected_updated_at"
+        ],
+        "title": "TechnicianDelete"
       },
       "TechnicianDetail": {
         "properties": {

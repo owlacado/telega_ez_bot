@@ -149,9 +149,15 @@ test("authenticated private and group onboarding with an isolated fake transport
     await expect(page).toHaveURL(/\/login$/);
     expect((await request.get("/api/technicians")).status()).toBe(401);
   } finally {
-    if (technicianId)
-      await request.delete(`/api/technicians/${technicianId}`, {
-        data: { confirmation: "DELETE" },
-      });
+    if (technicianId) {
+      const current = await request.get(`/api/technicians/${technicianId}`);
+      if (current.ok())
+        await request.delete(`/api/technicians/${technicianId}`, {
+          data: {
+            confirmation: "DELETE",
+            expected_updated_at: (await current.json()).updated_at,
+          },
+        });
+    }
   }
 });

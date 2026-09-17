@@ -1,12 +1,21 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import type { TechnicianDetail } from "@hub/contracts";
 import { api, errorMessage, json } from "@/lib/api";
 import { Modal } from "./modal";
 import { ErrorNotice } from "./ui";
-export function DeleteTechnician({
+type DeleteProps = { technician: TechnicianDetail; onClose: () => void };
+export function DeleteTechnician(props: DeleteProps) {
+  return (
+    <DeleteConfirmation
+      key={`${props.technician.id}:${props.technician.updated_at}`}
+      {...props}
+    />
+  );
+}
+function DeleteConfirmation({
   technician,
   onClose,
 }: {
@@ -14,6 +23,7 @@ export function DeleteTechnician({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const pending = useRef(false);
   const [remaining, setRemaining] = useState(10);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,17 +41,22 @@ export function DeleteTechnician({
   }, []);
   const ready = remaining === 0 && typed === expected && !busy;
   async function remove() {
-    if (!ready) return;
+    if (!ready || pending.current) return;
+    pending.current = true;
     setBusy(true);
     setError("");
     try {
       await api(`/technicians/${technician.id}`, {
         method: "DELETE",
-        body: json({ confirmation: "DELETE" }),
+        body: json({
+          confirmation: "DELETE",
+          expected_updated_at: technician.updated_at,
+        }),
       });
       router.push("/technicians");
     } catch (error) {
       setError(errorMessage(error));
+      pending.current = false;
       setBusy(false);
     }
   }

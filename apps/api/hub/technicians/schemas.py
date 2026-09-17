@@ -2,7 +2,15 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints, field_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    StringConstraints,
+    field_validator,
+)
 
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
 Last4 = Annotated[str, StringConstraints(pattern=r"^[0-9]{4}$")]
@@ -12,6 +20,13 @@ ConnectionStatus = Literal["NOT_CONNECTED", "PENDING", "CONNECTED", "ERROR"]
 
 class InputModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_controls(cls, value):
+        if isinstance(value, str) and any(ord(char) < 32 or ord(char) == 127 for char in value):
+            raise ValueError("Control characters are not allowed")
+        return value
 
 
 class TechnicianCreate(InputModel):
@@ -48,9 +63,18 @@ class TechnicianUpdate(InputModel):
     def photo_length(cls, value: HttpUrl | None) -> HttpUrl | None:
         return TechnicianCreate.photo_length(value)
 
+    @field_validator("driver_license_id")
+    @classmethod
+    def blank_license(cls, value: str | None) -> str | None:
+        return value or None
+
 
 class DeleteConfirmation(InputModel):
     confirmation: Literal["DELETE"]
+
+
+class TechnicianDelete(DeleteConfirmation):
+    expected_updated_at: AwareDatetime
 
 
 class CalendarSummary(BaseModel):

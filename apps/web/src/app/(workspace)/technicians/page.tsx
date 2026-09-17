@@ -10,10 +10,13 @@ export default function TechniciansPage() {
   const { data, error, reload } = useResource<Technician[]>("/technicians");
   const [search, setSearch] = useState("");
   const [adding, setAdding] = useState(false);
+  const terms = search.trim().toLocaleLowerCase().split(/\s+/);
   const filtered = data?.filter((t) =>
-    `${t.first_name} ${t.last_name}`
-      .toLocaleLowerCase()
-      .includes(search.trim().toLocaleLowerCase()),
+    terms.every(
+      (term) =>
+        t.first_name.toLocaleLowerCase().includes(term) ||
+        t.last_name.toLocaleLowerCase().includes(term),
+    ),
   );
   return (
     <>

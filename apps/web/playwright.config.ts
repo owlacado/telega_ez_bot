@@ -1,7 +1,19 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
 const databaseUrl =
+  process.env.TEST_DATABASE_URL ??
   "postgresql+asyncpg://hub:hub_test_only@127.0.0.1:5437/technician_hub_test";
+const parsedDatabase = new URL(
+  databaseUrl.replace("postgresql+asyncpg:", "postgresql:"),
+);
+if (
+  parsedDatabase.pathname !== "/technician_hub_test" ||
+  !["127.0.0.1", "localhost", "test-db"].includes(parsedDatabase.hostname)
+) {
+  throw new Error(
+    "Playwright requires an isolated local technician_hub_test database.",
+  );
+}
 const python = path.resolve(
   __dirname,
   "../../.venv",

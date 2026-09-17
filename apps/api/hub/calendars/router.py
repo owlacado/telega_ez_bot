@@ -28,14 +28,15 @@ async def create_calendar(
 ) -> CalendarRead:
     calendar = Calendar(name=payload.name)
     db.add(calendar)
-    await db.commit()
-    await db.refresh(calendar)
-    return CalendarRead(
+    await db.flush()
+    response = CalendarRead(
         id=calendar.id,
         name=calendar.name,
         created_at=calendar.created_at,
         updated_at=calendar.updated_at,
     )
+    await db.commit()
+    return response
 
 
 @router.patch("/{calendar_id}", response_model=CalendarRead)
@@ -46,8 +47,10 @@ async def rename_calendar(
     if not calendar:
         raise HTTPException(404, "Calendar not found.")
     calendar.name = payload.name
+    await db.flush()
+    response = next(row for row in await calendar_rows(db) if row["id"] == calendar_id)
     await db.commit()
-    return next(row for row in await calendar_rows(db) if row["id"] == calendar_id)
+    return response
 
 
 @router.delete("/{calendar_id}", status_code=204)

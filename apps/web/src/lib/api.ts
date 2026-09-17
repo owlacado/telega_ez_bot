@@ -36,18 +36,34 @@ export async function api<T>(
     )
       window.dispatchEvent(new Event("hub:unauthenticated"));
     const body = await response.json().catch(() => null);
-    const fields = body?.error?.details
-      ?.map(
-        (item: { field: string; message: string }) =>
-          `${item.field.replace("body.", "")}: ${item.message}`,
-      )
-      .join(" · ");
+    const details = body?.error?.details;
+    const fields = Array.isArray(details)
+      ? details
+          .filter(
+            (item) =>
+              typeof item?.field === "string" &&
+              typeof item?.message === "string",
+          )
+          .map((item) => `${item.field.replace("body.", "")}: ${item.message}`)
+          .join(" ; ")
+      : "";
     throw new ApiError(
-      fields || body?.error?.message || `Request failed (${response.status}).`,
+      fields ||
+        (typeof body?.error?.message === "string"
+          ? body.error.message
+          : `Request failed (${response.status}).`),
       response.status,
     );
   }
-  return response.status === 204 ? (undefined as T) : response.json();
+  if (response.status === 204) return undefined as T;
+  try {
+    return await response.json();
+  } catch {
+    throw new ApiError(
+      "The server returned an invalid response. Please try again.",
+      response.status,
+    );
+  }
 }
 export const json = (value: unknown) => JSON.stringify(value);
 export function errorMessage(error: unknown): string {

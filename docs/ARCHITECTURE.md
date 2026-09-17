@@ -32,7 +32,7 @@ Tables: `technicians`, `calendars`, `calendar_assignments`, `telegram_bindings`,
 
 Calendar assignments have their own UUID and timestamps, a calendar-name snapshot, and an active flag. Switching closes the previous assignment and creates another in a single transaction. Technician and calendar row locks serialize concurrent changes; database indexes are the final guard. Reassigning the same calendar is idempotent. An already assigned calendar returns HTTP 409 rather than silently transferring it.
 
-Unassigning preserves technician identity and history. Removing a calendar marks its assignments inactive and sets their calendar FK to null while preserving the historical name. Deleting a technician permanently cascades to its assignment history and provider bindings; independent local calendar records remain.
+Unassigning preserves technician identity and history. A CHECK constraint requires an active assignment to reference a calendar, and calendar names must be nonblank. Removing a calendar marks its assignments inactive and sets their calendar FK to null while preserving the historical name. Deleting a technician permanently cascades to its assignment history and provider bindings; independent local calendar records remain.
 
 Alembic migrations are the only schema lifecycle mechanism. Application startup never calls `create_all()`. Compose applies `alembic upgrade head` before serving requests.
 
@@ -48,9 +48,9 @@ API routes:
 - `GET, POST /api/calendars`
 - `PATCH, DELETE /api/calendars/{id}`
 
-Successful creates return 201; deletes return 204; invalid requests return 422; missing records 404; assignment/identifier conflicts 409. Errors use `{ "error": { "code", "message", "details"? } }`. Validation errors never echo submitted values. Responses disable caching. Deletion requires a JSON confirmation body, but the countdown belongs only to the browser.
+Successful creates return 201; deletes return 204; invalid requests return 422; missing records 404; assignment/identifier conflicts 409. Errors use `{ "error": { "code", "message", "details"? } }`. Validation errors never echo submitted values. Responses disable caching. Technician deletion requires `confirmation: "DELETE"` and the displayed `expected_updated_at` timestamp. The version is compared under the technician row lock; a changed profile returns 409. This is a profile version, not a version of its entire relationship graph. The countdown belongs only to the browser and is not an authorization boundary. Calendar deletion keeps its separate confirmation/detach contract. Mutation responses are captured inside the transaction and returned only after commit succeeds.
 
-Frontend routes: `/login` plus protected `/`, `/technicians`, `/technicians/{id}`, `/calendars`. A server layout validates the cookie against `/auth/me` before rendering business pages; the client rechecks sessions while visible. Backend middleware protects every business request, including docs/OpenAPI. A fixed left sidebar persists its collapsed state in browser local storage. Data remains API-backed. The desktop detail grid holds profile/connections, accounting, jobs, and location. Smaller screens stack the panels.
+Frontend routes: `/login` plus protected `/`, `/technicians`, `/technicians/{id}`, `/calendars`. A server layout validates the cookie against `/auth/me` before rendering business pages; the client rechecks sessions while visible. Backend middleware protects every business request, including docs/OpenAPI. A fixed left sidebar persists its collapsed state in browser local storage. Data remains API-backed; resource state is keyed by URL and ignores cancelled requests and stale mutation callbacks. The desktop detail grid holds profile/connections, accounting, jobs, and location. Smaller screens stack the panels.
 
 Dashboard setup checks include both active and inactive profiles and require an assigned calendar plus connected private Telegram, work group, and GPS. Telegram availability errors are represented separately from approved identity and propagated to integration attention states. GPS remains unconfigured.
 
@@ -86,8 +86,12 @@ The API process never instantiates the real provider. Default worker mode is dis
 - Under `/api/technicians/{id}/telegram`: `GET` state; `POST /invitations`; `POST /invitations/{invitation_id}/revoke`, `/review`, `/retry`; `POST /disconnect`; `POST /test-message`.
 - No HTTP route accepts provider updates, raw Telegram user IDs or arbitrary delivery targets. The test harness invokes the same application services in a separate guarded local process.
 
-Generated OpenAPI/TypeScript adds manager session, invitation, candidate, connection, runtime and delivery shapes. Existing technician/calendar contracts remain compatible. Shared aliases are exported from `@hub/contracts`.
+Generated OpenAPI/TypeScript adds manager session, invitation, candidate, connection, runtime and delivery shapes. Technician deletion now additionally requires the displayed expected_updated_at; the other existing technician/calendar contracts remain compatible. Shared aliases are exported from `@hub/contracts`.
 
 Migrations, in order: Stage 0 `863590d3075e`; auth/audit `b89e091fa280`; existing-binding extensions `5644c8fc030a`; invitation/outbox/worker persistence `4344e0e76774`. Additive upgrades preserve Stage 0 data. Destructive downgrade/upgrade checks are restricted to a disposable test database.
 
 See [Telegram security](TELEGRAM_SECURITY.md) for retention and authentication details, and [onboarding](TELEGRAM_ONBOARDING.md) for opt-in operation and client limitations.
+
+Stage 0 audit migration `a04e70c92001` branches from `863590d3075e`. Reconciliation revision `d6c2f8a14001` joins that branch and Stage 1 `4344e0e76774`, preserving both existing migration histories and supporting upgrades from either installed head.
+
+Audit evidence and current debt are tracked in [AUDIT_STAGE0.md](AUDIT_STAGE0.md), [TECH_DEBT.md](TECH_DEBT.md), and [AUDIT_RECONCILIATION.md](AUDIT_RECONCILIATION.md).

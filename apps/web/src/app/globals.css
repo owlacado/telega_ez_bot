@@ -4,7 +4,7 @@
   --bg: #f6f7f9;
   --surface: #fff;
   --ink: #182130;
-  --muted: #687385;
+  --muted: #626d7f;
   --line: #e5e8ed;
   --accent: #6554c0;
   --accent-hover: #5343aa;
@@ -89,13 +89,13 @@ a:focus-visible,
   font-size: 10px;
   letter-spacing: 1.7px;
   font-weight: 700;
-  color: #687385;
+  color: #626d7f;
 }
 .micro-label {
   display: block;
   font-size: 9px;
   letter-spacing: 1.2px;
-  color: #687385;
+  color: #626d7f;
   font-weight: 700;
 }
 .main {
@@ -164,7 +164,7 @@ a:focus-visible,
   margin: 42px 16px 15px;
   font-size: 9px;
   letter-spacing: 1.7px;
-  color: #646e82;
+  color: #919bad;
   font-weight: 700;
 }
 .nav-link {
@@ -427,7 +427,7 @@ a:focus-visible,
 }
 .page-footnote {
   font-size: 11px;
-  color: #687385;
+  color: #626d7f;
   margin: 23px 0 4px;
   line-height: 1.7;
 }
@@ -447,7 +447,7 @@ a:focus-visible,
   border-radius: 8px;
   padding: 0 13px;
   width: 330px;
-  color: #687385;
+  color: #626d7f;
   margin: 0;
 }
 .search-field input {
@@ -518,7 +518,7 @@ a:focus-visible,
   background: #edf6f1;
 }
 .status-neutral {
-  color: #6d7583;
+  color: #616b7b;
   background: #f1f3f6;
 }
 .avatar {
@@ -526,7 +526,7 @@ a:focus-visible,
   height: 36px;
   border-radius: 10px;
   background: #eeedf5;
-  color: #797091;
+  color: #6d6188;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -574,7 +574,7 @@ a:focus-visible,
   display: block;
   font-size: 9px;
   letter-spacing: 1px;
-  color: #747b89;
+  color: #667080;
   margin-top: 9px;
 }
 .card-arrow {
@@ -614,7 +614,7 @@ a:focus-visible,
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #6f7888;
+  color: #636d7e;
   font-size: 9px;
 }
 .integration-indicator i {
@@ -708,7 +708,7 @@ a:focus-visible,
 .attention-person span {
   display: block;
   font-size: 11px;
-  color: #747c8b;
+  color: #687182;
   margin-top: 3px;
   overflow-wrap: anywhere;
 }
@@ -732,7 +732,7 @@ a:focus-visible,
 }
 .foundation-note p {
   font-size: 11px;
-  color: #78698a;
+  color: #6d5d80;
   margin-top: 4px;
   line-height: 1.7;
 }
@@ -740,7 +740,7 @@ a:focus-visible,
   font-size: 8px;
   font-weight: 600;
   letter-spacing: 1px;
-  color: #7b6b91;
+  color: #725f88;
   background: #ffffff80;
   padding: 5px 8px;
   border: 1px solid #e5e0ee;
@@ -755,7 +755,7 @@ a:focus-visible,
   gap: 8px;
   align-items: center;
   font-size: 12px;
-  color: #8c94a1;
+  color: #687182;
   margin-bottom: 27px;
 }
 .back-link:hover {
@@ -815,7 +815,7 @@ label {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: #727b8a;
+  color: #636d7e;
   margin-bottom: 15px;
 }
 input:not([type="checkbox"]),
@@ -854,13 +854,13 @@ select:disabled {
 }
 .optional {
   float: right;
-  color: #acb2bc;
+  color: #636d7e;
   font-size: 10px;
   font-weight: 400;
 }
 .field-hint {
   font-size: 10px;
-  color: #737c8c;
+  color: #636d7e;
   margin-top: -7px;
   line-height: 1.7;
 }
@@ -897,7 +897,7 @@ select:disabled {
   gap: 7px;
   font-size: 9px;
   letter-spacing: 1.2px;
-  color: #6c788b;
+  color: #636d7e;
   margin-bottom: 13px;
 }
 .connection-section label {
@@ -915,7 +915,7 @@ select:disabled {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #7f8897;
+  color: #636d7e;
 }
 .connection-row svg {
   color: #a3aab6;
@@ -955,14 +955,14 @@ select:disabled {
 }
 .empty-state h3 {
   font-size: 14px;
-  color: #7d8191;
+  color: #636d7e;
   font-weight: 500;
 }
 .empty-state .muted {
   font-size: 12px;
   max-width: 290px;
   line-height: 1.8;
-  color: #737b8d;
+  color: #636d7e;
 }
 .empty-state .button,
 .empty-state .text-link {
@@ -983,7 +983,7 @@ select:disabled {
   gap: 9px;
   margin-top: 12px;
   font-size: 11px;
-  color: #788092;
+  color: #636d7e;
 }
 .future-data > div > span:before {
   content: "";
@@ -1007,7 +1007,7 @@ select:disabled {
 }
 .assigned-calendar strong {
   display: block;
-  color: #8d839f;
+  color: #736382;
   font-size: 12px;
   font-weight: 500;
   margin-top: 4px;
@@ -1069,12 +1069,12 @@ select:disabled {
 }
 .gps-empty h3 {
   font-size: 14px;
-  color: #858996;
+  color: #636d7e;
   font-weight: 500;
 }
 .gps-empty p {
   font-size: 11px;
-  color: #747e8e;
+  color: #636d7e;
   margin: 10px auto 19px;
   max-width: 270px;
   line-height: 1.8;
@@ -1093,20 +1093,20 @@ select:disabled {
 .danger-zone .eyebrow {
   font-size: 8px;
   letter-spacing: 1.3px;
-  color: #a66e78;
+  color: #97525e;
 }
 .danger-zone h2 {
   font-size: 14px;
   margin-top: 6px;
-  color: #ad626b;
+  color: #97525e;
 }
 .danger-zone p {
   font-size: 11px;
-  color: #996b72;
+  color: #925b63;
   margin-top: 6px;
 }
 .danger-outline {
-  color: #b56972;
+  color: #a34c59;
   background: white;
   border: 1px solid #eacbd0;
 }
@@ -1135,7 +1135,7 @@ select:disabled {
   color: #9688b4;
 }
 .info-banner strong {
-  color: #7a6d95;
+  color: #6e5f89;
   font-size: 12px;
   font-weight: 600;
 }
@@ -1156,7 +1156,7 @@ th {
   font-size: 9px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: #6e7787;
+  color: #636d7e;
   background: #fcfcfd;
   text-align: left;
   padding: 14px 24px;
@@ -1166,7 +1166,7 @@ td {
   padding: 18px 24px;
   font-size: 12px;
   border-top: 1px solid #eef0f5;
-  color: #808997;
+  color: #687182;
 }
 .calendar-name {
   display: flex;
@@ -1243,7 +1243,7 @@ td {
 }
 .modal-intro p,
 .modal-description {
-  color: #8c94a1;
+  color: #687182;
   font-size: 12px;
   line-height: 1.8;
 }
@@ -1272,7 +1272,7 @@ td {
   overflow-wrap: anywhere;
 }
 .warning-text {
-  color: #bc6a74;
+  color: #a34c59;
   font-size: 12px;
   margin: 16px 0;
 }
@@ -1284,7 +1284,7 @@ td {
   background: #fff4f5;
   padding: 12px 14px;
   border-radius: 7px;
-  color: #b75665;
+  color: #a44959;
   font-size: 12px;
   margin: 14px 0;
   overflow-wrap: anywhere;
@@ -1628,4 +1628,61 @@ td {
   width: 100%;
   min-height: 70px;
   overflow-wrap: anywhere;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+/* Keep maximum-length names readable within their cards and confirmation dialogs. */
+.assigned-calendar > div {
+  min-width: 0;
+}
+.assigned-calendar strong,
+.delete-identity strong,
+.modal label strong {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.table-panel table {
+  table-layout: fixed;
+  white-space: normal;
+}
+.table-panel th,
+.table-panel td {
+  padding-left: 16px;
+  padding-right: 16px;
+  overflow-wrap: anywhere;
+}
+.table-panel th:nth-child(1) {
+  width: 38%;
+}
+.table-panel th:nth-child(2) {
+  width: 30%;
+}
+.table-panel th:nth-child(3) {
+  width: 20%;
+}
+.table-panel th:nth-child(4) {
+  width: 12%;
+}
+.calendar-name {
+  min-width: 0;
+}
+.calendar-name strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.calendar-icon {
+  flex-shrink: 0;
+}
+
+.modal-description,
+.error-notice {
+  overflow-wrap: anywhere;
+}
+.error-notice > span {
+  min-width: 0;
 }

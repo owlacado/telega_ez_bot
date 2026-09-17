@@ -298,7 +298,14 @@ async def test_inactive_and_deleted_identity_cannot_claim_or_reappear(client, en
     assert (await claim(engine, provider, invitation)).outcome == "INVALID_INVITATION"
     assert (
         await client.request(
-            "DELETE", f"/api/technicians/{identifier}", json={"confirmation": "DELETE"}
+            "DELETE",
+            f"/api/technicians/{identifier}",
+            json={
+                "confirmation": "DELETE",
+                "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
+                    "updated_at"
+                ],
+            },
         )
     ).status_code == 204
     assert (await claim(engine, provider, invitation, update_id=2)).outcome == "INVALID_INVITATION"

@@ -215,7 +215,14 @@ async def test_disconnect_and_deletion_cancel_undelivered_work(client, engine, p
     assert not provider.sent
     assert (
         await client.request(
-            "DELETE", f"/api/technicians/{identifier}", json={"confirmation": "DELETE"}
+            "DELETE",
+            f"/api/technicians/{identifier}",
+            json={
+                "confirmation": "DELETE",
+                "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
+                    "updated_at"
+                ],
+            },
         )
     ).status_code == 204
     async with factory() as db:
@@ -252,7 +259,16 @@ async def test_delete_waits_for_inflight_send_and_no_transaction_over_network(
     send_task = asyncio.create_task(deliver_one(factory, engine, provider, BOT_ID))
     await asyncio.wait_for(entered.wait(), 5)
     delete_task = asyncio.create_task(
-        client.request("DELETE", f"/api/technicians/{identifier}", json={"confirmation": "DELETE"})
+        client.request(
+            "DELETE",
+            f"/api/technicians/{identifier}",
+            json={
+                "confirmation": "DELETE",
+                "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
+                    "updated_at"
+                ],
+            },
+        )
     )
     await asyncio.sleep(0.1)
     assert not delete_task.done()

@@ -48,6 +48,12 @@ async def fixture(check=False):
                 assert row == (tech, "Migration fixture", "ACTIVE")
                 assert (
                     await db.scalar(
+                        text("SELECT name FROM calendars WHERE id=:id"), {"id": calendar}
+                    )
+                    == "Migration fixture calendar"
+                )
+                assert (
+                    await db.scalar(
                         text("SELECT calendar_id FROM calendar_assignments WHERE id=:id"),
                         {"id": assignment},
                     )
@@ -124,3 +130,62 @@ asyncio.run(fixture(check=True))
 alembic("check")
 alembic("current")
 print("Stage 0 data preserved through Stage 1 upgrade / downgrade / upgrade.")
+
+
+async def stage1_record(seed=False):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if seed:
+                await db.execute(
+                    text(
+                        "INSERT INTO managers (id,username,password_hash) "
+                        "VALUES (:id,'migration-sentinel','not-a-valid-login-hash')"
+                    ),
+                    {"id": tech},
+                )
+                await db.execute(
+                    text(
+                        "INSERT INTO audit_events "
+                        "(id,actor_id,actor_kind,action,target_id,outcome) "
+                        "VALUES (:id,:target,'MANAGER','migration.sentinel',:target,'SUCCESS')"
+                    ),
+                    {"id": calendar, "target": tech},
+                )
+            else:
+                assert (
+                    await db.scalar(
+                        text("SELECT username FROM managers WHERE id=:id"), {"id": tech}
+                    )
+                    == "migration-sentinel"
+                )
+                assert (
+                    await db.scalar(
+                        text("SELECT action FROM audit_events WHERE id=:id"), {"id": calendar}
+                    )
+                    == "migration.sentinel"
+                )
+    finally:
+        await engine.dispose()
+
+
+# Preserve independently installed Stage 1 and audited Stage 0 databases.
+alembic("downgrade", "base")
+alembic("upgrade", "4344e0e76774")
+asyncio.run(fixture())
+asyncio.run(stage1_record(seed=True))
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+asyncio.run(stage1_record())
+alembic("downgrade", "4344e0e76774")
+asyncio.run(fixture(check=True))
+asyncio.run(stage1_record())
+alembic("upgrade", "head")
+asyncio.run(stage1_record())
+alembic("downgrade", "base")
+alembic("upgrade", "a04e70c92001")
+asyncio.run(fixture())
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+alembic("check")
+print("Existing Stage 1 and audited Stage 0 upgrade paths and Stage 1 data preservation passed.")
