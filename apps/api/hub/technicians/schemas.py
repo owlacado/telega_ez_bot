@@ -78,6 +78,8 @@ class TechnicianDelete(DeleteConfirmation):
 
 
 class CalendarSummary(BaseModel):
+    source: Literal["LOCAL_DEMO", "GOOGLE"] = "LOCAL_DEMO"
+    availability: Literal["AVAILABLE", "UNAVAILABLE"] = "AVAILABLE"
     id: UUID
     name: str
 

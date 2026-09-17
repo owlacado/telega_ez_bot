@@ -188,10 +188,18 @@ export function ProfilePanel({
               {calendars.data
                 ?.filter(
                   (c) =>
-                    !c.assigned_technician || c.assigned_technician.id === t.id,
+                    !c.excluded_at &&
+                    ((c.availability !== "UNAVAILABLE" &&
+                      (!c.assigned_technician ||
+                        c.assigned_technician.id === t.id)) ||
+                      c.id === t.calendar?.id),
                 )
                 .map((c) => (
-                  <option key={c.id} value={c.id}>
+                  <option
+                    key={c.id}
+                    value={c.id}
+                    disabled={c.availability === "UNAVAILABLE"}
+                  >
                     {c.name}
                   </option>
                 ))}
@@ -200,8 +208,13 @@ export function ProfilePanel({
           <p className="field-hint" role="status">
             {assigning
               ? "Saving assignment…"
-              : "Calendar selection saves automatically. Synchronization is not connected."}
+              : "Calendar selection saves automatically."}
           </p>
+          {t.calendar?.availability === "UNAVAILABLE" && (
+            <p className="calendar-warning" role="status">
+              Calendar unavailable in connected Google account.
+            </p>
+          )}
           <ErrorNotice message={calendars.error} retry={calendars.reload} />
         </div>
         <TelegramConnections

@@ -54,6 +54,12 @@ export function TechnicianCard({ technician: t }: { technician: Technician }) {
           <span className={!t.calendar ? "muted" : ""}>
             {t.calendar?.name ?? "Not assigned"}
           </span>
+          {t.calendar?.availability === "UNAVAILABLE" && (
+            <small className="calendar-warning">Calendar unavailable</small>
+          )}
+          {t.calendar?.source === "LOCAL_DEMO" && (
+            <small className="muted">Local demo</small>
+          )}
         </div>
       </div>
       <div className="card-integrations">

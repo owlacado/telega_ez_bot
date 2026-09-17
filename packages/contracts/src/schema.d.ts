@@ -299,6 +299,125 @@ export interface paths {
         patch: operations["rename_calendar_api_calendars__calendar_id__patch"];
         trace?: never;
     };
+    "/api/calendars/{calendar_id}/exclude": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exclude Calendar */
+        post: operations["exclude_calendar_api_calendars__calendar_id__exclude_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendars/{calendar_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Calendar */
+        post: operations["restore_calendar_api_calendars__calendar_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendars/{calendar_id}/assignment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Assignment */
+        put: operations["change_assignment_api_calendars__calendar_id__assignment_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendar-connections/google": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Connection Status */
+        get: operations["connection_status_api_calendar_connections_google_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendar-connections/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start */
+        post: operations["start_api_calendar_connections_google_start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendar-connections/google/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Scan */
+        post: operations["scan_api_calendar_connections_google_scan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calendar-connections/google/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Disconnect */
+        post: operations["disconnect_api_calendar_connections_google_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -367,6 +486,18 @@ export interface components {
              */
             updated_at: string;
         };
+        /** AuthorizationRead */
+        AuthorizationRead: {
+            /** Authorization Url */
+            authorization_url: string;
+        };
+        /** CalendarAssign */
+        CalendarAssign: {
+            /** Technician Id */
+            technician_id: string | null;
+            /** Expected Assigned Technician Id */
+            expected_assigned_technician_id: string | null;
+        };
         /** CalendarCreate */
         CalendarCreate: {
             /** Name */
@@ -385,8 +516,43 @@ export interface components {
              */
             detach_assigned: boolean;
         };
+        /** CalendarExclude */
+        CalendarExclude: {
+            /**
+             * Confirmation
+             * @constant
+             */
+            confirmation: "EXCLUDE";
+            /** Expected Assigned Technician Id */
+            expected_assigned_technician_id: string | null;
+        };
         /** CalendarRead */
         CalendarRead: {
+            /**
+             * Source
+             * @default LOCAL_DEMO
+             * @enum {string}
+             */
+            source: "LOCAL_DEMO" | "GOOGLE";
+            /**
+             * Availability
+             * @default AVAILABLE
+             * @enum {string}
+             */
+            availability: "AVAILABLE" | "UNAVAILABLE";
+            /** Excluded At */
+            excluded_at?: string | null;
+            /** Timezone */
+            timezone?: string | null;
+            /**
+             * Primary
+             * @default false
+             */
+            primary: boolean;
+            /** Access Role */
+            access_role?: string | null;
+            /** Last Seen At */
+            last_seen_at?: string | null;
             /**
              * Id
              * Format: uuid
@@ -408,6 +574,18 @@ export interface components {
         };
         /** CalendarSummary */
         CalendarSummary: {
+            /**
+             * Source
+             * @default LOCAL_DEMO
+             * @enum {string}
+             */
+            source: "LOCAL_DEMO" | "GOOGLE";
+            /**
+             * Availability
+             * @default AVAILABLE
+             * @enum {string}
+             */
+            availability: "AVAILABLE" | "UNAVAILABLE";
             /**
              * Id
              * Format: uuid
@@ -474,6 +652,59 @@ export interface components {
              * @constant
              */
             confirmation: "DISCONNECT";
+        };
+        /** DisconnectInput */
+        DisconnectInput: {
+            /**
+             * Confirmation
+             * @constant
+             */
+            confirmation: "DISCONNECT";
+            /**
+             * Expected Connection Id
+             * Format: uuid
+             */
+            expected_connection_id: string;
+            /** Expected Generation */
+            expected_generation: number;
+        };
+        /** GoogleConnectionRead */
+        GoogleConnectionRead: {
+            /** Enabled */
+            enabled: boolean;
+            /** Id */
+            id?: string | null;
+            /** Generation */
+            generation?: number | null;
+            /**
+             * Status
+             * @default DISCONNECTED
+             * @enum {string}
+             */
+            status: "DISCONNECTED" | "CONNECTED" | "REAUTH_REQUIRED" | "ERROR";
+            /** Account Label */
+            account_label?: string | null;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Last Error Code */
+            last_error_code?: string | null;
+            /** Retry At */
+            retry_at?: string | null;
+            /**
+             * Calendar Count
+             * @default 0
+             */
+            calendar_count: number;
+            /**
+             * Assignment Count
+             * @default 0
+             */
+            assignment_count: number;
+            /**
+             * Demo Enabled
+             * @default false
+             */
+            demo_enabled: boolean;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -628,6 +859,29 @@ export interface components {
             heartbeat_at?: string | null;
             /** Error Code */
             error_code?: string | null;
+        };
+        /** ScanRead */
+        ScanRead: {
+            /** Discovered */
+            discovered: number;
+        };
+        /** StartInput */
+        StartInput: {
+            /**
+             * Mode
+             * @default CONNECT
+             * @enum {string}
+             */
+            mode: "CONNECT" | "RECONNECT" | "SWITCH";
+            /** Expected Connection Id */
+            expected_connection_id?: string | null;
+            /** Expected Generation */
+            expected_generation?: number | null;
+            /**
+             * Confirm Replace
+             * @default false
+             */
+            confirm_replace: boolean;
         };
         /** TechnicianCreate */
         TechnicianCreate: {
@@ -1469,6 +1723,205 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CalendarRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exclude_calendar_api_calendars__calendar_id__exclude_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarExclude"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_calendar_api_calendars__calendar_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_assignment_api_calendars__calendar_id__assignment_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarAssign"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connection_status_api_calendar_connections_google_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleConnectionRead"];
+                };
+            };
+        };
+    };
+    start_api_calendar_connections_google_start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_api_calendar_connections_google_scan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScanRead"];
+                };
+            };
+        };
+    };
+    disconnect_api_calendar_connections_google_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisconnectInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

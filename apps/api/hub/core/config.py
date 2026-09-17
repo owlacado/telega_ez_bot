@@ -8,13 +8,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[4] / ".env", extra="ignore"
+        env_file=Path(__file__).resolve().parents[4] / ".env",
+        extra="ignore",
+        hide_input_in_errors=True,
     )
     database_url: str = "postgresql+asyncpg://hub:hub_local_only@127.0.0.1:5436/technician_hub"
     app_env: str = "development"
     cookie_secure: bool = False
     allowed_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     session_lifetime_seconds: int = Field(default=28800, ge=60, le=86400)
+
+    google_mode: Literal["disabled", "real", "fake"] = "disabled"
+    google_client_id: str | None = None
+    google_client_secret: SecretStr | None = None
+    google_oauth_redirect_uri: str | None = None
+    google_calendar_credential_encryption_key: SecretStr | None = None
 
     telegram_mode: Literal["disabled", "real", "fake"] = "disabled"
     telegram_bot_token: SecretStr | None = None
@@ -27,6 +35,10 @@ class Settings(BaseSettings):
     @classmethod
     def empty_optional_configuration(cls, values):
         for key in (
+            "google_client_id",
+            "google_client_secret",
+            "google_oauth_redirect_uri",
+            "google_calendar_credential_encryption_key",
             "telegram_expected_bot_id",
             "telegram_expected_bot_username",
             "telegram_token_file",
@@ -55,7 +67,7 @@ class Settings(BaseSettings):
                 or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
             ):
                 raise ValueError("HTTP is allowed only on loopback for local development/test.")
-        if self.telegram_mode == "fake":
+        if self.telegram_mode == "fake" or self.google_mode == "fake":
             from sqlalchemy.engine import make_url
 
             db = make_url(self.database_url)
@@ -72,4 +84,33 @@ class Settings(BaseSettings):
                 raise ValueError("Invalid configured bot username.")
         if self.telegram_expected_bot_id is not None and self.telegram_expected_bot_id <= 0:
             raise ValueError("Expected bot identity must be positive.")
+        if self.google_mode != "disabled":
+            from hub.core.secrets import SecretCipher
+
+            if not self.google_calendar_credential_encryption_key:
+                raise ValueError("Google credential encryption key is required.")
+            SecretCipher(self.google_calendar_credential_encryption_key.get_secret_value())
+        if self.google_mode == "real":
+            if not all(
+                (self.google_client_id, self.google_client_secret, self.google_oauth_redirect_uri)
+            ):
+                raise ValueError("Google OAuth configuration is incomplete.")
+            redirect = urlparse(self.google_oauth_redirect_uri)
+            if (
+                redirect.scheme not in {"https", "http"}
+                or redirect.query
+                or redirect.fragment
+                or redirect.username
+                or redirect.path != "/api/calendar-connections/google/callback"
+                or (
+                    redirect.scheme == "http"
+                    and (
+                        self.app_env not in {"development", "test"}
+                        or redirect.hostname not in {"localhost", "127.0.0.1"}
+                    )
+                )
+            ):
+                raise ValueError("Invalid Google OAuth redirect URI.")
+            if f"{redirect.scheme}://{redirect.netloc}" not in self.allowed_origins:
+                raise ValueError("Google callback must use a configured application origin.")
         return self

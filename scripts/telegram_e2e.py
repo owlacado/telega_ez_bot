@@ -48,6 +48,19 @@ async def main():
                 telegram_expected_bot_username=BOT_USERNAME,
             )
             await Worker(settings, engine, provider).startup()
+        elif action == "google_reset":
+            from hub.calendars.models import Calendar, CalendarAssignment
+            from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
+            from sqlalchemy import select
+
+            async with factory() as db, db.begin():
+                google_ids = select(Calendar.id).where(Calendar.source == "GOOGLE")
+                await db.execute(
+                    delete(CalendarAssignment).where(CalendarAssignment.calendar_id.in_(google_ids))
+                )
+                await db.execute(delete(Calendar).where(Calendar.source == "GOOGLE"))
+                await db.execute(delete(GoogleOAuthAttempt))
+                await db.execute(delete(CalendarConnection))
         elif action == "cleanup":
             async with factory() as db, db.begin():
                 await db.execute(delete(Manager).where(Manager.username == payload["username"]))

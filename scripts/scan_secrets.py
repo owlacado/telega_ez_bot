@@ -13,6 +13,9 @@ files = (
     .split("\0")
 )
 patterns = {
+    "Google access token": re.compile(r"ya29\.[A-Za-z0-9_-]{20,}"),
+    "Google OAuth client secret": re.compile(r"GOCSPX-[A-Za-z0-9_-]{20,}"),
+    "Google refresh token": re.compile(r"1//[A-Za-z0-9_-]{30,}"),
     "Telegram bot credential": re.compile(r"(?<![\w])\d{6,12}:[A-Za-z0-9_-]{30,50}(?![\w])"),
     "Private key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     "Provider secret": re.compile(r"(?:sk-proj-|ghp_|github_pat_)[A-Za-z0-9_-]{30,}"),

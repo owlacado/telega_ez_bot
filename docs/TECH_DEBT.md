@@ -1,35 +1,38 @@
 # Technical debt register
 
-Scope: independent Stage 1 Telegram quality audit from c480fe2. **24 entries: 10 RESOLVED, 14 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 9, LOW 3**. Resolved counts: HIGH 3, MEDIUM 7. This audit adds TD-023 and TD-024; no existing item is closed. Evidence is in AUDIT_STAGE1_TELEGRAM.md. TD-014 was due BEFORE STAGE 1 and remains overdue; it is a BEFORE NEXT STAGE blocker, not a newly deferred obligation.
+Scope: Stage 2 Google Calendar discovery following the audited Stage 1 baseline `37c7791`. **27 entries: 10 RESOLVED, 17 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 12, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.
 
-| ID     | Severity | Area                                  | Required Before       | Status   |
-| ------ | -------- | ------------------------------------- | --------------------- | -------- |
-| TD-001 | HIGH     | Identity / navigation                 | BEFORE STAGE 1        | RESOLVED |
-| TD-002 | HIGH     | Permanent deletion                    | BEFORE STAGE 1        | RESOLVED |
-| TD-003 | MEDIUM   | Database integrity                    | BEFORE STAGE 1        | RESOLVED |
-| TD-004 | MEDIUM   | Transactions / response               | BEFORE STAGE 1        | RESOLVED |
-| TD-005 | MEDIUM   | Input validation                      | BEFORE STAGE 1        | RESOLVED |
-| TD-006 | MEDIUM   | Frontend mutations                    | BEFORE STAGE 1        | RESOLVED |
-| TD-007 | MEDIUM   | Failure recovery                      | BEFORE STAGE 1        | RESOLVED |
-| TD-008 | MEDIUM   | Accessibility / layout                | BEFORE INTERNAL PILOT | RESOLVED |
-| TD-009 | HIGH     | Authentication / authorization        | BEFORE STAGE 1        | RESOLVED |
-| TD-010 | HIGH     | Deletion audit / accountability       | BEFORE INTERNAL PILOT | OPEN     |
-| TD-011 | HIGH     | Sensitive data protection             | BEFORE INTERNAL PILOT | OPEN     |
-| TD-012 | MEDIUM   | Deployment / credentials / origins    | BEFORE INTERNAL PILOT | OPEN     |
-| TD-013 | MEDIUM   | Concurrent profile editing            | BEFORE INTERNAL PILOT | OPEN     |
-| TD-014 | MEDIUM   | Provider state invariants             | BEFORE NEXT STAGE     | OPEN     |
-| TD-015 | MEDIUM   | Scaling / response size               | LATER SCALE           | OPEN     |
-| TD-016 | MEDIUM   | Durability / operations               | BEFORE PRODUCTION     | OPEN     |
-| TD-017 | MEDIUM   | Observability / timeouts              | BEFORE INTERNAL PILOT | OPEN     |
-| TD-018 | MEDIUM   | External profile images               | BEFORE INTERNAL PILOT | OPEN     |
-| TD-019 | LOW      | Runtime contracts                     | BEFORE PRODUCTION     | OPEN     |
-| TD-020 | LOW      | Accessibility coverage                | BEFORE PRODUCTION     | OPEN     |
-| TD-021 | MEDIUM   | Search consistency                    | BEFORE STAGE 1        | RESOLVED |
-| TD-022 | MEDIUM   | Telegram membership / live acceptance | BEFORE INTERNAL PILOT | OPEN     |
-| TD-023 | MEDIUM   | Telegram abuse / retention            | BEFORE INTERNAL PILOT | OPEN     |
-| TD-024 | LOW      | Telegram metadata freshness           | LATER SCALE           | OPEN     |
+| ID     | Severity | Area                                       | Required Before       | Status   |
+| ------ | -------- | ------------------------------------------ | --------------------- | -------- |
+| TD-001 | HIGH     | Identity / navigation                      | BEFORE STAGE 1        | RESOLVED |
+| TD-002 | HIGH     | Permanent deletion                         | BEFORE STAGE 1        | RESOLVED |
+| TD-003 | MEDIUM   | Database integrity                         | BEFORE STAGE 1        | RESOLVED |
+| TD-004 | MEDIUM   | Transactions / response                    | BEFORE STAGE 1        | RESOLVED |
+| TD-005 | MEDIUM   | Input validation                           | BEFORE STAGE 1        | RESOLVED |
+| TD-006 | MEDIUM   | Frontend mutations                         | BEFORE STAGE 1        | RESOLVED |
+| TD-007 | MEDIUM   | Failure recovery                           | BEFORE STAGE 1        | RESOLVED |
+| TD-008 | MEDIUM   | Accessibility / layout                     | BEFORE INTERNAL PILOT | RESOLVED |
+| TD-009 | HIGH     | Authentication / authorization             | BEFORE STAGE 1        | RESOLVED |
+| TD-010 | HIGH     | Deletion audit / accountability            | BEFORE INTERNAL PILOT | OPEN     |
+| TD-011 | HIGH     | Sensitive data protection                  | BEFORE INTERNAL PILOT | OPEN     |
+| TD-012 | MEDIUM   | Deployment / credentials / origins         | BEFORE INTERNAL PILOT | OPEN     |
+| TD-013 | MEDIUM   | Concurrent profile editing                 | BEFORE INTERNAL PILOT | OPEN     |
+| TD-014 | MEDIUM   | Provider state invariants                  | BEFORE NEXT STAGE     | OPEN     |
+| TD-015 | MEDIUM   | Scaling / response size                    | LATER SCALE           | OPEN     |
+| TD-016 | MEDIUM   | Durability / operations                    | BEFORE PRODUCTION     | OPEN     |
+| TD-017 | MEDIUM   | Observability / timeouts                   | BEFORE INTERNAL PILOT | OPEN     |
+| TD-018 | MEDIUM   | External profile images                    | BEFORE INTERNAL PILOT | OPEN     |
+| TD-019 | LOW      | Runtime contracts                          | BEFORE PRODUCTION     | OPEN     |
+| TD-020 | LOW      | Accessibility coverage                     | BEFORE PRODUCTION     | OPEN     |
+| TD-021 | MEDIUM   | Search consistency                         | BEFORE STAGE 1        | RESOLVED |
+| TD-022 | MEDIUM   | Telegram membership / live acceptance      | BEFORE INTERNAL PILOT | OPEN     |
+| TD-023 | MEDIUM   | Telegram abuse / retention                 | BEFORE INTERNAL PILOT | OPEN     |
+| TD-024 | LOW      | Telegram metadata freshness                | LATER SCALE           | OPEN     |
+| TD-025 | MEDIUM   | Google credential operations               | BEFORE INTERNAL PILOT | OPEN     |
+| TD-026 | MEDIUM   | Google request budgets / attempt retention | BEFORE INTERNAL PILOT | OPEN     |
+| TD-027 | MEDIUM   | Google live sandbox acceptance             | BEFORE INTERNAL PILOT | OPEN     |
 
 ## TD-001: Identity / navigation
 
@@ -140,6 +143,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Design an append-only audit trail with actor identity and minimal non-sensitive tombstones, retention and access policy. Preserve atomic deletion semantics. Stage 1 supplies identity and the transactional event; retention and append-only guarantees remain outside this reconciliation.
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Audit evidence:** Telegram events and `technician.deleted` survive deletion because target_id has no cascade FK; actor_id becomes null if the manager is deleted. Existing regression confirms this. Retention, append-only enforcement and durable actor attribution still lack a policy.
+- **Stage 2 evidence:** Google connection, scan, assignment, exclusion, restore, and revocation outcomes now use the same safe transactional audit boundary. No token, authorization code, or state is included. Retention, append-only enforcement, and durable attribution remain OPEN.
 - **Status:** OPEN
 
 ## TD-011: Sensitive data protection
@@ -151,6 +155,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** Technician model, TechnicianDetail schema and profile-panel.tsx. Full SSNs are rejected; forms mask last4, but masking is not encryption.
 - **Recommended remediation:** Before real personal data: field access policy, encryption with keys outside the database, rotation/recovery, secure backups and log redaction tests. Deferred by explicit Stage 0 scope; do not populate real identifiers.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Stage 2 evidence:** Provider refresh tokens and pending PKCE verifiers now use authenticated Fernet encryption with an external key and versioned envelope. Ciphertext corruption/wrong-key/plaintext-mutation tests pass. DL/SSN columns and access policy are unchanged; this HIGH item remains OPEN.
 - **Status:** OPEN
 
 ## TD-012: Deployment / credentials / origins
@@ -162,6 +167,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** compose.yaml, core/config.py, main.py, next.config.ts and .env.example; no permissive CORS middleware found.
 - **Recommended remediation:** Add a production configuration gate, unique managed credentials, TLS termination, allowed hosts/origins, session-aware CSRF controls and bounded request rates. Keep current loopback-only isolation for this prototype.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Stage 2 evidence:** Google configuration fails closed when enabled without a valid encryption key/client/redirect configuration; callback origin is validated and demo creation/assignment is blocked in production. Existing TLS, managed credentials and deployment policy are still required. Compose environment values must be protected by the operator.
 - **Status:** OPEN
 
 ## TD-013: Concurrent profile editing
@@ -185,6 +191,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Before each provider is enabled, specify its state machine and add database constraints/transaction tests for supported combinations. Retain Stage 1 state-machine/concurrency tests; add missing database invariants in a separately scoped change.
 - **Required before milestone:** BEFORE NEXT STAGE (original BEFORE STAGE 1 deadline remains overdue)
 - **Audit evidence:** `test_live_schema_constraints_and_documented_gap` directly verifies deployed uniqueness/FKs/partial invitation index and reproduces CONNECTED with a null identifier. No schema change is justified without a complete state policy and existing-data repair plan; GPS is outside this audit.
+- **Stage 2 evidence:** New Google source/identity, connection status/credential, account identity and current-connection constraints are database enforced; raw uniqueness and migration constraint tests cover them. Existing Telegram/GPS gaps remain unchanged and OPEN; no claim is made that Stage 2 closes this historical blocker.
 - **Status:** OPEN
 
 ## TD-015: Scaling / response size
@@ -208,6 +215,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** compose.yaml and infrastructure; no backup/restore runbook or automated restore verification.
 - **Recommended remediation:** Define RPO/RTO, encrypted off-host backups, retention, restore drills and deployment rollback. Pilot data must remain disposable until an appropriate backup process exists.
 - **Required before milestone:** BEFORE PRODUCTION
+- **Stage 2 evidence:** Encrypted Google credentials make protected key recovery part of backup/restore. The runbook describes coordinated DB/key backups and refuses destructive downgrade with provider data. An automated restore drill and defined recovery targets are still absent.
 - **Status:** OPEN
 
 ## TD-017: Observability / timeouts
@@ -220,6 +228,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Add redacted structured events, correlation IDs, bounded connect/query/request timeouts and health/latency alerts. SQL parameter hiding, bounded worker retries, sanitized worker status events and malformed-update handling are present; they do not constitute a full application logging/timeout policy.
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Audit evidence:** This audit fixes pooled advisory waiter starvation, stale polling offsets, Retry-After truncation and closed provider error codes. PostgreSQL pool-contention and worker regressions pass. Global DB deadlines, correlation IDs, alerting and lock-wait budgets remain incomplete.
+- **Stage 2 evidence:** Google network calls have bounded connect/read timeouts, closed error codes, full Retry-After deadlines, safe audits, query redaction and no SQL transaction across external calls. Global deadlines, correlation/alerts, and ingress log policy remain OPEN.
 - **Status:** OPEN
 
 ## TD-018: External profile images
@@ -253,6 +262,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** e2e/audit.spec.ts; visual inspection at four desktop/tablet widths.
 - **Recommended remediation:** Run a screen-reader and cross-browser acceptance pass before production, including zoom/reflow and touch controls.
 - **Required before milestone:** BEFORE PRODUCTION
+- **Stage 2 evidence:** The complete calendar connection/assignment/exclusion workflow passes Chromium browser tests; existing four-width layout and automated accessibility checks still pass. Manual screen-reader and cross-browser acceptance remains OPEN.
 - **Status:** OPEN
 
 ## TD-021: Search consistency
@@ -298,4 +308,37 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** claims.py captures metadata; lifecycle.py handles identity migration and availability rather than title/profile refresh. Quality tests prove bounded Unicode and canonical-name isolation.
 - **Recommended remediation:** Add a narrowly scoped refresh policy when operational demand warrants it, preserving IDs and canonical names. Do not identify technicians by username or group title.
 - **Required before milestone:** LATER SCALE
+- **Status:** OPEN
+
+## TD-025: Google credential rotation, revocation and recovery operations
+
+- **Severity:** MEDIUM
+- **Area:** Provider credential operations
+- **Description:** Refresh tokens are encrypted and disconnect/switch revoke best-effort after local deletion. There is no durable revocation outbox or automated in-place key re-encryption. A crash after local deletion can leave the remote grant valid; a wrong/lost key requires protected recovery or deliberate reconnect.
+- **Why it matters:** Operators need a tested credential incident and recovery procedure before pilot data or real grants are accepted.
+- **Evidence:** SecretCipher, Google lifecycle advisory guard, generation checks, corruption tests, revocation-failure tests, and GOOGLE_CALENDAR_INTEGRATION.md. Same-account reconnect deliberately avoids project-wide revocation of the new token.
+- **Recommended remediation:** Approve and rehearse the documented manual stop/disconnect/rotate/reconnect procedure and secure key backup. Add a durable, encrypted revoke workflow and managed rotation when real deployments require unattended recovery; preserve Google's project-wide revocation semantics.
+- **Required before milestone:** BEFORE INTERNAL PILOT
+- **Status:** OPEN
+
+## TD-026: Google request budgets and OAuth-attempt retention
+
+- **Severity:** MEDIUM
+- **Area:** Provider quota and storage operations
+- **Description:** Scan concurrency is bounded and provider Retry-After is persisted; permanent authorization failures stop scans until reconnect. Authenticated managers can still start many OAuth attempts or perform many successful sequential scans. Consumed/expired attempt metadata has no pruning policy.
+- **Why it matters:** Trusted-manager misuse or a compromised session could exhaust Google quota or increase database storage. Encrypted expired verifiers may persist until a new same-session start or session deletion.
+- **Evidence:** OAuth start invalidates prior same-session attempts; scan guard rejects overlapping requests; Google failure/backoff regressions pass. No per-manager OAuth or successful-scan budget is configured.
+- **Recommended remediation:** Before shared pilot use, establish per-manager/global OAuth and scan budgets and a safe attempt-retention policy. Keep single-use state and replay protection intact; use sanitized quota observations.
+- **Required before milestone:** BEFORE INTERNAL PILOT
+- **Status:** OPEN
+
+## TD-027: Google OAuth and CalendarList live sandbox acceptance
+
+- **Severity:** MEDIUM
+- **Area:** External-provider acceptance
+- **Description:** All automated tests use fake providers or synthetic HTTP responses. Actual consent screens, consent/project configuration, test-account refresh lifetime, primary CalendarList identity behavior, revocation, and hidden/shared-calendar visibility have not been exercised with Google.
+- **Why it matters:** Fake tests prove application logic but cannot establish Google account/project configuration correctness.
+- **Evidence:** GOOGLE_CALENDAR_INTEGRATION.md contains a dedicated TEST-account runbook and official references. Backend and Playwright guards prohibit live Google calls. No real Google account/calendar was contacted.
+- **Recommended remediation:** Perform and record that manual runbook with dedicated test accounts/project; verify narrow scope and sanitize evidence. Approve consent-screen and deployment settings before any operational account is connected.
+- **Required before milestone:** BEFORE INTERNAL PILOT
 - **Status:** OPEN

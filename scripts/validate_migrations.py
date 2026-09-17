@@ -114,6 +114,22 @@ async def fixture(check=False):
 
 
 alembic("upgrade", "head")
+
+
+async def reset_stage2_test_fixtures():
+    # This script already requires a disposable, local test DB and drops all schema below.
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if await db.scalar(text("SELECT to_regclass('calendar_connections')")):
+                await db.execute(
+                    text("TRUNCATE calendar_connections, google_oauth_attempts CASCADE")
+                )
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(reset_stage2_test_fixtures())
 alembic("downgrade", "base")
 alembic("upgrade", "head")
 alembic("check")
@@ -269,3 +285,70 @@ asyncio.run(completion_fixture())
 alembic("check")
 alembic("heads")
 print("Populated reconciliation upgrade preserves pending review credentials and queued delivery.")
+
+
+async def stage2_fixture(check=False):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if not check:
+                await db.execute(
+                    text(
+                        "INSERT INTO calendar_connections "
+                        "(id,account_key,account_label,status,granted_scopes) "
+                        "VALUES (:id,'migration-account','Migration account','DISCONNECTED','[]')"
+                    ),
+                    {"id": tech},
+                )
+                await db.execute(
+                    text(
+                        "UPDATE calendars SET source='GOOGLE',provider_connection_id=:connection, "
+                        "provider_calendar_id='migration-google',excluded_at=now(), "
+                        "availability='UNAVAILABLE' WHERE id=:id"
+                    ),
+                    {"connection": tech, "id": calendar},
+                )
+            row = (
+                await db.execute(
+                    text(
+                        "SELECT c.source,c.provider_calendar_id,"
+                        "c.excluded_at IS NOT NULL,a.calendar_id "
+                        "FROM calendars c JOIN calendar_assignments a ON a.calendar_id=c.id "
+                        "WHERE c.id=:id"
+                    ),
+                    {"id": calendar},
+                )
+            ).one()
+            assert row == ("GOOGLE", "migration-google", True, calendar)
+            constraints = set(
+                (
+                    await db.scalars(
+                        text(
+                            "SELECT conname FROM pg_constraint WHERE conrelid='calendars'::regclass"
+                        )
+                    )
+                ).all()
+            )
+            assert {
+                "ck_calendars_provider_identity",
+                "ck_calendars_availability",
+                "uq_calendar_provider_identity",
+            } <= constraints
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(stage2_fixture())
+refused = subprocess.run(
+    [sys.executable, "-m", "alembic", "downgrade", "e7b310920001"],
+    cwd=root / "apps/api",
+    env=env,
+    capture_output=True,
+    text=True,
+)
+assert refused.returncode != 0 and "Stage 2 provider data exists" in refused.stderr
+asyncio.run(stage2_fixture(check=True))
+alembic("check")
+print(
+    "Stage 2 populated catalog/history preserved; destructive downgrade refused; checks verified."
+)

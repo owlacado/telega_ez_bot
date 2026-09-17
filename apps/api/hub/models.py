@@ -3,6 +3,7 @@
 from hub.audit.models import AuditEvent
 from hub.auth.models import Manager, ManagerSession, RateBucket
 from hub.calendars.models import Calendar, CalendarAssignment
+from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.integrations.models import GpsBinding, TelegramBinding
 from hub.technicians.models import Technician
 from hub.telegram.models import (
@@ -17,6 +18,8 @@ __all__ = [
     "Manager",
     "ManagerSession",
     "RateBucket",
+    "CalendarConnection",
+    "GoogleOAuthAttempt",
     "Calendar",
     "CalendarAssignment",
     "GpsBinding",

@@ -1686,3 +1686,63 @@ fieldset {
 .error-notice > span {
   min-width: 0;
 }
+
+.google-panel {
+  margin-bottom: 24px;
+}
+.google-actions,
+.calendar-toolbar,
+.calendar-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.google-actions {
+  margin-top: 18px;
+}
+.calendar-toolbar {
+  margin: 20px 0;
+  align-items: end;
+}
+.calendar-toolbar label:first-child {
+  flex: 1;
+}
+.calendar-toolbar label {
+  min-width: 150px;
+}
+.calendar-row-actions {
+  justify-content: flex-end;
+}
+.calendar-name > div {
+  min-width: 0;
+}
+.calendar-name strong {
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendar-name small,
+td > small {
+  display: block;
+  margin-top: 4px;
+}
+.calendar-warning {
+  color: #9c5910;
+  font-size: 12px;
+}
+.excluded-toggle {
+  margin-top: 20px;
+}
+.excluded-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+.excluded-row > span {
+  overflow-wrap: anywhere;
+}

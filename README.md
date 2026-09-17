@@ -2,9 +2,11 @@
 
 A local operations workspace built around the human technician. PostgreSQL owns identity; calendars and future provider connections attach to an immutable UUID.
 
-**Stage 1: completed Telegram identity and group onboarding.** All business data requires a manager session. Telegram defaults to disabled and its worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live Telegram validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
+**Stage 2: Google Calendar discovery and local assignment, alongside completed Telegram onboarding.** All business data requires a manager session. Google and Telegram default to disabled; the Telegram worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live provider validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
 
 Connect Telegram now creates a one-time invitation and binds automatically when the intended technician presses Start. Work-group linking uses a separate invitation and requires that same linked account to send the group command; ordinary bot membership is sufficient. Existing invitations retain their old manager-review policy after upgrade. See [the onboarding runbook](docs/TELEGRAM_ONBOARDING.md) for safe link handling, configuration, disconnect/reconnect behavior and the manual TEST-bot procedure, and [completion verification](docs/TELEGRAM_COMPLETION_VERIFICATION.md) for current evidence.
+
+Google Calendar uses manager-initiated OAuth, encrypted offline credentials, complete manual CalendarList discovery, exclusion/restore, and atomic technician assignments. It requests only CalendarList read access; events and schedule delivery remain out of scope. See [Google integration and safe TEST-account acceptance](docs/GOOGLE_CALENDAR_INTEGRATION.md) and [Stage 2 verification](docs/STAGE2_GOOGLE_CALENDAR_VERIFICATION.md). No real Google account is needed for automated tests.
 
 ## Quick start on Windows
 
@@ -100,13 +102,13 @@ docker compose config --quiet
 git diff --check
 ```
 
-Playwright starts an authenticated API on 8001 and Next.js on 3001. It uses random temporary manager credentials and a stdin-only local fake Telegram harness, never a public simulation endpoint. Do not point these tests at the development database. Production-image tests use an independent stack on 3002/5438; see [Stage 1 verification](docs/STAGE1_VERIFICATION.md).
+Playwright starts an authenticated API on 8001 and Next.js on 3001. It uses random temporary manager credentials, a fake Google provider, and a stdin-only local fake Telegram harness, never a public simulation endpoint. Do not point these tests at the development database. Current production-image tests use an independent stack on 3005/5442; see [Stage 2 verification](docs/STAGE2_GOOGLE_CALENDAR_VERIFICATION.md).
 
 ## Structure and contracts
 
 ```text
 apps/web/           Next.js App Router UI
-apps/api/hub/       FastAPI: auth, audit, Telegram, technicians, calendars, core
+apps/api/hub/       FastAPI: auth, audit, Telegram, Google Calendar, technicians, core
 apps/api/migrations/  Alembic PostgreSQL migrations
 packages/contracts/  OpenAPI snapshot and generated TypeScript API types
 packages/shared/     Pure display helpers; no backend dependency
@@ -131,7 +133,7 @@ Commit both the OpenAPI snapshot and generated types. Runtime requests are valid
 - Technicians supports name search, horizontal identity cards, a quick add dialog, and persistent detail editing.
 - Calendar selection saves immediately. One technician has at most one active primary calendar, and a calendar is assigned to at most one technician. Changing/unassigning preserves assignment history.
 - Permanent deletion requires an exact `DELETE First Last` in the browser and a 10-second wait. The API independently requires `{ "confirmation": "DELETE" }`. It permanently deletes the technician and bindings, leaving local calendars intact.
-- Calendar removal requires confirmation and an explicit detach flag when assigned. It removes only the Hub record; no Google calls exist. Historical assignments keep a name snapshot.
+- Google calendar removal requires confirmation of the current assignee and creates a local exclusion; scans preserve that exclusion until Restore. Assigned removal unassigns atomically and preserves history. Local demo deletion retains its separate confirmation/detach contract. No Google calendar is deleted.
 
 Open a technician's **Connect Telegram** dialog, generate a link, review the claiming account, and explicitly approve it. Then connect and approve a separate work group. Replacement keeps the current identity until approval; replacing/disconnecting private access suspends group delivery until revalidation. Test messages require a selected approved destination and confirmation. Already delivered messages are not erased by local deletion.
 

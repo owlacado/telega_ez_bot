@@ -977,6 +977,251 @@
         }
       }
     },
+    "/api/calendars/{calendar_id}/exclude": {
+      "post": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Exclude Calendar",
+        "operationId": "exclude_calendar_api_calendars__calendar_id__exclude_post",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarExclude"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/{calendar_id}/restore": {
+      "post": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Restore Calendar",
+        "operationId": "restore_calendar_api_calendars__calendar_id__restore_post",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/{calendar_id}/assignment": {
+      "put": {
+        "tags": [
+          "calendars"
+        ],
+        "summary": "Change Assignment",
+        "operationId": "change_assignment_api_calendars__calendar_id__assignment_put",
+        "parameters": [
+          {
+            "name": "calendar_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalendarAssign"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar-connections/google": {
+      "get": {
+        "tags": [
+          "google-calendar"
+        ],
+        "summary": "Connection Status",
+        "operationId": "connection_status_api_calendar_connections_google_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoogleConnectionRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar-connections/google/start": {
+      "post": {
+        "tags": [
+          "google-calendar"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_calendar_connections_google_start_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar-connections/google/scan": {
+      "post": {
+        "tags": [
+          "google-calendar"
+        ],
+        "summary": "Scan",
+        "operationId": "scan_api_calendar_connections_google_scan_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar-connections/google/disconnect": {
+      "post": {
+        "tags": [
+          "google-calendar"
+        ],
+        "summary": "Disconnect",
+        "operationId": "disconnect_api_calendar_connections_google_disconnect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisconnectInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -1090,6 +1335,54 @@
         ],
         "title": "AssignmentRead"
       },
+      "AuthorizationRead": {
+        "properties": {
+          "authorization_url": {
+            "type": "string",
+            "title": "Authorization Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "authorization_url"
+        ],
+        "title": "AuthorizationRead"
+      },
+      "CalendarAssign": {
+        "properties": {
+          "technician_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Id"
+          },
+          "expected_assigned_technician_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Assigned Technician Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "technician_id",
+          "expected_assigned_technician_id"
+        ],
+        "title": "CalendarAssign"
+      },
       "CalendarCreate": {
         "properties": {
           "name": {
@@ -1126,8 +1419,105 @@
         ],
         "title": "CalendarDelete"
       },
+      "CalendarExclude": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "EXCLUDE",
+            "title": "Confirmation"
+          },
+          "expected_assigned_technician_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Assigned Technician Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmation",
+          "expected_assigned_technician_id"
+        ],
+        "title": "CalendarExclude"
+      },
       "CalendarRead": {
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "LOCAL_DEMO",
+              "GOOGLE"
+            ],
+            "title": "Source",
+            "default": "LOCAL_DEMO"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "Availability",
+            "default": "AVAILABLE"
+          },
+          "excluded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Excluded At"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          },
+          "primary": {
+            "type": "boolean",
+            "title": "Primary",
+            "default": false
+          },
+          "access_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Role"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -1169,6 +1559,24 @@
       },
       "CalendarSummary": {
         "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "LOCAL_DEMO",
+              "GOOGLE"
+            ],
+            "title": "Source",
+            "default": "LOCAL_DEMO"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "Availability",
+            "default": "AVAILABLE"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -1337,6 +1745,140 @@
           "confirmation"
         ],
         "title": "Disconnect"
+      },
+      "DisconnectInput": {
+        "properties": {
+          "confirmation": {
+            "type": "string",
+            "const": "DISCONNECT",
+            "title": "Confirmation"
+          },
+          "expected_connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Expected Connection Id"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "title": "Expected Generation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "confirmation",
+          "expected_connection_id",
+          "expected_generation"
+        ],
+        "title": "DisconnectInput"
+      },
+      "GoogleConnectionRead": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generation"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DISCONNECTED",
+              "CONNECTED",
+              "REAUTH_REQUIRED",
+              "ERROR"
+            ],
+            "title": "Status",
+            "default": "DISCONNECTED"
+          },
+          "account_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Label"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Code"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          },
+          "calendar_count": {
+            "type": "integer",
+            "title": "Calendar Count",
+            "default": 0
+          },
+          "assignment_count": {
+            "type": "integer",
+            "title": "Assignment Count",
+            "default": 0
+          },
+          "demo_enabled": {
+            "type": "boolean",
+            "title": "Demo Enabled",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "GoogleConnectionRead"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1756,6 +2298,64 @@
           "bot_username"
         ],
         "title": "RuntimeRead"
+      },
+      "ScanRead": {
+        "properties": {
+          "discovered": {
+            "type": "integer",
+            "title": "Discovered"
+          }
+        },
+        "type": "object",
+        "required": [
+          "discovered"
+        ],
+        "title": "ScanRead"
+      },
+      "StartInput": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "CONNECT",
+              "RECONNECT",
+              "SWITCH"
+            ],
+            "title": "Mode",
+            "default": "CONNECT"
+          },
+          "expected_connection_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Connection Id"
+          },
+          "expected_generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Generation"
+          },
+          "confirm_replace": {
+            "type": "boolean",
+            "title": "Confirm Replace",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StartInput"
       },
       "TechnicianCreate": {
         "properties": {

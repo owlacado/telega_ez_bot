@@ -95,7 +95,12 @@ export function AddTechnician({ onClose }: { onClose: () => void }) {
             >
               <option value="">Assign later</option>
               {calendars.data
-                ?.filter((c) => !c.assigned_technician)
+                ?.filter(
+                  (c) =>
+                    !c.assigned_technician &&
+                    !c.excluded_at &&
+                    c.availability === "AVAILABLE",
+                )
                 .map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

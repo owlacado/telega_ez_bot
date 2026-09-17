@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "node:path";
+import { randomBytes } from "node:crypto";
 const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgresql+asyncpg://hub:hub_test_only@127.0.0.1:5437/technician_hub_test";
@@ -45,6 +46,9 @@ export default defineConfig({
             APP_ENV: "test",
             ALLOWED_ORIGINS: '["http://127.0.0.1:3001"]',
             TELEGRAM_MODE: "fake",
+            GOOGLE_MODE: "fake",
+            GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY:
+              randomBytes(32).toString("base64url") + "=",
             TELEGRAM_EXPECTED_BOT_ID: "9000001",
             TELEGRAM_EXPECTED_BOT_USERNAME: "hub_dedicated_test_bot",
           },

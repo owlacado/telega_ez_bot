@@ -42,7 +42,7 @@ async def list_technicians(
 
 @router.post("", response_model=TechnicianDetail, status_code=201)
 async def create_technician(
-    payload: TechnicianCreate, db: AsyncSession = Depends(session)
+    payload: TechnicianCreate, request: Request, db: AsyncSession = Depends(session)
 ) -> TechnicianDetail:
     technician = Technician(
         first_name=payload.first_name,
@@ -52,7 +52,13 @@ async def create_technician(
     db.add(technician)
     await db.flush()
     if payload.calendar_id:
-        await assign_calendar(db, technician.id, payload.calendar_id)
+        await assign_calendar(
+            db,
+            technician.id,
+            payload.calendar_id,
+            request.state.manager_id,
+            allow_demo=request.app.state.settings.app_env in {"development", "test"},
+        )
     response = detail(await require_technician(db, technician.id))
     await db.commit()
     return response
@@ -120,9 +126,18 @@ async def assignment_history(
 
 @router.put("/{technician_id}/calendar", response_model=AssignmentRead)
 async def set_calendar(
-    technician_id: UUID, payload: AssignmentInput, db: AsyncSession = Depends(session)
+    technician_id: UUID,
+    payload: AssignmentInput,
+    request: Request,
+    db: AsyncSession = Depends(session),
 ) -> AssignmentRead:
-    assignment = await assign_calendar(db, technician_id, payload.calendar_id)
+    assignment = await assign_calendar(
+        db,
+        technician_id,
+        payload.calendar_id,
+        request.state.manager_id,
+        allow_demo=request.app.state.settings.app_env in {"development", "test"},
+    )
     response = AssignmentRead.model_validate(assignment)
     await db.commit()
     return response
@@ -130,8 +145,8 @@ async def set_calendar(
 
 @router.delete("/{technician_id}/calendar", status_code=204)
 async def remove_calendar_assignment(
-    technician_id: UUID, db: AsyncSession = Depends(session)
+    technician_id: UUID, request: Request, db: AsyncSession = Depends(session)
 ) -> Response:
-    await unassign_calendar(db, technician_id)
+    await unassign_calendar(db, technician_id, request.state.manager_id)
     await db.commit()
     return Response(status_code=204)

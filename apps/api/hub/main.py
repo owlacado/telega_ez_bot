@@ -14,6 +14,7 @@ from hub.calendars.router import router as calendars_router
 from hub.core.config import Settings
 from hub.core.database import session
 from hub.core.errors import install_error_handlers
+from hub.google_calendar.router import router as google_router
 from hub.technicians.router import router as technicians_router
 from hub.telegram.router import router as telegram_router
 
@@ -31,6 +32,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         engine = create_async_engine(config.database_url, pool_pre_ping=True, hide_parameters=True)
         app.state.engine = engine
         app.state.settings = config
+        app.state.google_provider = None
+        if config.google_mode == "real":
+            from hub.google_calendar.provider import GoogleCalendarProvider
+
+            app.state.google_provider = GoogleCalendarProvider(config)
+        elif config.google_mode == "fake":
+            from hub.google_calendar.fake import FakeCalendarProvider
+
+            app.state.google_provider = FakeCalendarProvider()
         app.state.dummy_password_hash = await run_in_threadpool(
             password_hasher().hash, random_token()
         )
@@ -45,10 +55,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_auth(app, config)
     app.include_router(technicians_router)
     app.include_router(calendars_router)
+    app.include_router(google_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):
+        callback = request.url.path == "/api/calendar-connections/google/callback"
+        if callback:
+            request.state.google_callback = request.query_params.multi_items()
+            # Uvicorn logs scope after response: remove secrets before any downstream handler.
+            request.scope["query_string"] = b""
         response = await call_next(request)
+        if callback and response.status_code in {401, 403}:
+            from starlette.responses import RedirectResponse
+
+            response = RedirectResponse("/calendars?google=error", status_code=303)
+        response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response

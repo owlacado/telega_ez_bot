@@ -46,7 +46,8 @@ async def engine() -> AsyncIterator[AsyncEngine]:
         await connection.execute(
             text(
                 "TRUNCATE technicians, calendars, managers, rate_buckets, "
-                "audit_events, telegram_worker_states, telegram_processed_updates "
+                "audit_events, telegram_worker_states, telegram_processed_updates, "
+                "google_oauth_attempts, calendar_connections "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -102,3 +103,20 @@ def forbid_live_telegram(monkeypatch):
 
     for method in ("initialize", "webhook_configured", "updates", "member", "send"):
         monkeypatch.setattr(TelegramBotAdapter, method, forbidden)
+
+
+@pytest.fixture(autouse=True)
+def forbid_live_google(monkeypatch):
+    import requests
+
+    original = requests.sessions.Session.request
+
+    def guarded(self, method, url, *args, **kwargs):
+        from urllib.parse import urlparse
+
+        host = (urlparse(url).hostname or "").lower()
+        if host.endswith(("google.com", "googleapis.com")):
+            raise AssertionError("Automated tests must not contact Google.")
+        return original(self, method, url, *args, **kwargs)
+
+    monkeypatch.setattr(requests.sessions.Session, "request", guarded)

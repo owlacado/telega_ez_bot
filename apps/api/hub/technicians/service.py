@@ -37,7 +37,12 @@ def summary(technician: Technician) -> TechnicianSummary:
         last_name=technician.last_name,
         photo_url=technician.photo_url,
         status=technician.status,
-        calendar=CalendarSummary(id=assignment.calendar.id, name=assignment.calendar.name)
+        calendar=CalendarSummary(
+            id=assignment.calendar.id,
+            name=assignment.calendar.name,
+            source=assignment.calendar.source,
+            availability=assignment.calendar.availability,
+        )
         if assignment
         else None,
         integrations=IntegrationSummary(

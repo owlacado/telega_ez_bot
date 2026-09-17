@@ -18,6 +18,9 @@ export const technician: TechnicianDetail = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 export const calendar: Calendar = {
+  source: "LOCAL_DEMO",
+  availability: "AVAILABLE",
+  primary: false,
   id: "22222222-2222-4222-8222-222222222222",
   name: "DEMO - Calendar",
   assigned_technician: null,

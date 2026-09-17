@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, StringConstraints
@@ -17,6 +17,13 @@ class AssignedTechnician(BaseModel):
 
 
 class CalendarRead(BaseModel):
+    source: Literal["LOCAL_DEMO", "GOOGLE"] = "LOCAL_DEMO"
+    availability: Literal["AVAILABLE", "UNAVAILABLE"] = "AVAILABLE"
+    excluded_at: datetime | None = None
+    timezone: str | None = None
+    primary: bool = False
+    access_role: str | None = None
+    last_seen_at: datetime | None = None
     id: UUID
     name: str
     assigned_technician: AssignedTechnician | None = None
@@ -37,3 +44,13 @@ class AssignmentRead(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class CalendarExclude(InputModel):
+    confirmation: Literal["EXCLUDE"]
+    expected_assigned_technician_id: UUID | None
+
+
+class CalendarAssign(InputModel):
+    technician_id: UUID | None
+    expected_assigned_technician_id: UUID | None

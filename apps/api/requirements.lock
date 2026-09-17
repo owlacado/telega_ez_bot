@@ -39,3 +39,13 @@ argon2-cffi-bindings==26.1.0
 cffi==2.1.1
 pycparser==3.0
 python-telegram-bot==22.8
+google-auth-oauthlib==1.4.1
+google-auth==2.58.0
+cryptography==50.0.1
+requests==2.34.2
+requests-oauthlib==2.0.0
+oauthlib==3.3.1
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+charset-normalizer==3.5.1
+urllib3==2.8.0

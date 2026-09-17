@@ -150,7 +150,12 @@ describe("Stage 0 components", () => {
       <ProfilePanel
         technician={{
           ...technician,
-          calendar: { id: calendar.id, name: calendar.name },
+          calendar: {
+            id: calendar.id,
+            name: calendar.name,
+            source: "LOCAL_DEMO",
+            availability: "AVAILABLE",
+          },
         }}
         onUpdate={vi.fn()}
       />,

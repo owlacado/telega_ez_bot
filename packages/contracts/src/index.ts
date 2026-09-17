@@ -14,3 +14,5 @@ export type TelegramPurpose =
   components["schemas"]["IssueInvitation"]["purpose"];
 
 export type ManagerSession = components["schemas"]["ManagerRead"];
+
+export type GoogleConnection = components["schemas"]["GoogleConnectionRead"];
