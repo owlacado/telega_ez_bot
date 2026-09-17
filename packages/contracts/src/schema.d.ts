@@ -705,6 +705,8 @@ export interface components {
              * @default false
              */
             demo_enabled: boolean;
+            /** Impact Version */
+            impact_version?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -882,6 +884,8 @@ export interface components {
              * @default false
              */
             confirm_replace: boolean;
+            /** Expected Impact Version */
+            expected_impact_version?: string | null;
         };
         /** TechnicianCreate */
         TechnicianCreate: {

@@ -134,6 +134,8 @@ async def exclude_calendar(
     )
     if calendar.source != "GOOGLE":
         raise HTTPException(409, "Only discovered Google calendars use exclusions.")
+    if calendar.excluded_at is not None:
+        return Response(status_code=204)
     if assignment:
         await unassign_calendar(db, assignment.technician_id, request.state.manager_id)
         audit(db, "calendar.assigned_removed", calendar.id, actor_id=request.state.manager_id)
@@ -153,6 +155,8 @@ async def restore_calendar(
         raise HTTPException(404, "Calendar not found.")
     if calendar.source != "GOOGLE":
         raise HTTPException(409, "Only discovered Google calendars use exclusions.")
+    if calendar.excluded_at is None:
+        return Response(status_code=204)
     calendar.excluded_at, calendar.excluded_by = None, None
     audit(db, "calendar.restored", calendar.id, actor_id=request.state.manager_id)
     await db.commit()
@@ -171,6 +175,8 @@ async def change_assignment(
     )
     if calendar.source == "LOCAL_DEMO":
         demo_only(request, calendar)
+    if (assignment.technician_id if assignment else None) == payload.technician_id:
+        return Response(status_code=204)
     if assignment:
         await unassign_calendar(db, assignment.technician_id, request.state.manager_id)
     if payload.technician_id:

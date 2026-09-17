@@ -67,7 +67,15 @@ export default function TechnicianDetailPage({
             </DisabledAction>
           </div>
           <div className="detail-grid">
-            <ProfilePanel key={id} technician={technician} onUpdate={setData} />
+            <ProfilePanel
+              key={id}
+              technician={technician}
+              onUpdate={setData}
+              onMissing={() => {
+                setData(null);
+                reload();
+              }}
+            />
             <AccountingPanel />
             <JobsPanel technician={technician} />
             <GpsPanel />

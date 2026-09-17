@@ -76,3 +76,4 @@ class GoogleOAuthAttempt(Timestamps, Base):
     )
     expected_generation: Mapped[int | None] = mapped_column(Integer)
     mode: Mapped[str] = mapped_column(String(12))
+    expected_impact_version: Mapped[str | None] = mapped_column(String(64))

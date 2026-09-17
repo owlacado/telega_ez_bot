@@ -69,3 +69,41 @@ it("ignores a completed mutation belonging to a page already left", async () => 
   act(() => oldMutationCallback({ id: "old edited" }));
   expect(result.current.data?.id).toBe("new");
 });
+
+it.each([true, false])(
+  "keeps the newer reload when old success/failure arrives last (%s)",
+  async (oldFails) => {
+    let resolve!: (value: unknown) => void;
+    let reject!: (error: Error) => void;
+    mockedApi.mockImplementationOnce(
+      () =>
+        new Promise((ok, fail) => {
+          resolve = ok;
+          reject = fail;
+        }),
+    );
+    if (oldFails) mockedApi.mockResolvedValueOnce({ status: "CONNECTED" });
+    else mockedApi.mockRejectedValueOnce(new Error("Latest scan failed"));
+    const { result } = renderHook(() =>
+      useResource<{ status: string }>("/calendar-connections/google"),
+    );
+    act(() => result.current.reload());
+    if (oldFails)
+      await waitFor(() =>
+        expect(result.current.data?.status).toBe("CONNECTED"),
+      );
+    else
+      await waitFor(() =>
+        expect(result.current.error).toBe("Latest scan failed"),
+      );
+    await act(async () => {
+      if (oldFails) reject(new Error("Old failure"));
+      else resolve({ status: "CONNECTED" });
+    });
+    if (oldFails) expect(result.current.error).toBe("");
+    else {
+      expect(result.current.error).toBe("Latest scan failed");
+      expect(result.current.data).toBeNull();
+    }
+  },
+);

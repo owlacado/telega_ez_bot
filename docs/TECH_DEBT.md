@@ -1,6 +1,6 @@
 # Technical debt register
 
-Scope: Stage 2 Google Calendar discovery following the audited Stage 1 baseline `37c7791`. **27 entries: 10 RESOLVED, 17 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 12, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
+Scope: Stage 2 Google Calendar discovery following the audited Stage 1 baseline `37c7791`. **27 entries: 10 RESOLVED, 17 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 12, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md and AUDIT_STAGE2_GOOGLE_CALENDAR.md. The independent audit adds evidence and localized remediation without closing any existing operational obligation. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.
 
@@ -144,6 +144,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Audit evidence:** Telegram events and `technician.deleted` survive deletion because target_id has no cascade FK; actor_id becomes null if the manager is deleted. Existing regression confirms this. Retention, append-only enforcement and durable actor attribution still lack a policy.
 - **Stage 2 evidence:** Google connection, scan, assignment, exclusion, restore, and revocation outcomes now use the same safe transactional audit boundary. No token, authorization code, or state is included. Retention, append-only enforcement, and durable attribution remain OPEN.
+- **Independent Stage 2 audit evidence:** Independent Google audit: assignment/exclusion/restore no-ops no longer create misleading history. Actor/target/time and failed-callback attribution tests pass. Technician deletion still cascades assignment history; manager deletion can null audit actor IDs. An approved retention/append-only policy remains required.
 - **Status:** OPEN
 
 ## TD-011: Sensitive data protection
@@ -156,6 +157,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Before real personal data: field access policy, encryption with keys outside the database, rotation/recovery, secure backups and log redaction tests. Deferred by explicit Stage 0 scope; do not populate real identifiers.
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Stage 2 evidence:** Provider refresh tokens and pending PKCE verifiers now use authenticated Fernet encryption with an external key and versioned envelope. Ciphertext corruption/wrong-key/plaintext-mutation tests pass. DL/SSN columns and access policy are unchanged; this HIGH item remains OPEN.
+- **Independent Stage 2 audit evidence:** Independent Google audit: actual PostgreSQL ciphertext, wrong-key/corruption, secret-bearing provider errors, SDK logger namespaces, public schemas and browser storage are tested. Calendar lists now select only assignee UUID/name, avoiding unnecessary sensitive profile hydration. Existing plaintext DL/SSN and profile authorization policy are unchanged.
 - **Status:** OPEN
 
 ## TD-012: Deployment / credentials / origins
@@ -168,6 +170,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Add a production configuration gate, unique managed credentials, TLS termination, allowed hosts/origins, session-aware CSRF controls and bounded request rates. Keep current loopback-only isolation for this prototype.
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Stage 2 evidence:** Google configuration fails closed when enabled without a valid encryption key/client/redirect configuration; callback origin is validated and demo creation/assignment is blocked in production. Existing TLS, managed credentials and deployment policy are still required. Compose environment values must be protected by the operator.
+- **Independent Stage 2 audit evidence:** Independent Google audit: production fake-provider/missing-key gates, manager authorization, exact origins and mutation CSRF remain enforced. Real cross-site browser navigation exposed the Strict-cookie callback failure; protected OAuth start now reissues the same session as Lax without extending lifetime or removing HttpOnly/Secure. The two-loopback-site browser regression passes. Separate Google lock connections require deployment PostgreSQL capacity budgeting; the audit stack is loopback-only and fake-only. No production credentials/TLS policy has been supplied.
 - **Status:** OPEN
 
 ## TD-013: Concurrent profile editing
@@ -179,6 +182,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** TechnicianUpdate, update_technician and Timestamps; deletion now checks only the profile version.
 - **Recommended remediation:** Define the record-version boundary, use conditional updates/ETags for edits, and require every sanctioned writer to advance that version. Consider a database-owned monotonic version if alternate writers are introduced.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Independent Stage 2 audit evidence:** Independent Google audit: destructive Google account replacement now binds confirmation to a digest of calendar identity/name/exclusions and active assignments, revalidated at start and callback. This narrowly fixes replacement impact; general concurrent profile editing and deletion version boundaries remain OPEN.
 - **Status:** OPEN
 
 ## TD-014: Provider state invariants
@@ -192,6 +196,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Required before milestone:** BEFORE NEXT STAGE (original BEFORE STAGE 1 deadline remains overdue)
 - **Audit evidence:** `test_live_schema_constraints_and_documented_gap` directly verifies deployed uniqueness/FKs/partial invitation index and reproduces CONNECTED with a null identifier. No schema change is justified without a complete state policy and existing-data repair plan; GPS is outside this audit.
 - **Stage 2 evidence:** New Google source/identity, connection status/credential, account identity and current-connection constraints are database enforced; raw uniqueness and migration constraint tests cover them. Existing Telegram/GPS gaps remain unchanged and OPEN; no claim is made that Stage 2 closes this historical blocker.
+- **Independent Stage 2 audit evidence:** Independent Google audit: direct deployed unique constraints were removed temporarily and corresponding tests failed; constraints were restored and drift checked. OAuth manager/session ownership remains enforced in the authenticated service; independent FKs do not constitute a composite manager/session constraint for arbitrary SQL writers. Historical Telegram/GPS policy gaps are unchanged.
 - **Status:** OPEN
 
 ## TD-015: Scaling / response size
@@ -204,6 +209,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** When volume warrants, add paginated lists/history, aggregate dashboard counts, selected columns and active-assignment projections. Avoid speculative caching before measuring a realistic workload.
 - **Required before milestone:** LATER SCALE
 - **Audit evidence:** The quality audit profiles list, detail and Telegram status with bindings and pending invitations at 10/50/250 records; query counts remain bounded. Dashboard attention derives from two list requests, with no per-technician status fetching. Row/history growth remains unbounded.
+- **Independent Stage 2 audit evidence:** Independent Google audit: scripts/audit_google_performance.py now profiles 10/50/250/1000 calendars with four assignment-history rows per technician. Calendar list projection reduces 1000-row query count from 10 to 2 and avoids profile/history hydration; technician lists still load history (10 queries at 1000), dashboard still downloads full lists, and response bytes grow linearly. Identical rescans deliberately write one last_seen_at per calendar and one scan audit event; 1000 rows is measured, not an unlimited scale guarantee. Browser search/filter/layout checks cover the same four sizes. The final loaded production run measured 1000-row render/filter check wall times of 732/2081 ms (including Playwright assertions while backend verification ran); smaller prior samples were faster. DOM/list virtualization or pagination should follow a defined scale target, not an assumed constant-time UI.
 - **Status:** OPEN
 
 ## TD-016: Durability / operations
@@ -216,6 +222,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Define RPO/RTO, encrypted off-host backups, retention, restore drills and deployment rollback. Pilot data must remain disposable until an appropriate backup process exists.
 - **Required before milestone:** BEFORE PRODUCTION
 - **Stage 2 evidence:** Encrypted Google credentials make protected key recovery part of backup/restore. The runbook describes coordinated DB/key backups and refuses destructive downgrade with provider data. An automated restore drill and defined recovery targets are still absent.
+- **Independent Stage 2 audit evidence:** Independent Google audit: supported downgrade/re-upgrade preserves catalog/history, while provider-data destructive downgrade rolls back atomically. Recovery must coordinate protected database and external encryption-key backups; restoring either alone cannot establish usable authorization. No backup infrastructure or recovery drill was added.
 - **Status:** OPEN
 
 ## TD-017: Observability / timeouts
@@ -229,6 +236,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Audit evidence:** This audit fixes pooled advisory waiter starvation, stale polling offsets, Retry-After truncation and closed provider error codes. PostgreSQL pool-contention and worker regressions pass. Global DB deadlines, correlation IDs, alerting and lock-wait budgets remain incomplete.
 - **Stage 2 evidence:** Google network calls have bounded connect/read timeouts, closed error codes, full Retry-After deadlines, safe audits, query redaction and no SQL transaction across external calls. Global deadlines, correlation/alerts, and ingress log policy remain OPEN.
+- **Independent Stage 2 audit evidence:** Independent Google audit: Google advisory ownership now uses separate NullPool connections, freeing transaction-pool capacity; actual two-owner/small-pool and no-idle-transaction tests pass. Token refresh serializes with lifecycle; cancelled worker-thread calls retain the enclosing guard until the bounded call finishes. Retry headers include token endpoint, quota 403, HTTP-date ceiling and finite extreme deadlines. Individual connect/read timeouts and 1000-page cap are not an overall request deadline; stalled pagination, SDK retries, repeated cancellation/shutdown and database/lock waits still require deployment budgets. Status exposes current state, last success/error and persisted retry; last failure time requires audit lookup, and scan-in-progress is not persisted.
 - **Status:** OPEN
 
 ## TD-018: External profile images
@@ -263,6 +271,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Recommended remediation:** Run a screen-reader and cross-browser acceptance pass before production, including zoom/reflow and touch controls.
 - **Required before milestone:** BEFORE PRODUCTION
 - **Stage 2 evidence:** The complete calendar connection/assignment/exclusion workflow passes Chromium browser tests; existing four-width layout and automated accessibility checks still pass. Manual screen-reader and cross-browser acceptance remains OPEN.
+- **Independent Stage 2 audit evidence:** Independent Google audit: malicious-looking HTML/Markdown/RTL/emoji calendar metadata is rendered as text, bounded layout is browser-tested, and stale assignment conflict recovery is covered. Cross-browser, assistive-technology and zoom acceptance remain unperformed.
 - **Status:** OPEN
 
 ## TD-021: Search consistency
@@ -319,6 +328,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** SecretCipher, Google lifecycle advisory guard, generation checks, corruption tests, revocation-failure tests, and GOOGLE_CALENDAR_INTEGRATION.md. Same-account reconnect deliberately avoids project-wide revocation of the new token.
 - **Recommended remediation:** Approve and rehearse the documented manual stop/disconnect/rotate/reconnect procedure and secure key backup. Add a durable, encrypted revoke workflow and managed rotation when real deployments require unattended recovery; preserve Google's project-wide revocation semantics.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Independent Stage 2 audit evidence:** Independent Google audit: reconnect without a new token now decrypts and refreshes the old grant and verifies its primary account identity; revoked/corrupt/cross-account reuse is rejected. Rotated scan credentials are encrypted and committed before pagination, serialized against reconnect/disconnect. Revocation HTTP 400 is success only for invalid_token. The v1 prefix identifies envelope format, not a key ID; changing the sole key makes old credentials and pending verifiers unreadable until the original key is restored or accounts reconnected. External exchange/rotation cannot be atomic with PostgreSQL: a crash or commit failure can still orphan a grant, and a crash/revocation/audit-write failure after local commit requires operator recovery. Python immutable token strings are short-lived but cannot promise cryptographic memory zeroization. These operational limitations remain OPEN.
 - **Status:** OPEN
 
 ## TD-026: Google request budgets and OAuth-attempt retention
@@ -330,6 +340,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** OAuth start invalidates prior same-session attempts; scan guard rejects overlapping requests; Google failure/backoff regressions pass. No per-manager OAuth or successful-scan budget is configured.
 - **Recommended remediation:** Before shared pilot use, establish per-manager/global OAuth and scan budgets and a safe attempt-retention policy. Keep single-use state and replay protection intact; use sanitized quota observations.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Independent Stage 2 audit evidence:** Independent Google audit: same/different snapshot scans, page-three failure, looping/malformed continuation, conflicting duplicate IDs and the 1000-page cap are exercised. Quota 403 and token-endpoint 429 now preserve retry semantics across provider recreation. Successful scans/OAuth starts still lack per-manager/global quotas; lifecycle waiters may open transient dedicated connections, so DB connection and request admission limits remain necessary. Expired verifier pruning remains absent.
 - **Status:** OPEN
 
 ## TD-027: Google OAuth and CalendarList live sandbox acceptance
@@ -341,4 +352,5 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Evidence:** GOOGLE_CALENDAR_INTEGRATION.md contains a dedicated TEST-account runbook and official references. Backend and Playwright guards prohibit live Google calls. No real Google account/calendar was contacted.
 - **Recommended remediation:** Perform and record that manual runbook with dedicated test accounts/project; verify narrow scope and sanitize evidence. Approve consent-screen and deployment settings before any operational account is connected.
 - **Required before milestone:** BEFORE INTERNAL PILOT
+- **Independent Stage 2 audit evidence:** Independent Google audit: expanded fake transport/PostgreSQL/browser tests and ten mutation experiments do not replace real consent, primary identity, refresh lifetime or project-wide revocation acceptance. No accounts.google.com, oauth2.googleapis.com, www.googleapis.com or real account/API was contacted. Dedicated TEST acceptance remains explicitly manual and OPEN.
 - **Status:** OPEN

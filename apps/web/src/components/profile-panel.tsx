@@ -1,23 +1,32 @@
 "use client";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Check, Link2, MapPin, Save, UserRound } from "lucide-react";
 import type {
   Calendar,
   TechnicianDetail,
   TechnicianUpdate,
 } from "@hub/contracts";
-import { api, errorMessage, json } from "@/lib/api";
+import { ApiError, api, errorMessage, json } from "@/lib/api";
 import { useResource } from "@/lib/use-resource";
 import { DisabledAction, ErrorNotice } from "./ui";
 import { TelegramConnections } from "./telegram-connections";
 export function ProfilePanel({
   technician: t,
   onUpdate,
+  onMissing,
 }: {
   technician: TechnicianDetail;
   onUpdate: (value: TechnicianDetail) => void;
+  onMissing?: () => void;
 }) {
   const pending = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const calendars = useResource<Calendar[]>("/calendars");
   const [saving, setSaving] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -66,13 +75,25 @@ export function ProfilePanel({
           ? { method: "PUT", body: json({ calendar_id: id }) }
           : { method: "DELETE" },
       );
-      onUpdate(await api<TechnicianDetail>(`/technicians/${t.id}`));
-      calendars.reload();
     } catch (error) {
-      setError(errorMessage(error));
+      if (mounted.current) setError(errorMessage(error));
     } finally {
+      // A conflict can mean the calendar was excluded or the technician deleted.
+      // Always recover server truth, including when the write response was lost.
+      try {
+        const fresh = await api<TechnicianDetail>(`/technicians/${t.id}`);
+        if (mounted.current) onUpdate(fresh);
+      } catch (error) {
+        if (mounted.current) {
+          setError(errorMessage(error));
+          if (error instanceof ApiError && error.status === 404) onMissing?.();
+        }
+      }
       pending.current = false;
-      setAssigning(false);
+      if (mounted.current) {
+        calendars.reload();
+        setAssigning(false);
+      }
     }
   }
   return (

@@ -73,7 +73,7 @@ async def unassign_calendar(
 ) -> None:
     await mutation_lock(db)
     await require_technician(db, technician_id, lock=True)
-    await db.execute(
+    result = await db.execute(
         update(CalendarAssignment)
         .where(
             CalendarAssignment.technician_id == technician_id,
@@ -81,13 +81,14 @@ async def unassign_calendar(
         )
         .values(is_active=False)
     )
-    audit(db, "calendar.unassigned", technician_id, actor_id=actor_id)
+    if result.rowcount:
+        audit(db, "calendar.unassigned", technician_id, actor_id=actor_id)
 
 
 async def calendar_rows(db: AsyncSession) -> list[dict]:
     rows = (
         await db.execute(
-            select(Calendar, Technician)
+            select(Calendar, Technician.id, Technician.first_name, Technician.last_name)
             .outerjoin(
                 CalendarAssignment,
                 (CalendarAssignment.calendar_id == Calendar.id)
@@ -111,11 +112,11 @@ async def calendar_rows(db: AsyncSession) -> list[dict]:
             "created_at": calendar.created_at,
             "updated_at": calendar.updated_at,
             "assigned_technician": {
-                "id": technician.id,
-                "name": f"{technician.first_name} {technician.last_name}",
+                "id": technician_id,
+                "name": f"{first_name} {last_name}",
             }
-            if technician
+            if technician_id
             else None,
         }
-        for calendar, technician in rows
+        for calendar, technician_id, first_name, last_name in rows
     ]

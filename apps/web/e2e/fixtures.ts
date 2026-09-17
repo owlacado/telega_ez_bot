@@ -40,6 +40,11 @@ export const test = base.extend({
       await page.getByLabel("Username").fill(username);
       await page.getByLabel("Password").fill(password);
       await page.getByRole("button", { name: "Sign in" }).click();
+      // The form has serialized its submission. Clear before a failing matcher
+      // captures the login DOM, not just during fixture teardown.
+      await page.locator('input[type="password"]').evaluateAll((inputs) => {
+        for (const input of inputs) (input as HTMLInputElement).value = "";
+      });
       await expect(page).toHaveURL(baseURL + "/");
       const session = await (await page.request.get("/api/auth/me")).json();
       await page.context().setExtraHTTPHeaders({
@@ -49,6 +54,14 @@ export const test = base.extend({
       });
       await provide(page);
     } finally {
+      // Playwright failure snapshots can include password input values.
+      // Clear ephemeral credentials before artifact capture during teardown.
+      await page
+        .locator('input[type="password"]')
+        .evaluateAll((inputs) => {
+          for (const input of inputs) (input as HTMLInputElement).value = "";
+        })
+        .catch(() => {});
       harness({ action: "cleanup", username });
     }
   },

@@ -1,10 +1,12 @@
 """OAuth lifecycle and atomic full-scan reconciliation; network runs outside transactions."""
 
+import json
 import secrets
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, text, update
+from sqlalchemy import select, text, update
 
 from hub.audit.service import audit
 from hub.auth.models import Manager, ManagerSession
@@ -43,6 +45,38 @@ def provider(request):
     return value
 
 
+async def impact_details(db, connection):
+    if connection is None:
+        return None, 0, 0
+    rows = (
+        await db.execute(
+            select(
+                Calendar.id,
+                Calendar.name,
+                Calendar.excluded_at,
+                CalendarAssignment.id,
+                CalendarAssignment.technician_id,
+            )
+            .outerjoin(
+                CalendarAssignment,
+                (CalendarAssignment.calendar_id == Calendar.id)
+                & CalendarAssignment.is_active.is_(True),
+            )
+            .where(Calendar.provider_connection_id == connection.id)
+            .order_by(Calendar.id)
+        )
+    ).all()
+    return (
+        digest(json.dumps([[str(value) for value in row] for row in rows])),
+        sum(row[2] is None for row in rows),
+        sum(row[3] is not None for row in rows),
+    )
+
+
+async def impact_version(db, connection):
+    return (await impact_details(db, connection))[0]
+
+
 async def status(request, db):
     connection = await current(db)
     result = GoogleConnectionRead(
@@ -60,20 +94,9 @@ async def status(request, db):
             "retry_at",
         ):
             setattr(result, name, getattr(connection, name))
-        result.calendar_count = await db.scalar(
-            select(func.count())
-            .select_from(Calendar)
-            .where(Calendar.provider_connection_id == connection.id, Calendar.excluded_at.is_(None))
-        )
-        result.assignment_count = await db.scalar(
-            select(func.count())
-            .select_from(CalendarAssignment)
-            .join(Calendar, Calendar.id == CalendarAssignment.calendar_id)
-            .where(
-                Calendar.provider_connection_id == connection.id,
-                CalendarAssignment.is_active.is_(True),
-            )
-        )
+    result.impact_version, result.calendar_count, result.assignment_count = await impact_details(
+        db, connection
+    )
     return result
 
 
@@ -96,6 +119,9 @@ async def start(request, db, payload):
         raise HTTPException(
             409, "Confirm the calendar and assignment impact before replacing the account."
         )
+    impact = await impact_version(db, connection) if payload.mode == "SWITCH" else None
+    if payload.mode == "SWITCH" and payload.expected_impact_version != impact:
+        raise HTTPException(409, "Calendar impact changed. Refresh and confirm again.")
     state = secrets.token_urlsafe(32)
     authorization = adapter.build_authorization_url(state)
     await db.execute(
@@ -115,6 +141,7 @@ async def start(request, db, payload):
         expected_connection_id=connection.id if connection else None,
         expected_generation=connection.generation if connection else None,
         mode=payload.mode,
+        expected_impact_version=impact,
     )
     db.add(attempt)
     await db.flush()
@@ -202,11 +229,12 @@ async def callback(request):
             raise ProviderError("REAUTH_REQUIRED")
         adapter, secret_cipher = provider(request), cipher(request)
         # Serialize exchange/activation with disconnect/revoke. No SQL transaction held.
-        async with advisory_guard(request.app.state.engine, "google-lifecycle", 0):
+        async with advisory_guard(request.app.state.google_lock_engine, "google-lifecycle", 0):
             async with factory() as db:
-                expected(
-                    await current(db), attempt.expected_connection_id, attempt.expected_generation
-                )
+                snapshot = await current(db)
+                expected(snapshot, attempt.expected_connection_id, attempt.expected_generation)
+                if attempt.expires_at <= now():
+                    raise ProviderError("REAUTH_REQUIRED")
             grant = await adapter.exchange_authorization_code(
                 code, secret_cipher.decrypt(encrypted_verifier)
             )
@@ -216,6 +244,23 @@ async def callback(request):
             identities = [item.provider_id for item in calendars if item.primary]
             if len(identities) != 1:
                 raise ProviderError("ACCOUNT_IDENTITY_UNAVAILABLE")
+            # Omitted refresh credentials may only reuse a decryptable, still-valid
+            # grant for the same verified account. All verification is outside SQL.
+            if not grant.refresh_token:
+                if (
+                    not snapshot
+                    or snapshot.account_key != identities[0]
+                    or not snapshot.encrypted_refresh_token
+                ):
+                    raise ProviderError("REAUTH_REQUIRED")
+                old_token = secret_cipher.decrypt(snapshot.encrypted_refresh_token)
+                verified = await adapter.refresh_credentials(old_token)
+                if SCOPE not in verified.scopes:
+                    raise ProviderError("SCOPE_REQUIRED")
+                old_calendars = await adapter.list_calendars(verified.access_token)
+                if [c.provider_id for c in old_calendars if c.primary] != identities:
+                    raise ProviderError("ACCOUNT_IDENTITY_UNAVAILABLE")
+                grant = replace(grant, refresh_token=verified.refresh_token or old_token)
             async with factory() as db:
                 await mutation_lock(db)
                 session = await db.scalar(
@@ -233,6 +278,11 @@ async def callback(request):
                     raise ProviderError("REAUTH_REQUIRED")
                 old = await current(db)
                 expected(old, attempt.expected_connection_id, attempt.expected_generation)
+                if attempt.mode == "SWITCH" and (
+                    not attempt.expected_impact_version
+                    or attempt.expected_impact_version != await impact_version(db, old)
+                ):
+                    raise ProviderError("REAUTH_REQUIRED")
                 same = old is not None and old.account_key == identities[0]
                 if old and not same and attempt.mode != "SWITCH":
                     raise ProviderError("REAUTH_REQUIRED")
@@ -314,7 +364,9 @@ async def scan(request):
     adapter, secret_cipher = provider(request), cipher(request)
     factory = request.app.state.session_factory
     try:
-        async with advisory_guard(request.app.state.engine, "google-scan", 0, wait=False):
+        async with advisory_guard(
+            request.app.state.google_lock_engine, "google-scan", 0, wait=False
+        ):
             async with factory() as db:
                 connection = await current(db)
                 if not connection or connection.status not in {"CONNECTED", "ERROR"}:
@@ -328,12 +380,33 @@ async def scan(request):
                     connection.generation,
                     connection.encrypted_refresh_token,
                 )
+            grant = None
             try:
-                token = secret_cipher.decrypt(encrypted)
-                grant = await adapter.refresh_credentials(token)
-                if SCOPE not in grant.scopes:
-                    raise ProviderError("SCOPE_REQUIRED")
+                async with advisory_guard(
+                    request.app.state.google_lock_engine, "google-lifecycle", 0
+                ):
+                    async with factory() as db:
+                        latest = await current(db)
+                        expected(latest, identifier, generation)
+                        encrypted = latest.encrypted_refresh_token
+                    token = secret_cipher.decrypt(encrypted)
+                    grant = await adapter.refresh_credentials(token)
+                    if SCOPE not in grant.scopes:
+                        raise ProviderError("SCOPE_REQUIRED")
+                    # Persist a rotated credential before pagination, which can fail.
+                    # Recheck generation so an old scan cannot resurrect disconnected grants.
+                    if grant.refresh_token and grant.refresh_token != token:
+                        async with factory() as db:
+                            await mutation_lock(db)
+                            connection = await current(db)
+                            expected(connection, identifier, generation)
+                            connection.encrypted_refresh_token = secret_cipher.encrypt(
+                                grant.refresh_token
+                            )
+                            await db.commit()
                 calendars = await adapter.list_calendars(grant.access_token)
+            except HTTPException:
+                raise
             except Exception as exc:
                 code = (
                     exc.code
@@ -356,7 +429,7 @@ async def scan(request):
                         try:
                             connection.retry_at = now() + timedelta(seconds=retry)
                         except OverflowError:
-                            connection.retry_at = datetime.max.replace(tzinfo=UTC)
+                            connection.retry_at = datetime(9999, 12, 30, tzinfo=UTC)
                     if permanent:
                         await unavailable(db, identifier)
                     audit(
@@ -372,8 +445,6 @@ async def scan(request):
                 await mutation_lock(db)
                 connection = await current(db)
                 expected(connection, identifier, generation)
-                if grant.refresh_token:
-                    connection.encrypted_refresh_token = secret_cipher.encrypt(grant.refresh_token)
                 await reconcile(db, connection, calendars)
                 audit(db, "google.scan.completed", identifier, actor_id=request.state.manager_id)
                 await db.commit()
@@ -386,7 +457,7 @@ async def scan(request):
 
 async def disconnect(request, payload):
     factory = request.app.state.session_factory
-    async with advisory_guard(request.app.state.engine, "google-lifecycle", 0):
+    async with advisory_guard(request.app.state.google_lock_engine, "google-lifecycle", 0):
         async with factory() as db:
             await mutation_lock(db)
             connection = await current(db)

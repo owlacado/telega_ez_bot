@@ -90,3 +90,57 @@ Key rotation is currently an operator procedure: stop provider operations, back 
 New revision `0a542f68aa75` descends directly from audited `e7b310920001`. Historical revisions are unchanged. Existing calendars become LOCAL_DEMO with AVAILABLE state; active assignment indexes and historical names stay intact. Fresh/populated upgrade and empty-provider downgrade/re-upgrade are supported. Downgrade refuses when connection/attempt data exists, avoiding silent loss of encrypted credentials, exclusions, and provider identities. For rollback after real adoption, restore a coordinated pre-upgrade database/key backup instead.
 
 Tests use FakeCalendarProvider, synthetic credentials, and an isolated `technician_hub_test` database. Google network requests are denied by the backend test fixture; browser tests abort non-loopback requests. `GOOGLE_MODE=fake` requires APP_ENV=test and an approved local test database. The fake provider lives behind the normal authenticated OAuth flow; no production test HTTP endpoints are added. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md for actual counts and evidence.
+
+## Independent audit clarifications
+
+Account replacement now confirms an impact digest as well as connection generation.
+The server rechecks calendar identities/names/exclusions and active assignments both
+when starting SWITCH and when completing it. An intervening change consumes the
+callback without replacing the account; close the warning and start again from the
+latest status. Migration b2917d804e12 adds this digest to pending attempts; old pending
+switches without it fail closed. Downgrading that additive revision burns pending
+switch attempts before dropping the digest.
+
+Reconnect without a new refresh token requires successful decryption, provider refresh,
+required scope and matching primary identity for the retained grant. Token refresh is
+serialized with OAuth/disconnect; a rotated scan credential is committed encrypted before
+listing pages. PostgreSQL and external OAuth cannot share an atomic commit: a failed
+local commit after exchange/rotation still requires operator recovery (TD-025).
+
+Google advisory owners use dedicated unpooled connections, not transaction-pool slots.
+Waiters release their connection between lock attempts. Budget these connections in
+PostgreSQL and bound inbound requests before pilot. Synchronous HTTP running in a worker
+thread completes before a single cancellation unwinds its lifecycle guard. Connect/read
+timeouts do not impose a complete-scan deadline (TD-017/026).
+
+CalendarList pagination has no application-controlled provider snapshot isolation.
+Malformed/looping continuation, conflicting duplicate identity, failed pages and the
+1000-page cap reject the entire catalog result. A structurally complete listing can still
+omit a calendar moved between provider pages; local absence means UNAVAILABLE, never
+permanent deletion. A later complete listing restores the same UUID and assignment.
+An identical successful scan intentionally updates each calendar's last_seen_at;
+connection.last_success_at alone does not describe the last observation of missing rows.
+One scan audit event is emitted, not one per unchanged row.
+
+Assignments survive exclusion as inactive name snapshots, and remain active/visible on
+provider disappearance or disconnect. Explicit exclusion detaches atomically. Technician
+deletion intentionally cascades all of that technician's assignment history; durable audit
+retention is still TD-010. No-op assignment/unassignment/exclusion/restore adds no history
+or audit event. Rename does not rewrite historical calendar_name snapshots.
+
+The `v1:` credential envelope identifies format, not key identity. Keep encrypted database
+backups and the matching external key in separately protected recovery channels. Losing
+or replacing the sole key makes existing refresh tokens and pending PKCE verifiers
+unreadable; restoration or deliberate reconnect is required. Never downgrade encryption
+to plaintext. See the independent audit and TD-025 for remaining crash/revocation/rotation
+recovery obligations.
+
+### Cross-site callback cookie policy
+
+Ordinary manager login retains its existing SameSite=Strict cookie policy. A successful,
+CSRF-protected Google OAuth start reissues the same session cookie as SameSite=Lax so it
+is included on Google's cross-site top-level GET callback. HttpOnly, configured Secure,
+path and remaining session lifetime are preserved; the session is neither rotated nor
+extended. Callback state still binds manager/session and is single-use. All normal
+mutations still require exact trusted Origin and CSRF proof. A browser test simulates the
+consent page on localhost and returns to 127.0.0.1; it performs no Google network access.

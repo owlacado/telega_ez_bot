@@ -1872,6 +1872,17 @@
             "type": "boolean",
             "title": "Demo Enabled",
             "default": false
+          },
+          "impact_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact Version"
           }
         },
         "type": "object",
@@ -2351,6 +2362,17 @@
             "type": "boolean",
             "title": "Confirm Replace",
             "default": false
+          },
+          "expected_impact_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Impact Version"
           }
         },
         "additionalProperties": false,

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import RedirectResponse
 
+from hub.auth.middleware import COOKIE_NAME
+from hub.auth.security import now
 from hub.core.database import session
 from hub.google_calendar import service
 from hub.google_calendar.schemas import (
@@ -21,8 +23,23 @@ async def connection_status(request: Request, db: AsyncSession = Depends(session
 
 
 @router.post("/start", response_model=AuthorizationRead)
-async def start(request: Request, payload: StartInput, db: AsyncSession = Depends(session)):
-    return AuthorizationRead(authorization_url=await service.start(request, db, payload))
+async def start(
+    request: Request, payload: StartInput, response: Response, db: AsyncSession = Depends(session)
+):
+    authorization_url = await service.start(request, db, payload)
+    # A Strict cookie is withheld on the cross-site top-level Google callback.
+    # Reissue the SAME authenticated session as Lax without extending its expiry.
+    # POST origin/CSRF checks and callback state/session binding remain mandatory.
+    response.set_cookie(
+        COOKIE_NAME,
+        request.cookies[COOKIE_NAME],
+        max_age=max(0, int((request.state.session_expires_at - now()).total_seconds())),
+        httponly=True,
+        secure=request.app.state.settings.cookie_secure,
+        samesite="lax",
+        path="/",
+    )
+    return AuthorizationRead(authorization_url=authorization_url)
 
 
 @router.get("/callback", include_in_schema=False)

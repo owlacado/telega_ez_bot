@@ -4,6 +4,7 @@ from fastapi import Depends, FastAPI, Request
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 from starlette.concurrency import run_in_threadpool
 
 import hub.models  # noqa: F401
@@ -31,6 +32,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         engine = create_async_engine(config.database_url, pool_pre_ping=True, hide_parameters=True)
         app.state.engine = engine
+        # Google lock owners must not consume transaction-pool capacity across HTTP.
+        google_lock_engine = create_async_engine(
+            config.database_url, poolclass=NullPool, hide_parameters=True
+        )
+        app.state.google_lock_engine = google_lock_engine
         app.state.settings = config
         app.state.google_provider = None
         if config.google_mode == "real":
@@ -46,6 +52,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
         yield
+        await google_lock_engine.dispose()
         await engine.dispose()
 
     app = FastAPI(title="Technician Hub API", version="0.2.0", lifespan=lifespan)

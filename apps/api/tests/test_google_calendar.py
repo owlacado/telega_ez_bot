@@ -46,6 +46,7 @@ async def begin(client, mode="CONNECT", confirm=False):
             "expected_connection_id": status["id"],
             "expected_generation": status["generation"],
             "confirm_replace": confirm,
+            "expected_impact_version": status.get("impact_version"),
         },
     )
     assert response.status_code == 200, response.text

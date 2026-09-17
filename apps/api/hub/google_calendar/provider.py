@@ -1,9 +1,12 @@
 """The sole Google network boundary. No event API and no calendar deletion API."""
 
 import asyncio
+import json
 import logging
+import math
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from types import SimpleNamespace
 
 import requests
 from google.auth.exceptions import RefreshError
@@ -24,12 +27,29 @@ from hub.google_calendar.types import (
 TIMEOUT = (5, 15)
 
 
+async def _thread_call(function, *args):
+    # Cancelling an await cannot stop requests in a worker thread. Keep the
+    # enclosing lifecycle guard until the bounded call actually finishes.
+    task = asyncio.create_task(asyncio.to_thread(function, *args))
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        try:
+            await task
+        except Exception:
+            pass
+        raise
+
+
 class GoogleCalendarProvider:
     def __init__(self, settings: Settings):
         self.settings = settings
         # These libraries can log request bodies/headers at DEBUG, including credentials.
-        for name in ("oauthlib", "requests_oauthlib", "google.auth", "urllib3"):
-            logging.getLogger(name).disabled = True
+        for name in ("oauthlib", "requests_oauthlib", "google", "urllib3"):
+            logger = logging.getLogger(name)
+            logger.disabled = True
+            logger.propagate = False
+            logger.handlers = [logging.NullHandler()]
             for child in list(logging.Logger.manager.loggerDict):
                 if child.startswith(name + "."):
                     logging.getLogger(child).disabled = True
@@ -98,7 +118,7 @@ class GoogleCalendarProvider:
             finally:
                 flow.oauth2session.close()
 
-        return await asyncio.to_thread(exchange)
+        return await _thread_call(exchange)
 
     async def refresh_credentials(self, refresh_token):
         def refresh():
@@ -117,7 +137,17 @@ class GoogleCalendarProvider:
 
                 def bounded(*args, **kwargs):
                     kwargs["timeout"] = TIMEOUT
-                    return transport(*args, **kwargs)
+                    kwargs["allow_redirects"] = False
+                    response = transport(*args, **kwargs)
+                    if response.status in {403, 429} or 300 <= response.status < 400:
+                        self._check(
+                            SimpleNamespace(
+                                status_code=response.status,
+                                headers=response.headers,
+                                json=lambda: json.loads(response.data),
+                            )
+                        )
+                    return response
 
                 try:
                     credentials.refresh(bounded)
@@ -144,7 +174,7 @@ class GoogleCalendarProvider:
                 except requests.RequestException:
                     raise ProviderError("PROVIDER_TEMPORARY_ERROR") from None
 
-        return await asyncio.to_thread(refresh)
+        return await _thread_call(refresh)
 
     @staticmethod
     def _check(response):
@@ -153,15 +183,30 @@ class GoogleCalendarProvider:
             return
         if status == 401:
             raise ProviderError("REAUTH_REQUIRED")
+        quota = False
         if status == 403:
-            raise ProviderError("SCOPE_REQUIRED")
-        if status == 429:
+            try:
+                body = response.json()
+                reasons = [
+                    item.get("reason")
+                    for item in body.get("error", {}).get("errors", [])
+                    if isinstance(item, dict)
+                ]
+                quota = any(
+                    reason in {"rateLimitExceeded", "userRateLimitExceeded", "quotaExceeded"}
+                    for reason in reasons
+                )
+            except (ValueError, AttributeError, TypeError):
+                pass
+            if not quota:
+                raise ProviderError("SCOPE_REQUIRED")
+        if status == 429 or quota:
             value = response.headers.get("Retry-After", "60")
             try:
                 seconds = int(value)
             except (ValueError, TypeError):
                 try:
-                    seconds = int(
+                    seconds = math.ceil(
                         (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds()
                     )
                 except (ValueError, TypeError, OverflowError):
@@ -170,7 +215,7 @@ class GoogleCalendarProvider:
         raise ProviderError("PROVIDER_TEMPORARY_ERROR")
 
     async def list_calendars(self, access_token):
-        return await asyncio.to_thread(self._list, access_token)
+        return await _thread_call(self._list, access_token)
 
     def _list(self, access_token):
         found = {}
@@ -248,9 +293,14 @@ class GoogleCalendarProvider:
                         timeout=TIMEOUT,
                         allow_redirects=False,
                     )
-                    if response.status_code != 400:  # Already revoked is idempotent.
-                        self._check(response)
+                    if response.status_code == 400:
+                        try:
+                            if response.json().get("error") == "invalid_token":
+                                return  # Already revoked is idempotent.
+                        except (ValueError, AttributeError):
+                            pass
+                    self._check(response)
             except requests.RequestException:
                 raise ProviderError("PROVIDER_TEMPORARY_ERROR") from None
 
-        await asyncio.to_thread(revoke)
+        await _thread_call(revoke)

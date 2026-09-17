@@ -339,6 +339,11 @@ async def stage2_fixture(check=False):
 
 
 asyncio.run(stage2_fixture())
+# The additive audit revision supports rollback with provider data intact.
+alembic("downgrade", "0a542f68aa75")
+asyncio.run(stage2_fixture(check=True))
+alembic("upgrade", "head")
+asyncio.run(stage2_fixture(check=True))
 refused = subprocess.run(
     [sys.executable, "-m", "alembic", "downgrade", "e7b310920001"],
     cwd=root / "apps/api",

@@ -13,20 +13,21 @@ import CalendarsPage from "@/app/(workspace)/calendars/page";
 import { ProfilePanel } from "@/components/profile-panel";
 import { telegramState } from "./telegram-fixtures";
 import { TechnicianCard } from "@/components/technician-card";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { calendar, technician } from "./fixtures";
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
   api: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 const mocked = vi.mocked(api);
 let state: GoogleConnection;
 let rows: Calendar[];
 beforeEach(() => {
   vi.clearAllMocks();
+  window.history.replaceState(null, "", "/calendars");
   state = {
     enabled: true,
     status: "DISCONNECTED",
@@ -390,4 +391,153 @@ it("locks table actions during an assignment and recovers after failure", async 
     "Assignment conflict",
   );
   expect(screen.getByRole("button", { name: "Save assignment" })).toBeEnabled();
+});
+
+it("ignores a stale success marker and renders authoritative disconnected state", async () => {
+  window.history.replaceState(null, "", "/calendars?google=connected");
+  render(<GoogleCalendarConnection onChange={vi.fn()} />);
+  expect(await screen.findByText("Not connected")).toBeVisible();
+  expect(
+    screen.queryByText(/Google Calendar connected\./),
+  ).not.toBeInTheDocument();
+  expect(window.location.search).toBe("");
+});
+
+it("does not refresh a replaced page when an old scan finishes", async () => {
+  connected();
+  let finish!: (value: unknown) => void;
+  mocked.mockImplementation((path) =>
+    path.endsWith("/scan")
+      ? new Promise((resolve) => {
+          finish = resolve;
+        })
+      : Promise.resolve(state),
+  );
+  const change = vi.fn();
+  const view = render(<GoogleCalendarConnection onChange={change} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Scan Google Calendars" }),
+  );
+  view.unmount();
+  await act(async () => finish({ discovered: 10 }));
+  expect(change).not.toHaveBeenCalled();
+});
+
+it("binds replacement confirmation to the displayed impact version", async () => {
+  connected();
+  state.impact_version = "displayed-impact";
+  mocked.mockImplementation(async (path) => {
+    if (path.endsWith("/start"))
+      throw new ApiError("Calendar impact changed", 409);
+    return { ...state };
+  });
+  render(<GoogleCalendarConnection onChange={vi.fn()} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Change Google account" }),
+  );
+  state.impact_version = "new-impact";
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm account replacement" }),
+  );
+  await waitFor(() =>
+    expect(mocked).toHaveBeenCalledWith(
+      "/calendar-connections/google/start",
+      expect.objectContaining({
+        body: expect.stringContaining(
+          '"expected_impact_version":"displayed-impact"',
+        ),
+      }),
+    ),
+  );
+});
+
+it("re-fetches profile and catalog after a rejected assignment and prevents rapid switching", async () => {
+  let reject!: (error: Error) => void;
+  let current = { ...technician, calendar: null };
+  mocked.mockImplementation((path, options) => {
+    if (options?.method === "PUT")
+      return new Promise((_, fail) => {
+        reject = fail;
+      });
+    return Promise.resolve(
+      path === "/calendars"
+        ? [...rows]
+        : path.endsWith("/telegram")
+          ? telegramState
+          : current,
+    );
+  });
+  const update = vi.fn();
+  render(<ProfilePanel technician={technician} onUpdate={update} />);
+  await screen.findByRole("option", { name: "GA - Atlanta" });
+  const select = screen.getByLabelText("Assigned calendar");
+  fireEvent.change(select, { target: { value: rows[0].id } });
+  fireEvent.change(select, { target: { value: "" } });
+  expect(select).toBeDisabled();
+  rows = [{ ...rows[0], excluded_at: "2026-09-17T00:00:00Z" }];
+  current = { ...technician, calendar: null };
+  await act(async () => reject(new ApiError("Calendar excluded", 409)));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Calendar excluded",
+  );
+  await waitFor(() => expect(update).toHaveBeenCalledWith(current));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("option", { name: "GA - Atlanta" }),
+    ).not.toBeInTheDocument(),
+  );
+  expect(mocked.mock.calls.filter(([, o]) => o?.method === "PUT")).toHaveLength(
+    1,
+  );
+});
+
+it("reports a deleted technician during assignment recovery", async () => {
+  mocked.mockImplementation(async (path, options) => {
+    if (options?.method || path === `/technicians/${technician.id}`)
+      throw new ApiError("Technician not found", 404);
+    return path === "/calendars" ? rows : telegramState;
+  });
+  const missing = vi.fn();
+  render(
+    <ProfilePanel
+      technician={technician}
+      onUpdate={vi.fn()}
+      onMissing={missing}
+    />,
+  );
+  await screen.findByRole("option", { name: "GA - Atlanta" });
+  fireEvent.change(screen.getByLabelText("Assigned calendar"), {
+    target: { value: rows[0].id },
+  });
+  await waitFor(() => expect(missing).toHaveBeenCalledOnce());
+});
+
+it("renders malicious calendar metadata as plain text", async () => {
+  rows[0].name =
+    "<script>alert(1)</script> **[click](javascript:evil)** \u05d0 \ud83d\udd27";
+  const view = render(<CalendarsPage />);
+  expect(await screen.findByText(rows[0].name)).toBeVisible();
+  expect(view.container.querySelector("script")).toBeNull();
+  expect(view.container.querySelector('a[href^="javascript:"]')).toBeNull();
+});
+
+it("keeps OAuth controls locked after start succeeds until navigation", async () => {
+  mocked.mockImplementation(async (path) =>
+    path.endsWith("/start")
+      ? { authorization_url: "#oauth-navigation-pending" }
+      : { ...state },
+  );
+  render(<GoogleCalendarConnection onChange={vi.fn()} />);
+  const button = await screen.findByRole("button", {
+    name: "Connect Google Calendar",
+  });
+  fireEvent.click(button);
+  await waitFor(() =>
+    expect(window.location.hash).toBe("#oauth-navigation-pending"),
+  );
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(
+    mocked.mock.calls.filter(([path]) => path.endsWith("/start")),
+  ).toHaveLength(1);
 });

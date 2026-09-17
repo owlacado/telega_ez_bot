@@ -19,6 +19,7 @@ class GoogleConnectionRead(BaseModel):
     calendar_count: int = 0
     assignment_count: int = 0
     demo_enabled: bool = False
+    impact_version: str | None = None
 
 
 class StartInput(InputModel):
@@ -26,6 +27,7 @@ class StartInput(InputModel):
     expected_connection_id: UUID | None = None
     expected_generation: int | None = None
     confirm_replace: bool = False
+    expected_impact_version: str | None = None
 
 
 class AuthorizationRead(BaseModel):
