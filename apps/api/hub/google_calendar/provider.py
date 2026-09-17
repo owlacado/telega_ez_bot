@@ -322,7 +322,7 @@ class GoogleCalendarProvider:
         from time import monotonic
         from urllib.parse import quote
 
-        from hub.calendar_events.normalization import normalize_event
+        from hub.calendar_events.normalization import normalize_event, recurrence_identity
 
         found, instances, seen_pages, statuses = {}, {}, set(), {}
         page, received, started = None, 0, monotonic()
@@ -397,8 +397,10 @@ class GoogleCalendarProvider:
                                 raise ProviderError("CALENDAR_UNAVAILABLE") from None
                             raise
                         body = body_json()
-                except (requests.RequestException, ValueError):
+                except requests.RequestException:
                     raise ProviderError("PROVIDER_TEMPORARY_ERROR") from None
+                except ValueError:
+                    raise ProviderError("MALFORMED_RESPONSE") from None
                 if (
                     not isinstance(body, dict)
                     or not isinstance(body.get("items", []), list)
@@ -412,15 +414,16 @@ class GoogleCalendarProvider:
                     if identifier in statuses and statuses[identifier] != event_status:
                         raise ProviderError("MALFORMED_RESPONSE")
                     statuses[identifier] = event_status
+                    key = recurrence_identity(item, timezone)
+                    if key is not None:
+                        representation = (identifier, event_status, event)
+                        if key in instances and instances[key] != representation:
+                            raise ProviderError("MALFORMED_RESPONSE")
+                        instances[key] = representation
                     if event is None:
                         continue
                     if event.provider_event_id in found and found[event.provider_event_id] != event:
                         raise ProviderError("MALFORMED_RESPONSE")
-                    if event.recurring_event_id and event.original_start_time:
-                        key = (event.recurring_event_id, event.original_start_time)
-                        if key in instances and instances[key] != event:
-                            raise ProviderError("MALFORMED_RESPONSE")
-                        instances[key] = event
                     found[event.provider_event_id] = event
                     if len(found) > 10000:
                         raise ProviderError("REQUEST_LIMIT")

@@ -1,5 +1,6 @@
 """Strict Google-to-domain parsing; no raw payload survives this boundary."""
 
+import re
 from datetime import UTC, date, datetime
 from urllib.parse import urlsplit
 
@@ -10,12 +11,23 @@ from hub.google_calendar.types import ProviderError
 def timestamp(value, fallback: str):
     if not isinstance(value, dict):
         raise ProviderError("MALFORMED_RESPONSE")
-    if "date" in value and "dateTime" not in value:
+    if "date" in value:
+        if (
+            "dateTime" in value
+            or not isinstance(value["date"], str)
+            or not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value["date"])
+        ):
+            raise ProviderError("MALFORMED_RESPONSE")
         return date.fromisoformat(value["date"])
     raw = value.get("dateTime")
-    if not isinstance(raw, str) or "T" not in raw:
+    if not isinstance(raw, str) or not re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}"
+        r"(?:\.[0-9]+)?(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])?",
+        raw,
+        re.IGNORECASE,
+    ):
         raise ProviderError("MALFORMED_RESPONSE")
-    parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    parsed = datetime.fromisoformat(raw.upper().replace("Z", "+00:00"))
     zone = calendar_zone(value.get("timeZone") or fallback)
     if parsed.tzinfo is None:
         # Google permits offset omission with explicit IANA timezone only.
@@ -32,6 +44,25 @@ def timestamp(value, fallback: str):
     return parsed
 
 
+def recurrence_identity(item, timezone: str):
+    """Cancelled exceptions carry the same instance identity as active ones."""
+    try:
+        parent, original = item.get("recurringEventId"), item.get("originalStartTime")
+        if parent is None and original is None:
+            return None
+        if (
+            not isinstance(parent, str)
+            or not parent
+            or len(parent) > 1024
+            or any(ord(c) < 33 for c in parent)
+            or original is None
+        ):
+            raise ProviderError("MALFORMED_RESPONSE")
+        return parent, timestamp(original, timezone)
+    except (ValueError, TypeError, OverflowError, AttributeError):
+        raise ProviderError("MALFORMED_RESPONSE") from None
+
+
 def normalize_event(item, timezone: str) -> ProviderEvent | None:
     try:
         if not isinstance(item, dict):
@@ -44,6 +75,7 @@ def normalize_event(item, timezone: str) -> ProviderEvent | None:
             or any(ord(c) < 32 for c in identifier)
         ):
             raise ProviderError("MALFORMED_RESPONSE")
+        recurrence = recurrence_identity(item, timezone)
         status = item.get("status", "confirmed")
         if status == "cancelled":
             return None  # tombstones legitimately lack start/end/summary
@@ -65,15 +97,10 @@ def normalize_event(item, timezone: str) -> ProviderEvent | None:
             )
         else:
             link = None
-        recurring = clean_text(item.get("recurringEventId"), 1024, optional=True)
-        original = (
-            timestamp(item["originalStartTime"], timezone) if "originalStartTime" in item else None
-        )
-        updated = (
-            datetime.fromisoformat(item["updated"].replace("Z", "+00:00"))
-            if "updated" in item
-            else None
-        )
+        recurring, original = recurrence if recurrence else (None, None)
+        if original is not None and all_day != (not isinstance(original, datetime)):
+            raise ProviderError("MALFORMED_RESPONSE")
+        updated = timestamp({"dateTime": item["updated"]}, timezone) if "updated" in item else None
         if updated is not None and updated.tzinfo is None:
             raise ProviderError("MALFORMED_RESPONSE")
         return ProviderEvent(

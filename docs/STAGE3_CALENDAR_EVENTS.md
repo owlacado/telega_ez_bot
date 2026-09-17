@@ -21,7 +21,8 @@ instance ID, recurring parent and original start are retained. Cancelled tombsto
 when returned unexpectedly. Conflicting duplicate IDs/instances or statuses reject the entire fetch.
 No sync token is used. Empty pages can continue. Malformed/repeated tokens and failed later pages never
 produce a complete-looking partial result. Limits: 100 pages, 10,000 unique events, 8 MB cumulative body
-and a 45-second pagination budget checked before each request and between stream chunks; individual
+and a maximum projection of 500 jobs (excess fails explicitly, never truncates). A 45-second pagination
+budget is checked before each request and between stream chunks; individual
 HTTP connect/read timeouts are 5/15 seconds. This is not a hard end-to-end deadline: a current blocking
 HTTP read and lifecycle waiting may extend elapsed time. Quotas/admission remain TD-026/017.
 
@@ -73,7 +74,7 @@ One JobEventFilter is shared by Today and preview:
   then number, wall-clock start, actual start instant and provider ID. Unnumbered jobs follow by start/ID.
   Duplicate numbers remain visible with a warning. Zero is a valid explicit sequence; up to nine digits.
 - Today retains the normalized near-raw title. Preview uses a separate schedule_summary that removes
-  simple parenthetical notes and “didnt buy” (including apostrophe variants), then collapses whitespace.
+  balanced parenthetical notes (including nested groups) and “didnt buy” (including apostrophe variants), then collapses whitespace.
   Raw summary is retained. No event is rewritten at Google.
 
 The legacy rules in the task are the behavioral source; no readable legacy bot source was present in
@@ -113,3 +114,9 @@ External token rotation and PostgreSQL commit are not atomic. Credential-key rot
 revocation durability remain TD-025. Large-day UI performance and global rate/admission limits remain
 TD-015/017/026. Real Google incremental consent, shared calendar event visibility, recurrence and DST
 acceptance remain manual under TD-027. Existing HIGH TD-010/011 and overdue TD-014 are not closed.
+
+Independent quality-audit findings, fixes, adversarial coverage and release gates are recorded
+in [AUDIT_STAGE3_CALENDAR_EVENTS.md](AUDIT_STAGE3_CALENDAR_EVENTS.md). Preview buttons now name
+the returned target weekday. Cancelled recurring exceptions participate in identity conflict
+checks, strict provider date/time shapes are enforced, and unexpected schedule errors retain
+privacy headers and sanitized diagnostics.

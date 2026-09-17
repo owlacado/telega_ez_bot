@@ -109,7 +109,7 @@ it("renders malicious long content as plain text", () => {
   expect(container.textContent).toContain(summary.trim());
 });
 it.each([
-  ["2026-09-18", "Tomorrow"],
+  ["2026-09-18", "Monday"],
   ["2026-09-19", "Monday"],
   ["2026-09-20", "Monday"],
 ])("preview label follows operational weekday %s", (day, label) =>
@@ -118,7 +118,7 @@ it.each([
 it("preview is read-only, loads target day and closes", async () => {
   mocked.mockResolvedValue({ ...ready, operational_date: "2026-09-18" });
   render(<PreviewSchedule id="tech" today={ready} />);
-  fireEvent.click(screen.getByRole("button", { name: /Preview Tomorrow/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Preview Friday/ }));
   await waitFor(() =>
     expect(screen.getByText("No scheduled jobs.")).toBeVisible(),
   );
@@ -201,11 +201,117 @@ it("close and reopen ignores previous preview completion", async () => {
     )
     .mockResolvedValue({ ...ready, jobs: [job] });
   render(<PreviewSchedule id="tech" today={ready} />);
-  fireEvent.click(screen.getByRole("button", { name: /Preview Tomorrow/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Preview Friday/ }));
   await waitFor(() => expect(mocked).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  fireEvent.click(screen.getByRole("button", { name: /Preview Tomorrow/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Preview Friday/ }));
   await waitFor(() => expect(screen.getByText("1. Furnace")).toBeVisible());
   await act(async () => old({ ...ready, state: "PROVIDER_ERROR" }));
   expect(screen.getByText("1. Furnace")).toBeVisible();
+});
+
+it.each([
+  ["2026-09-17", "2026-09-18", "Friday"],
+  ["2026-09-18", "2026-09-19", "Saturday"],
+  ["2026-09-19", "2026-09-21", "Monday"],
+  ["2026-09-20", "2026-09-21", "Monday"],
+])("label uses returned target %s to %s", (today, target, name) => {
+  expect(previewLabel(today, target)).toContain(name);
+});
+
+it.each(["today", "next-schedule"])(
+  "%s ignores A after B success and after B failure",
+  async (route) => {
+    for (const latestFails of [false, true]) {
+      mocked.mockReset();
+      let old!: (v: unknown) => void;
+      mocked.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            old = resolve;
+          }),
+      );
+      if (latestFails) mocked.mockRejectedValueOnce(new Error("new failure"));
+      else
+        mocked.mockResolvedValueOnce({
+          ...ready,
+          jobs: [
+            { ...job, summary: "B customer", schedule_summary: "B customer" },
+          ],
+        });
+      function Reader({ id }: { id: string }) {
+        const resource = useSchedule(`/technicians/${id}/calendar/${route}`);
+        return (
+          <ScheduleContent {...resource} preview={route === "next-schedule"} />
+        );
+      }
+      const { rerender, unmount } = render(<Reader id="A" />);
+      await waitFor(() => expect(mocked).toHaveBeenCalledTimes(1));
+      const signal = mocked.mock.calls[0][1]?.signal as AbortSignal;
+      rerender(<Reader id="B" />);
+      await waitFor(() => expect(mocked).toHaveBeenCalledTimes(2));
+      if (latestFails) await screen.findByRole("alert");
+      else await screen.findByText("B customer");
+      expect(signal.aborted).toBe(true);
+      await act(async () =>
+        old({
+          ...ready,
+          jobs: [
+            { ...job, summary: "A PRIVATE", schedule_summary: "A PRIVATE" },
+          ],
+        }),
+      );
+      expect(screen.queryByText("A PRIVATE")).not.toBeInTheDocument();
+      if (latestFails) expect(screen.getByRole("alert")).toBeVisible();
+      else expect(screen.getByText("B customer")).toBeVisible();
+      unmount();
+    }
+  },
+);
+
+it("triple refresh admits one request, aborts unmount and permits failure retry", async () => {
+  mocked
+    .mockResolvedValueOnce(ready)
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce(ready);
+  const { result, unmount } = renderHook(() => useSchedule("/today"));
+  await waitFor(() => expect(result.current.data).toEqual(ready));
+  act(() => {
+    result.current.refresh();
+    result.current.refresh();
+    result.current.refresh();
+  });
+  await waitFor(() => expect(result.current.error).toBe(true));
+  expect(mocked).toHaveBeenCalledTimes(2);
+  act(() => result.current.refresh());
+  await waitFor(() => expect(result.current.data).toEqual(ready));
+  const signal = mocked.mock.calls[2][1]?.signal as AbortSignal;
+  unmount();
+  expect(signal.aborted).toBe(true);
+});
+
+it("provider links prevent opener access and content remains literal", () => {
+  const { container } = render(
+    <ScheduleContent
+      {...view({
+        ...ready,
+        jobs: [
+          {
+            ...job,
+            summary: "<img src=x onerror=alert(1)> &amp; **bold**",
+            description:
+              "<script>alert(1)</script>\n[link](javascript:alert(1))",
+            html_link:
+              "https://calendar.google.com/calendar/event?eid=synthetic",
+          },
+        ],
+      })}
+    />,
+  );
+  expect(container.querySelector("img, script")).toBeNull();
+  expect(container.textContent).toContain("&amp; **bold**");
+  expect(screen.getByRole("link")).toHaveAttribute(
+    "rel",
+    "noopener noreferrer",
+  );
 });

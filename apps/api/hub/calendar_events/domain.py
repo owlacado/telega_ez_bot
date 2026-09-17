@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict
 
 from hub.google_calendar.types import ProviderError
 
+MAX_SCHEDULE_JOBS = 500
 TECHNICIAN_JOB_DAY_START = time(8)
 TECHNICIAN_JOB_DAY_END = time(22)
 EXCLUDED_TITLE = re.compile(
@@ -77,7 +78,21 @@ def clean_text(value, limit: int, optional=False):
 
 
 def schedule_title(summary: str) -> str:
-    value = re.sub(r"\([^()]*\)", "", summary)
+    # Remove complete balanced groups, including nested notes. Preserve unmatched
+    # text, and separate surrounding words rather than joining them accidentally.
+    parts, depth, group_start, cursor = [], 0, 0, 0
+    for index, char in enumerate(summary):
+        if char == "(":
+            if depth == 0:
+                group_start = index
+            depth += 1
+        elif char == ")" and depth:
+            depth -= 1
+            if depth == 0:
+                parts.extend((summary[cursor:group_start], " "))
+                cursor = index + 1
+    parts.append(summary[cursor:])
+    value = "".join(parts)
     value = re.sub(r"\bdidn['’]?t\s+buy\b", "", value, flags=re.IGNORECASE)
     return " ".join(value.split()).strip() or summary
 
@@ -117,6 +132,8 @@ def build_technician_schedule(
                 job_number=int(match[1]) if match else None,
             )
         )
+    if len(jobs) > MAX_SCHEDULE_JOBS:
+        raise ProviderError("REQUEST_LIMIT")
     jobs.sort(
         key=lambda e: (
             e.job_number is None,

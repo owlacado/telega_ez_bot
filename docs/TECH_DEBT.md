@@ -381,3 +381,24 @@ No new debt ID is needed and no existing item is resolved by Stage 3. The counts
 
 Internal-pilot blockers remain TD-010/011/012/013/014/017/018/022/023/025/026/027.
 Production additionally requires TD-016/019/020. TD-015/024 remain LATER SCALE.
+
+## Independent Stage 3 quality audit
+
+Evidence: [AUDIT_STAGE3_CALENDAR_EVENTS.md](AUDIT_STAGE3_CALENDAR_EVENTS.md).
+No new ID and no closure; 27 entries, 10 RESOLVED / 17 OPEN remain accurate.
+
+| Existing obligation      | Stage 3 audit disposition                                                                                                                                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TD-010 / TD-011          | OPEN: durable deletion accountability and sensitive profile-field protection remain HIGH. Event no-store/log-redaction does not resolve profile storage.                                                                                                                                                        |
+| TD-012 / TD-013 / TD-014 | OPEN: deployment approval, optimistic profile editing and pre-existing provider-state invariants are unchanged. TD-014 remains overdue.                                                                                                                                                                         |
+| TD-015                   | PARTIAL remediation, status OPEN: 500-job projection cap fails explicitly; actual Chromium renders 500 jobs without horizontal overflow. Broader list scaling and measured future cache/privacy policy remain later-scale work, not authorization to add an event mirror.                                       |
+| TD-017                   | PARTIAL remediation, status OPEN: safe event outcome codes now distinguish success/empty/stale/rate/invalid data; unexpected 500s retain privacy headers. Six slow reads leave the transaction pool available. Hard end-to-end deadlines, lifecycle admission, shutdown and operational monitoring remain open. |
+| TD-018 / TD-022 / TD-023 | OPEN: external images, Telegram live membership acceptance and bot abuse/retention are not addressed by event reads.                                                                                                                                                                                            |
+| TD-025                   | OPEN: concurrent upgrade/disconnect/replacement and event fetch pass, but refresh/DB atomicity, key recovery and durable revocation remain operational obligations.                                                                                                                                             |
+| TD-026                   | PARTIAL remediation, status OPEN: per-technician refresh coalescing and bounded event projection are covered. Global/per-manager quota admission and expired attempt retention remain absent.                                                                                                                   |
+| TD-027                   | OPEN: fake transport/browser tests and official documentation review do not replace dedicated Google TEST consent, ACL/private-event, recurrence and DST acceptance. No live acceptance was performed.                                                                                                          |
+| TD-016 / TD-019 / TD-020 | OPEN: additional production durability, runtime-contract and accessibility obligations remain.                                                                                                                                                                                                                  |
+| TD-024                   | OPEN: Telegram display metadata freshness remains later-scale work.                                                                                                                                                                                                                                             |
+
+All twelve listed pilot blockers remain blockers. Production additionally requires TD-016/019/020.
+The fixed audit defects are documented in the audit report; they do not create unresolved debt IDs.

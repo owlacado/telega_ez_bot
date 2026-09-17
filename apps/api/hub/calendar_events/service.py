@@ -142,8 +142,7 @@ async def remember_failure(request, connection_id, generation, exc):
         await db.commit()
 
 
-async def read_schedule(request, technician_id, preview=False):
-    started = monotonic()
+async def _read_schedule(request, technician_id, preview=False):
     result, identity, context = await snapshot(request, technician_id, preview)
     if result.state != "READY":
         return result
@@ -190,6 +189,9 @@ async def read_schedule(request, technician_id, preview=False):
                     time_max,
                     calendar.timezone,
                 )
+                jobs, warnings = build_technician_schedule(
+                    calendar.id, result.operational_date, calendar.timezone, events
+                )
             except Exception as failure:
                 if isinstance(failure, HTTPException):
                     raise
@@ -231,9 +233,7 @@ async def read_schedule(request, technician_id, preview=False):
                 fresh.state = "CHANGED"
                 result = fresh
                 return result
-            fresh.jobs, fresh.warnings = build_technician_schedule(
-                calendar.id, result.operational_date, calendar.timezone, events
-            )
+            fresh.jobs, fresh.warnings = jobs, warnings
             fresh.last_fetched_at = now()
             result = fresh
             return result
@@ -242,14 +242,40 @@ async def read_schedule(request, technician_id, preview=False):
             raise
         result.state = "BUSY"
         return result
+
+
+async def read_schedule(request, technician_id, preview=False):
+    started = monotonic()
+    result, outcome = None, "INTERRUPTED"
+    try:
+        result = await _read_schedule(request, technician_id, preview)
+        outcome = (
+            ("SUCCESS" if result.jobs else "NO_JOBS")
+            if result.state == "READY"
+            else "STALE_ASSIGNMENT"
+            if result.state == "CHANGED"
+            else {
+                "MALFORMED_RESPONSE": "INVALID_PROVIDER_DATA",
+                "PROVIDER_TEMPORARY_ERROR": "TEMPORARY_PROVIDER_FAILURE",
+            }.get(result.error_code, result.error_code or result.state)
+        )
+        return result
+    except HTTPException as exc:
+        outcome = {401: "AUTH_REQUIRED", 404: "TECHNICIAN_NOT_FOUND", 409: "STALE_ASSIGNMENT"}.get(
+            exc.status_code, "REQUEST_FAILED"
+        )
+        raise
+    except Exception:
+        outcome = "INTERNAL_ERROR"
+        raise
     finally:
         logger.info(
             "calendar_events operation=%s technician=%s calendar=%s "
             "duration_ms=%d result=%s count=%d",
             "next_schedule" if preview else "today",
             technician_id,
-            calendar.id,
+            result.calendar.id if result and result.calendar else None,
             int((monotonic() - started) * 1000),
-            result.state,
-            len(result.jobs),
+            outcome,
+            len(result.jobs) if result else 0,
         )

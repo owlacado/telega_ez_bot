@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
@@ -73,7 +74,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             request.state.google_callback = request.query_params.multi_items()
             # Uvicorn logs scope after response: remove secrets before any downstream handler.
             request.scope["query_string"] = b""
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            if "calendar-events" not in getattr(request.scope.get("route"), "tags", ()):
+                raise
+            # Unexpected schedule failures must retain privacy headers too. Never
+            # serialize/log the exception, whose arguments can contain provider PII.
+            from starlette.responses import JSONResponse
+
+            logging.getLogger("hub.calendar_events.service").error(
+                "calendar_events result=INTERNAL_ERROR"
+            )
+            response = JSONResponse(
+                {"error": {"code": "internal_error", "message": "Unable to read schedule."}},
+                status_code=500,
+            )
         if callback and response.status_code in {401, 403}:
             from starlette.responses import RedirectResponse
 

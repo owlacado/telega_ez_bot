@@ -10,10 +10,11 @@ import { Loading } from "./ui";
 export function previewLabel(today?: string | null, target?: string | null) {
   if (!today || !target) return "Preview Next Work Day Schedule";
   // Date-only strings are calendar labels, never browser-local instants.
-  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay();
-  return weekday === 6 || weekday === 0
-    ? "Preview Monday’s Schedule"
-    : "Preview Tomorrow’s Schedule";
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${target}T12:00:00Z`));
+  return `Preview ${weekday}’s Schedule`;
 }
 export function operationalDate(value: string) {
   return new Intl.DateTimeFormat("en-US", {
