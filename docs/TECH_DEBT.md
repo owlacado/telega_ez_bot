@@ -1,5 +1,45 @@
 # Technical debt register
 
+Current Stage 5 disposition: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
+2 HIGH, 16 MEDIUM, 3 LOW). Historical counts below describe earlier stages.
+No existing debt is closed by Work Reports.
+
+## Stage 5 obligations and carried gates
+
+- **TD-030 — MEDIUM — Work Report dedicated TEST acceptance — BEFORE INTERNAL PILOT — OPEN.**
+  Fake PostgreSQL/browser checks cannot validate actual mobile Telegram clients,
+  private link handling, HTTPS/origin configuration, test-bot command delivery or
+  Google test-calendar projection. Execute and record the dedicated fictional-data
+  runbook in WORK_REPORTS.md later. Bearer links are transferable if deliberately
+  shared; validate/approve that threat model rather than claiming initData actor
+  proof. No live provider acceptance was executed.
+- **TD-031 — MEDIUM — Business-record and form retention policy — BEFORE INTERNAL PILOT — OPEN.**
+  Immutable reports now block technician deletion, preventing financial-history
+  cascade. Retention/anonymization, privileged archival, encrypted backups and
+  expired-form snapshot purge/metadata retention need an approved policy. Submitted
+  forms clear choice PII; abandoned forms expire but their snapshots are not yet
+  automatically purged. No administrative deletion bypass is introduced.
+
+Carried Stage 4 obligations re-evaluated without changing IDs/status:
+TD-010/011 remain HIGH: report immutability does not solve generic audit retention
+or plaintext DL/SSN. TD-012 retains TLS/managed-origin/request-budget approval;
+form credentials also need HTTPS. TD-013 profile optimistic editing is unchanged.
+TD-014 old provider-state combinations remain overdue. TD-015 new report lists are
+bounded but older lists are not; later-scale obligation remains. TD-017/026 retain
+global request admission/deadline/observability and Google quota/attempt retention;
+new picker reuses rather than bypasses the Stage 3 boundary. TD-018 external profile
+images are unchanged. TD-022/023 retain Telegram membership/abuse/metadata retention.
+TD-024 display freshness is unchanged. TD-025/027 retain Google credential recovery
+and live sandbox acceptance. TD-028/029 retain combined schedule acceptance and
+worker/key operations; form-only report confirmation adds no alternate send queue.
+Production additionally requires TD-016/019/020 (restore durability, runtime
+contracts, accessibility/cross-browser acceptance). No correction UI, accounting,
+Calendar write-back or normal future feature is misrepresented as implemented.
+
+Pilot blockers: TD-010/011/012/013/014/017/018/022/023/025/026/027/028/029/030/031.
+Production additionally: TD-016/019/020. TD-015/024 remain LATER SCALE.
+Stage 5 verification is not pilot or production approval.
+
 Scope: Stage 4 durable schedule delivery following audited Stage 3 baseline `b145177`. **29 entries: 10 RESOLVED, 19 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 14, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md and AUDIT_STAGE2_GOOGLE_CALENDAR.md. The independent audit adds evidence and localized remediation without closing any existing operational obligation. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.

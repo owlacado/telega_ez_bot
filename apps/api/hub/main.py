@@ -21,6 +21,7 @@ from hub.google_calendar.router import router as google_router
 from hub.schedule_delivery.router import router as schedule_router
 from hub.technicians.router import router as technicians_router
 from hub.telegram.router import router as telegram_router
+from hub.work_reports.router import router as reports_router
 
 
 class Health(BaseModel):
@@ -68,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(google_router)
     app.include_router(events_router)
     app.include_router(schedule_router)
+    app.include_router(reports_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):
@@ -79,17 +81,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         try:
             response = await call_next(request)
         except Exception:
-            if "calendar-events" not in getattr(request.scope.get("route"), "tags", ()):
+            tags = getattr(request.scope.get("route"), "tags", ())
+            if "calendar-events" not in tags and "work-reports" not in tags:
                 raise
             # Unexpected schedule failures must retain privacy headers too. Never
             # serialize/log the exception, whose arguments can contain provider PII.
             from starlette.responses import JSONResponse
 
-            logging.getLogger("hub.calendar_events.service").error(
-                "calendar_events result=INTERNAL_ERROR"
-            )
+            module = "work_reports" if "work-reports" in tags else "calendar_events"
+            logging.getLogger(f"hub.{module}.service").error("%s result=INTERNAL_ERROR", module)
             response = JSONResponse(
-                {"error": {"code": "internal_error", "message": "Unable to read schedule."}},
+                {
+                    "error": {
+                        "code": "internal_error",
+                        "message": "Unable to complete request. Retry safely.",
+                    }
+                },
                 status_code=500,
             )
         if callback and response.status_code in {401, 403}:

@@ -487,6 +487,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/technician-forms/work-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Form */
+        post: operations["open_form_api_technician_forms_work_report_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technician-forms/work-report/select": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Select Job */
+        post: operations["select_job_api_technician_forms_work_report_select_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technician-forms/work-report/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit */
+        post: operations["submit_api_technician_forms_work_report_submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/work-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reports */
+        get: operations["reports_api_technicians__technician_id__work_reports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/work-reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Report */
+        get: operations["report_api_work_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/work-report-sessions/{session_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke */
+        post: operations["revoke_api_technicians__technician_id__work_report_sessions__session_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -845,6 +947,40 @@ export interface components {
             /** Resend Of Id */
             resend_of_id: string | null;
         };
+        /** FormRead */
+        FormRead: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "OPEN" | "SUBMITTED";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Jobs */
+            jobs?: components["schemas"]["JobRead"][];
+            selected?: components["schemas"]["JobRead"] | null;
+            /** Report Id */
+            report_id?: string | null;
+            /**
+             * Payment Choices
+             * @default [
+             *       "CASH",
+             *       "ZELLE",
+             *       "CHECK",
+             *       "CREDIT_CARD",
+             *       "VENMO",
+             *       "SUPER",
+             *       "ESTIMATE",
+             *       "CANCEL"
+             *     ]
+             */
+            payment_choices: ("CASH" | "ZELLE" | "CHECK" | "CREDIT_CARD" | "VENMO" | "SUPER" | "ESTIMATE" | "CANCEL")[];
+            /** Zero Amount Choices */
+            zero_amount_choices?: ("CASH" | "ZELLE" | "CHECK" | "CREDIT_CARD" | "VENMO" | "SUPER" | "ESTIMATE" | "CANCEL")[];
+        };
         /** GoogleConnectionRead */
         GoogleConnectionRead: {
             /** Enabled */
@@ -999,6 +1135,34 @@ export interface components {
             /** Fallback Command */
             fallback_command?: string | null;
         };
+        /** JobRead */
+        JobRead: {
+            /**
+             * Choice Id
+             * Format: uuid
+             */
+            choice_id: string;
+            /**
+             * Operational Date
+             * Format: date
+             */
+            operational_date: string;
+            /** Start Time */
+            start_time: string;
+            /** End Time */
+            end_time: string;
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Location */
+            location: string;
+            /**
+             * Submitted
+             * @default false
+             */
+            submitted: boolean;
+        };
         /** Login */
         Login: {
             /** Username */
@@ -1023,6 +1187,93 @@ export interface components {
              */
             expires_at: string;
         };
+        /** ReportInput */
+        ReportInput: {
+            /** Amount Closed */
+            amount_closed: string;
+            /**
+             * Payment Method
+             * @enum {string}
+             */
+            payment_method: "CASH" | "ZELLE" | "CHECK" | "CREDIT_CARD" | "VENMO" | "SUPER" | "ESTIMATE" | "CANCEL";
+            /**
+             * Closed By
+             * @enum {string}
+             */
+            closed_by: "MYSELF" | "CALL_CENTER";
+            /**
+             * Comments
+             * @default
+             */
+            comments: string;
+            /** Yearly Maintenance Plan Provided */
+            yearly_maintenance_plan_provided: boolean;
+            reviews: components["schemas"]["Reviews"];
+        };
+        /** ReportList */
+        ReportList: {
+            /** Reports */
+            reports: components["schemas"]["ReportRead"][];
+            /** Limit */
+            limit: number;
+        };
+        /** ReportRead */
+        ReportRead: {
+            /** Amount Closed */
+            amount_closed: string;
+            /**
+             * Payment Method
+             * @enum {string}
+             */
+            payment_method: "CASH" | "ZELLE" | "CHECK" | "CREDIT_CARD" | "VENMO" | "SUPER" | "ESTIMATE" | "CANCEL";
+            /**
+             * Closed By
+             * @enum {string}
+             */
+            closed_by: "MYSELF" | "CALL_CENTER";
+            /**
+             * Comments
+             * @default
+             */
+            comments: string;
+            /** Yearly Maintenance Plan Provided */
+            yearly_maintenance_plan_provided: boolean;
+            reviews: components["schemas"]["Reviews"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Technician Id
+             * Format: uuid
+             */
+            technician_id: string;
+            /** Technician Name */
+            technician_name: string;
+            /**
+             * Operational Date
+             * Format: date
+             */
+            operational_date: string;
+            /** Start Time */
+            start_time: string;
+            /** End Time */
+            end_time: string;
+            /** Sequence */
+            sequence: number;
+            /** Title */
+            title: string;
+            /** Location */
+            location: string;
+            /** Revision Number */
+            revision_number: number;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
         /** ReviewInvitation */
         ReviewInvitation: {
             /**
@@ -1030,6 +1281,15 @@ export interface components {
              * @enum {string}
              */
             decision: "APPROVE" | "REJECT";
+        };
+        /** Reviews */
+        Reviews: {
+            /** Google */
+            GOOGLE: number;
+            /** Groupon */
+            GROUPON: number;
+            /** Facebook */
+            FACEBOOK: number;
         };
         /** RuntimeRead */
         RuntimeRead: {
@@ -1122,6 +1382,14 @@ export interface components {
             /** Last Name */
             last_name: string;
         };
+        /** SelectJob */
+        SelectJob: {
+            /**
+             * Choice Id
+             * Format: uuid
+             */
+            choice_id: string;
+        };
         /** SendSchedule */
         SendSchedule: {
             /**
@@ -1163,6 +1431,24 @@ export interface components {
             confirm_replace: boolean;
             /** Expected Impact Version */
             expected_impact_version?: string | null;
+        };
+        /** SubmissionRead */
+        SubmissionRead: {
+            /**
+             * Report Id
+             * Format: uuid
+             */
+            report_id: string;
+            /**
+             * Revision Number
+             * @default 1
+             */
+            revision_number: number;
+            /**
+             * Message
+             * @default Report submitted successfully.
+             */
+            message: string;
         };
         /** TechnicianCreate */
         TechnicianCreate: {
@@ -2366,6 +2652,186 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DispatchRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_form_api_technician_forms_work_report_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormRead"];
+                };
+            };
+        };
+    };
+    select_job_api_technician_forms_work_report_select_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SelectJob"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_api_technician_forms_work_report_submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reports_api_technicians__technician_id__work_reports_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_api_work_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_api_technicians__technician_id__work_report_sessions__session_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

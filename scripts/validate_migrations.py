@@ -140,6 +140,10 @@ async def clear_test_delivery_history():
     engine = create_async_engine(url, hide_parameters=True)
     try:
         async with engine.begin() as db:
+            if await db.scalar(text("SELECT to_regclass('work_reports')")):
+                await db.execute(
+                    text("TRUNCATE technician_form_sessions, work_report_revisions, work_reports")
+                )
             if await db.scalar(text("SELECT to_regclass('schedule_dispatches')")):
                 await db.execute(
                     text("TRUNCATE schedule_dispatches, schedule_auto_decisions CASCADE")
@@ -489,7 +493,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["d4e509170002"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["e5f509180001"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -533,7 +537,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "d4e509170002"
+                    == "e5f509180001"
                 )
             else:
                 await db.execute(
@@ -558,3 +562,80 @@ asyncio.run(legacy_history("check"))
 asyncio.run(legacy_history("remove"))
 alembic("check")
 print("Audit migration preserves populated Stage 4; populated rollback refuses atomically.")
+
+
+async def stage5_history(action):
+    from datetime import date
+    from decimal import Decimal
+
+    from hub.work_reports.models import WorkReport, WorkReportRevision
+    from sqlalchemy import insert
+
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if action == "insert":
+                await db.execute(
+                    insert(WorkReport).values(
+                        id=stage5_report,
+                        technician_id=tech,
+                        calendar_id=calendar,
+                        occurrence_key="b" * 64,
+                    )
+                )
+                await db.execute(
+                    insert(WorkReportRevision).values(
+                        report_id=stage5_report,
+                        revision_number=1,
+                        technician_name="Migration fictional technician",
+                        operational_date=date(2026, 9, 18),
+                        start_time="08:00",
+                        end_time="09:00",
+                        sequence=1,
+                        title="Migration fictional job",
+                        location="Test address",
+                        provider_event_id="test-occurrence",
+                        amount_closed=Decimal("123.45"),
+                        payment_method="CASH",
+                        closed_by="MYSELF",
+                        comments="Migration sentinel",
+                        yearly_maintenance_plan_provided=False,
+                        google_reviews=1,
+                        groupon_reviews=0,
+                        facebook_reviews=2,
+                    )
+                )
+            elif action == "check":
+                assert await db.scalar(
+                    text("SELECT amount_closed FROM work_report_revisions WHERE report_id=:id"),
+                    {"id": stage5_report},
+                ) == Decimal("123.45")
+                assert (
+                    await db.scalar(text("SELECT version_num FROM alembic_version"))
+                    == "e5f509180001"
+                )
+            else:
+                await db.execute(
+                    text("TRUNCATE technician_form_sessions, work_report_revisions, work_reports")
+                )
+    finally:
+        await engine.dispose()
+
+
+stage5_report = uuid.uuid4()
+asyncio.run(stage5_history("insert"))
+refused = subprocess.run(
+    [sys.executable, "-m", "alembic", "downgrade", "d4e509170002"],
+    cwd=root / "apps/api",
+    env=env,
+    capture_output=True,
+    text=True,
+)
+assert refused.returncode != 0 and "WORK_REPORT_HISTORY_ROLLBACK_REFUSED" in refused.stderr
+asyncio.run(stage5_history("check"))
+asyncio.run(stage5_history("remove"))
+alembic("downgrade", "d4e509170002")
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+alembic("check")
+print("Stage 5 populated report rollback refused; empty round-trip preserves Stage 4 data.")

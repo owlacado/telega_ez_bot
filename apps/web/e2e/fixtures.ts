@@ -21,6 +21,7 @@ export function harness(payload: Record<string, unknown>) {
   );
   if (result.status !== 0)
     throw new Error(result.stderr || "Isolated test harness failed");
+  return result.stdout.trim() ? JSON.parse(result.stdout) : null;
 }
 export const test = base.extend({
   page: async ({ page, baseURL }, provide) => {

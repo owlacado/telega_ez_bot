@@ -18,8 +18,12 @@ from hub.telegram.models import (
     TelegramProcessedUpdate,
     TelegramWorkerState,
 )
+from hub.work_reports.models import TechnicianFormSession, WorkReport, WorkReportRevision
 
 __all__ = [
+    "TechnicianFormSession",
+    "WorkReport",
+    "WorkReportRevision",
     "ScheduleDispatch",
     "ScheduleDeliverySetting",
     "ScheduleAutoDecision",

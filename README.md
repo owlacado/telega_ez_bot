@@ -1,8 +1,14 @@
 # Technician Hub
 
+Stage 5 adds [technician Work Reports](docs/WORK_REPORTS.md): private `/report`,
+secure mobile job selection/submission, immutable PostgreSQL history, and manager
+read-only visibility. Technicians with report history must be deactivated rather
+than permanently deleted. See [legacy parity](docs/LEGACY_WORK_REPORT_INVENTORY.md)
+and [Stage 5 verification](docs/STAGE5_WORK_REPORT_VERIFICATION.md).
+
 A local operations workspace built around the human technician. PostgreSQL owns identity; calendars and future provider connections attach to an immutable UUID.
 
-**Stage 4: durable Telegram schedule delivery and acknowledgements, alongside audited calendar views, discovery, assignment and onboarding.** All business data requires a manager session. Google and Telegram default to disabled; the Telegram worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live provider validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
+**Stage 4 foundation: durable Telegram schedule delivery and acknowledgements, alongside audited calendar views, discovery, assignment and onboarding.** Manager business views require a manager session; Stage 5's three technician-form endpoints use separately scoped private capabilities. Google and Telegram default to disabled; the Telegram worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live provider validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
 
 Connect Telegram now creates a one-time invitation and binds automatically when the intended technician presses Start. Work-group linking uses a separate invitation and requires that same linked account to send the group command; ordinary bot membership is sufficient. Existing invitations retain their old manager-review policy after upgrade. See [the onboarding runbook](docs/TELEGRAM_ONBOARDING.md) for safe link handling, configuration, disconnect/reconnect behavior and the manual TEST-bot procedure, and [completion verification](docs/TELEGRAM_COMPLETION_VERIFICATION.md) for current evidence.
 

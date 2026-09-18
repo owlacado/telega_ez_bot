@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     allowed_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     session_lifetime_seconds: int = Field(default=28800, ge=60, le=86400)
+    work_report_session_seconds: int = Field(default=900, ge=600, le=900)
 
     google_mode: Literal["disabled", "real", "fake"] = "disabled"
     google_client_id: str | None = None

@@ -78,7 +78,9 @@ class Worker:
                 offset = None
         updates = await self.provider.updates(offset)
         for event in sorted(updates, key=lambda value: value.update_id):
-            result = await process_update(self.factory, self.provider, event, self.bot_id)
+            result = await process_update(
+                self.factory, self.provider, event, self.bot_id, settings=self.settings
+            )
             # Processing and its deduplication record are committed before offset advancement.
             async with self.factory() as db, db.begin():
                 state = await db.get(TelegramWorkerState, self.bot_id, with_for_update=True)

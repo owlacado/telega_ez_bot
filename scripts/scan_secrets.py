@@ -23,6 +23,7 @@ patterns = {
         r"https://t\.me/[A-Za-z0-9_]+\?start(?:group)?=[A-Za-z0-9_-]{43,}"
     ),
     "Literal session cookie": re.compile(r"hub_session=[A-Za-z0-9_-]{40,}"),
+    "Literal Work Report capability": re.compile(r"/technician/work-report#[A-Za-z0-9_-]{43,}"),
 }
 issues = []
 count = 0

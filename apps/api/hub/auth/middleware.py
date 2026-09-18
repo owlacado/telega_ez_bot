@@ -1,4 +1,5 @@
 import hmac
+import json
 
 from fastapi import FastAPI, Request
 from sqlalchemy import select
@@ -8,6 +9,7 @@ from starlette.responses import JSONResponse
 from hub.auth.models import Manager, ManagerSession
 from hub.auth.security import csrf_for, digest, now
 from hub.core.config import Settings
+from hub.work_reports.router import FORM_PATHS
 
 COOKIE_NAME = "hub_session"
 PUBLIC_PATHS = {"/api/health", "/api/auth/login"}
@@ -32,6 +34,30 @@ def install_auth(app: FastAPI, settings: Settings) -> None:
             return failure(403, "origin_required", "A trusted Origin header is required.")
         if request.method == "OPTIONS":
             return failure(403, "cors_disabled", "Cross-origin API access is disabled.")
+        if request.url.path in FORM_PATHS:
+            if request.method != "POST" or request.headers.get("x-hub-request") != "1":
+                return failure(403, "form_request_required", "Open the secure report form.")
+            # Enforce a bounded body even when Content-Length is absent/chunked.
+            body = bytearray()
+            async for chunk in request.stream():
+                body.extend(chunk)
+                if len(body) > 32768:
+                    return failure(413, "body_too_large", "Report input is too large.")
+            request._body = bytes(body)
+
+            def unique_fields(pairs):
+                result = {}
+                for key, value in pairs:
+                    if key in result:
+                        raise ValueError("Repeated field")
+                    result[key] = value
+                return result
+
+            try:
+                json.loads(body or b"{}", object_pairs_hook=unique_fields)
+            except (ValueError, UnicodeError, RecursionError):
+                return failure(422, "invalid_form", "Use a valid report with no repeated fields.")
+            return await call_next(request)
         if request.url.path in PUBLIC_PATHS:
             if (
                 request.url.path == "/api/auth/login"

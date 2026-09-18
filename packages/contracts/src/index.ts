@@ -1,4 +1,7 @@
 import type { components } from "./schema";
+export type WorkReportForm = components["schemas"]["FormRead"];
+export type WorkReport = components["schemas"]["ReportRead"];
+export type WorkReportList = components["schemas"]["ReportList"];
 export type Technician = components["schemas"]["TechnicianSummary"];
 export type TechnicianDetail = components["schemas"]["TechnicianDetail"];
 export type Calendar = components["schemas"]["CalendarRead"];

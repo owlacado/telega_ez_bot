@@ -100,10 +100,10 @@ async def test_offset_processing_failure_restart_and_dedup(
     ]
     original = worker_module.process_update
 
-    async def fail_second(factory, provider, event, bot_id):
+    async def fail_second(factory, provider, event, bot_id, **kwargs):
         if event.update_id == 11:
             raise RuntimeError("simulated processing interruption")
-        return await original(factory, provider, event, bot_id)
+        return await original(factory, provider, event, bot_id, **kwargs)
 
     monkeypatch.setattr(worker_module, "process_update", fail_second)
     with pytest.raises(ProviderError, match="PROCESSING_FAILED"):

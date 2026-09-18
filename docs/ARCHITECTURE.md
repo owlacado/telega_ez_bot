@@ -1,5 +1,20 @@
 # Architecture
 
+## Stage 5 Work Reports (current lifecycle extension)
+
+`work_reports` adds TechnicianFormSession, WorkReport and immutable WorkReportRevision.
+The worker calls its domain service from trusted private commands; only opaque
+short-lived bearer form credentials authorize technician HTTP submission. Manager
+auth is a separate boundary. Read [WORK_REPORTS.md](WORK_REPORTS.md) for the explicit
+bearer-link threat model, unchanged Stage 3 projection, frozen server job snapshot,
+Decimal/payment/review facts, atomic replay semantics and bounded read-only views.
+
+Deletion semantics below are historical for technicians **without business records**.
+Reports now RESTRICT technician/calendar deletion; revision/identity triggers prevent
+history mutation. The deferred report→current-revision FK supports truthful future
+latest-revision-only calculations. Stage 5 itself implements no accounting or
+correction flow. Confirmation is the committed form receipt, without a provider send.
+
 Stage 2 adds the Google Calendar provider described in [GOOGLE_CALENDAR_INTEGRATION.md](GOOGLE_CALENDAR_INTEGRATION.md). CalendarConnection and single-use GoogleOAuthAttempt are distinct from technician identity. Calendar rows now have LOCAL_DEMO/GOOGLE source, connection-scoped provider identity, last-seen availability, and explicit local exclusions. Existing assignment history and both active-assignment uniqueness indexes remain authoritative. A normalized CalendarProvider boundary owns OAuth, refresh, revoke, and complete CalendarList pagination; Stage 3 adds the read-only event boundary described below. Fernet-encrypted refresh credentials stay server-side; access tokens are ephemeral. Network fetch and short atomic reconciliation are separated by generation checks and PostgreSQL advisory coordination.
 
 Current Telegram completion supersedes the original review-only flow described below for **new** invitations. New PRIVATE_TELEGRAM/WORK_GROUP credentials automatically activate the existing binding in the same transaction as claim/audit/outbox. A new group claim requires the exact linked private actor and bot membership/send capability, without administration. Legacy invitations retain review semantics through the server-owned automatic=false migration value. All existing generations, advisory locks, unique IDs, manager auth, provider boundaries, outbox and deletion protections remain. See [the current runbook](TELEGRAM_ONBOARDING.md) and [completion verification](TELEGRAM_COMPLETION_VERIFICATION.md).

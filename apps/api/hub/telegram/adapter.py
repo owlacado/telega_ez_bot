@@ -3,7 +3,13 @@
 import logging
 from pathlib import Path
 
-from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions
+from telegram import (
+    Bot,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LinkPreviewOptions,
+    ReplyKeyboardMarkup,
+)
 from telegram.error import (
     BadRequest,
     Conflict,
@@ -128,7 +134,17 @@ class TelegramBotAdapter:
 
     async def send(self, chat_id: int, message: str) -> int:
         try:
-            return (await self.bot.send_message(chat_id, message, protect_content=True)).message_id
+            return (
+                await self.bot.send_message(
+                    chat_id,
+                    message,
+                    protect_content=True,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    reply_markup=ReplyKeyboardMarkup([["Submit Report"]], resize_keyboard=True)
+                    if chat_id > 0 and message.startswith("You're connected to Technician Hub.")
+                    else None,
+                )
+            ).message_id
         except TelegramError as error:
             raise safe_error(error) from None
 

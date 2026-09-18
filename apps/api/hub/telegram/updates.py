@@ -1,5 +1,5 @@
 from contextlib import AsyncExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -32,12 +32,13 @@ REPLIES = {
         "attention. Ask your manager to review setup checks and retry "
         "verification."
     ),
-    "CONNECTED": "You're connected to Technician Hub.",
+    "CONNECTED": "You're connected to Technician Hub. /report — Submit Report",
     "UNAVAILABLE": "Your connection is currently unavailable. Contact your manager.",
     "HELP": (
         "Use your manager's /start invitation to connect. /status shows "
         "connection status. /getid shows your own Telegram ID in a "
-        "private chat. Use Schedule received on your delivered schedule to acknowledge it."
+        "private chat. /report — Submit Report. Use Schedule received on your "
+        "delivered schedule to acknowledge it."
     ),
 }
 
@@ -45,7 +46,7 @@ REPLIES = {
 @dataclass(frozen=True)
 class UpdateResult:
     outcome: str
-    reply: str | None = None
+    reply: str | None = field(default=None, repr=False)
 
 
 async def operational_access(db, user_id: int, bot_id: int) -> bool:
@@ -60,7 +61,12 @@ async def operational_access(db, user_id: int, bot_id: int) -> bool:
 
 
 async def process_update(
-    factory: async_sessionmaker, provider: TelegramProvider, event: TrustedEvent, bot_id: int
+    factory: async_sessionmaker,
+    provider: TelegramProvider,
+    event: TrustedEvent,
+    bot_id: int,
+    *,
+    settings=None,
 ) -> UpdateResult:
     if event.kind == "CALLBACK":
         # Clear Telegram's progress indicator promptly, before database work. A failure
@@ -115,6 +121,19 @@ async def process_update(
                 elif event.chat_type == "private" and event.chat_id == event.user_id:
                     if event.command == "/help":
                         result = "HELP"
+                    elif event.command == "/report":
+                        from hub.core.config import Settings
+                        from hub.work_reports.service import issue
+
+                        config = settings or Settings()
+                        token = await issue(db, event, bot_id, config)
+                        result = "WORK_REPORT_FORM" if token else "INVITATION_REQUIRED"
+                        if token:
+                            reply = (
+                                "Submit Report\nOpen this private link within 15 minutes. "
+                                "Do not share it.\n"
+                                f"{config.allowed_origins[0]}/technician/work-report#{token}"
+                            )
                     elif event.command in {None, "/start", "/status"}:
                         linked = await db.scalar(
                             select(TelegramBinding.technician_id).where(

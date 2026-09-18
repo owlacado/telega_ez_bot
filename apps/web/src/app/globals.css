@@ -1823,3 +1823,82 @@ td > small {
   width: 100%;
   min-width: 0;
 }
+/* Isolated mobile technician surface: no manager navigation or provider IDs. */
+.report-mobile {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 24px 16px 60px;
+  overflow-wrap: anywhere;
+}
+.report-mobile h1 {
+  margin: 8px 0 20px;
+}
+.report-mobile fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+}
+.report-mobile label {
+  display: grid;
+  gap: 8px;
+}
+.report-mobile input,
+.report-mobile select,
+.report-mobile textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px;
+  font-size: 16px;
+}
+.report-mobile button {
+  min-height: 48px;
+}
+.report-job {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  width: 100%;
+  border: 1px solid #d4dce5;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 12px 0;
+  background: white;
+  color: inherit;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.report-job:disabled {
+  opacity: 0.65;
+}
+.report-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.work-reports {
+  padding: 20px;
+  min-width: 0;
+  max-height: 650px;
+  overflow-y: auto;
+}
+.report-detail {
+  display: grid;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.report-detail dt {
+  font-weight: 600;
+  margin-top: 12px;
+}
+.report-detail dd {
+  margin: 0;
+}
+.report-notes {
+  white-space: pre-wrap;
+}
+.report-success {
+  padding: 24px;
+}

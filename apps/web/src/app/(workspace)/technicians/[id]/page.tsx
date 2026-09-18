@@ -8,7 +8,8 @@ import { Avatar, ErrorNotice, Loading, Status } from "@/components/ui";
 import { TodayJobs, PreviewSchedule } from "@/components/calendar-jobs";
 import { useSchedule } from "@/lib/use-schedule";
 import { ProfilePanel } from "@/components/profile-panel";
-import { AccountingPanel, GpsPanel } from "@/components/detail-placeholders";
+import { GpsPanel } from "@/components/detail-placeholders";
+import { WorkReports } from "@/components/work-reports";
 import { DeleteTechnician } from "@/components/delete-technician";
 export default function TechnicianDetailPage({
   params,
@@ -73,7 +74,7 @@ export default function TechnicianDetailPage({
                 reload();
               }}
             />
-            <AccountingPanel />
+            <WorkReports key={`reports:${id}`} technicianId={id} />
             <TodayJobs resource={jobs} />
             <GpsPanel />
           </div>
@@ -83,7 +84,8 @@ export default function TechnicianDetailPage({
               <h2>Delete Technician</h2>
               <p>
                 Permanently remove this profile and its integration
-                relationships. This cannot be undone.
+                relationships. This cannot be undone. Technicians with work
+                reports cannot be deleted; deactivate them instead.
               </p>
             </div>
             <button
