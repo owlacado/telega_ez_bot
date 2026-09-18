@@ -18,10 +18,20 @@ from hub.auth.security import (
 from hub.core.config import Settings
 
 
+class InvalidManagerUsername(ValueError):
+    """Safe type for provisioning policy failures; never contains user input."""
+
+
+class InvalidManagerPassword(ValueError):
+    """Safe type for provisioning policy failures; never contains the password."""
+
+
 async def create_manager(db: AsyncSession, username: str, password: str) -> Manager:
     normalized = username.strip().lower()
-    if not normalized or len(normalized) > 100 or not 14 <= len(password) <= 128:
-        raise ValueError("Use a username of 1-100 characters and a password of 14-128 characters.")
+    if not normalized or len(normalized) > 100:
+        raise InvalidManagerUsername()
+    if not 14 <= len(password) <= 128:
+        raise InvalidManagerPassword()
     hashed = await run_in_threadpool(password_hasher().hash, password)
     manager = Manager(username=normalized, password_hash=hashed)
     db.add(manager)

@@ -32,6 +32,17 @@ The first run builds both apps, waits for PostgreSQL, and applies Alembic migrat
 
 The manager CLI prompts twice for a hidden password (14–128 characters). There is no default account/password and no public registration. Sign in at the application URL. To revoke sessions: `docker compose exec api python -m hub.auth.cli revoke-sessions --username manager`.
 
+The password policy is length only: 14–128 Unicode characters, with whitespace
+preserved; there are no hidden uppercase/number/symbol requirements. Prefer a long,
+unique passphrase. Usernames are trimmed/lowercased and must then be 1–100
+characters; `manager` is valid. Existing names, including inactive accounts, cannot
+be recreated. A successful command explicitly prints `Manager created. Sign in
+through the web application.` Do not assume an account exists merely because both
+password prompts completed. Safe CLI errors distinguish `PASSWORD_POLICY`,
+`USERNAME_EXISTS`, configuration, hashing and database failures without printing
+passwords, hashes, connection URLs or raw exceptions. See the
+[provisioning investigation](docs/MANAGER_CLI_PROVISIONING.md).
+
 Optionally seed three clearly labeled fictional calendars:
 
 ```powershell

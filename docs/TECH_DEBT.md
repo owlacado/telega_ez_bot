@@ -4,6 +4,15 @@ Current Stage 5 disposition: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
 2 HIGH, 16 MEDIUM, 3 LOW). Historical counts below describe earlier stages.
 No existing debt is closed by Work Reports.
 
+Manager CLI blocker follow-up: the user confirmed a password shorter than 14
+characters. Provisioning correctly rejected it before hashing or database writes;
+the generic CLI error obscured the reason. Typed policy failures, safe allowlisted
+operator errors and actual CLI/terminal regression coverage resolve that localized
+diagnostic defect. No policy weakening, dependency upgrade, manager seeding or
+schema change was needed. This closes no existing debt ID, and does not establish
+what happened in an earlier unrecorded provisioning attempt. See
+[the investigation](MANAGER_CLI_PROVISIONING.md). Stage 5 audit gates remain open.
+
 ## Stage 5 obligations and carried gates
 
 - **TD-030 — MEDIUM — Work Report dedicated TEST acceptance — BEFORE INTERNAL PILOT — OPEN.**
