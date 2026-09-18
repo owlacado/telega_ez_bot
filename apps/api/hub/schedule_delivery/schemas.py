@@ -24,6 +24,10 @@ class DispatchRead(BaseModel):
     target_date: date
     trigger: Literal["MANUAL", "AUTOMATIC", "MANUAL_RESEND"]
     destination: Literal["WORK_GROUP", "PRIVATE"]
+    requested_destination: Literal["WORK_GROUP", "PRIVATE"] | None = None
+    fallback_reason: (
+        Literal["GROUP_UNAVAILABLE_BEFORE_SEND", "GROUP_REJECTED_PRIVATE_FALLBACK"] | None
+    ) = None
     status: Literal["PENDING", "PROCESSING", "SENT", "FAILED", "AMBIGUOUS", "CANCELLED"]
     fingerprint: str
     job_count: int

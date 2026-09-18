@@ -3,6 +3,7 @@
 import hashlib
 import html
 import json
+import unicodedata
 from datetime import date
 from typing import Literal
 
@@ -55,12 +56,22 @@ class Payload(BaseModel):
         return message
 
 
+def normalized_text(value):
+    return unicodedata.normalize("NFC", " ".join(value.split()))
+
+
 def from_schedule(schedule):
     return Payload(
         target_date=schedule.operational_date,
-        technician_name=f"{schedule.technician.first_name} {schedule.technician.last_name}",
+        technician_name=normalized_text(
+            f"{schedule.technician.first_name} {schedule.technician.last_name}"
+        ),
         jobs=tuple(
-            PayloadJob(time=j.display_start_time, title=j.schedule_summary, location=j.location)
+            PayloadJob(
+                time=j.display_start_time,
+                title=normalized_text(j.schedule_summary),
+                location=normalized_text(j.location) or None if j.location else None,
+            )
             for j in schedule.jobs
         ),
     )

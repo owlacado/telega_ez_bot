@@ -3,14 +3,16 @@
 import asyncio
 import logging
 import signal
+from contextlib import suppress
 from types import SimpleNamespace
 from uuid import uuid4
 
+from sqlalchemy import func, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from hub.auth.security import now
+import hub.models  # noqa: F401
 from hub.core.config import Settings
 from hub.schedule_delivery.delivery import deliver_one, purge
 from hub.schedule_delivery.models import ScheduleWorkerState
@@ -43,25 +45,57 @@ class Worker:
         async with self.factory() as db, db.begin():
             await db.execute(
                 insert(ScheduleWorkerState)
-                .values(worker_id=self.id, status=status, heartbeat_at=now(), error_code=error)
+                .values(
+                    worker_id=self.id,
+                    status=status,
+                    heartbeat_at=func.clock_timestamp(),
+                    error_code=error,
+                )
                 .on_conflict_do_update(
                     index_elements=["worker_id"],
-                    set_={"status": status, "heartbeat_at": now(), "error_code": error},
+                    set_={
+                        "status": status,
+                        "heartbeat_at": func.clock_timestamp(),
+                        "error_code": error,
+                    },
                 )
             )
 
     async def cycle(self):
         await self.state("RUNNING")
-        await evaluate(self.request)
-        for _ in range(20):
-            if not await deliver_one(self.factory, self.lock_engine, self.provider, self.settings):
-                break
+
+        # Independent lanes: slow Google decisions must not block already queued sends.
+        async def drain():
+            for _ in range(20):
+                if not await deliver_one(
+                    self.factory, self.lock_engine, self.provider, self.settings
+                ):
+                    break
+
+        async with asyncio.TaskGroup() as group:
+            group.create_task(evaluate(self.request))
+            group.create_task(drain())
         await purge(self.factory)
         await self.state("RUNNING")
+
+    async def heartbeat(self):
+        while True:
+            await asyncio.sleep(15)
+            try:
+                async with self.factory() as db, db.begin():
+                    await db.execute(
+                        update(ScheduleWorkerState)
+                        .where(ScheduleWorkerState.worker_id == self.id)
+                        .values(heartbeat_at=func.clock_timestamp())
+                    )
+            except Exception:
+                # Failed writes leave the persisted heartbeat stale; never log driver details.
+                logging.getLogger(__name__).warning("schedule_worker heartbeat=UNAVAILABLE")
 
     async def run(self, stop, *, max_cycles=None):
         if not self.settings.schedule_delivery_enabled:
             return
+        heartbeat = None
         try:
             identity = await self.provider.initialize()
             if (
@@ -72,10 +106,28 @@ class Worker:
                 raise ProviderError("BOT_IDENTITY_MISMATCH")
             if await self.provider.webhook_configured():
                 raise ProviderError("EXISTING_WEBHOOK_REFUSED")
+            heartbeat = asyncio.create_task(self.heartbeat())
             count = 0
             while not stop.is_set() and (max_cycles is None or count < max_cycles):
                 try:
-                    await self.cycle()
+                    cycle = asyncio.create_task(self.cycle())
+                    stopping = asyncio.create_task(stop.wait())
+                    try:
+                        done, _ = await asyncio.wait(
+                            {cycle, stopping}, return_when=asyncio.FIRST_COMPLETED
+                        )
+                        if cycle not in done:
+                            # Cancellation after the durable marker recovers AMBIGUOUS.
+                            await asyncio.wait_for(cycle, timeout=40)
+                        else:
+                            await cycle
+                    finally:
+                        stopping.cancel()
+                        cycle.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await stopping
+                        with suppress(asyncio.CancelledError):
+                            await cycle
                 except Exception:
                     await self.state("RETRYING", "PROCESSING_FAILED")
                 count += 1
@@ -90,6 +142,10 @@ class Worker:
             await self.state("FAILED", "PROCESSING_FAILED")
             raise ProviderError("PROCESSING_FAILED") from None
         finally:
+            if heartbeat:
+                heartbeat.cancel()
+                with suppress(asyncio.CancelledError):
+                    await heartbeat
             await self.provider.close()
 
 

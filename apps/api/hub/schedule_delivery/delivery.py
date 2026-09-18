@@ -27,22 +27,23 @@ async def clock(db):
 def terminal(row, status, code, stamp):
     row.status, row.error_code, row.finished_at = status, code, stamp
     row.claim_owner = row.claim_expires_at = None
-    if status == "CANCELLED":
+    if status in {"CANCELLED", "FAILED"}:
         row.encrypted_payload = None
 
 
 async def claim(factory, bot_id):
     async with factory() as db, db.begin():
         stamp = await clock(db)
+        # Recover expired history across bot rotations; live claims stay bot-scoped.
         expired = (
             await db.scalars(
                 select(ScheduleDispatch)
                 .where(
-                    ScheduleDispatch.bot_id == bot_id,
                     ScheduleDispatch.status == "PROCESSING",
                     ScheduleDispatch.claim_expires_at <= stamp,
                 )
                 .with_for_update(skip_locked=True)
+                .limit(100)
             )
         ).all()
         for row in expired:
@@ -51,21 +52,34 @@ async def claim(factory, bot_id):
             else:
                 row.status, row.claim_owner, row.claim_expires_at = "PENDING", None, None
         await db.flush()
+        # Expired rows must not stop the drain or hide live work behind a backlog.
+        expired_pending = (
+            await db.scalars(
+                select(ScheduleDispatch)
+                .where(
+                    ScheduleDispatch.status == "PENDING",
+                    ScheduleDispatch.delivery_deadline <= stamp,
+                )
+                .with_for_update(skip_locked=True)
+                .limit(100)
+            )
+        ).all()
+        for pending in expired_pending:
+            terminal(pending, "CANCELLED", "DELIVERY_WINDOW_EXPIRED", stamp)
+        await db.flush()
         row = await db.scalar(
             select(ScheduleDispatch)
             .where(
                 ScheduleDispatch.bot_id == bot_id,
                 ScheduleDispatch.status == "PENDING",
                 ScheduleDispatch.available_at <= stamp,
+                ScheduleDispatch.delivery_deadline > stamp,
             )
             .order_by(ScheduleDispatch.available_at, ScheduleDispatch.id)
             .with_for_update(skip_locked=True)
             .limit(1)
         )
         if not row:
-            return None
-        if row.delivery_deadline <= stamp:
-            terminal(row, "CANCELLED", "DELIVERY_WINDOW_EXPIRED", stamp)
             return None
         row.status, row.claim_owner, row.claim_expires_at = "PROCESSING", uuid4(), stamp + LEASE
         return row.id, row.technician_id, row.claim_owner
@@ -89,8 +103,16 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
         row, stamp = await owned(db, identifier, owner)
         if row is None:
             return None
-        tech = await db.get(Technician, row.technician_id)
+        from hub.google_calendar.service import mutation_lock
+
+        # Calendar assignment takes global mutation -> technician. Keep that order.
+        await mutation_lock(db)
+        tech = await db.get(Technician, row.technician_id, with_for_update=True)
         binding = await db.get(TelegramBinding, row.technician_id)
+        # Row/global-lock waits can outlive the ownership check performed above.
+        stamp = await clock(db)
+        if row.claim_expires_at <= stamp:
+            return None
         if (
             not tech
             or tech.status != "ACTIVE"
@@ -110,9 +132,6 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
         request = SimpleNamespace(
             app=SimpleNamespace(state=SimpleNamespace(session_factory=factory))
         )
-        from hub.google_calendar.service import mutation_lock
-
-        await mutation_lock(db)
         fresh, identity, _ = await snapshot(
             request, row.technician_id, preview=True, worker=True, session=db
         )
@@ -130,6 +149,7 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
             or not can_deliver(binding, "WORK_GROUP", row.bot_id)
         ):
             row.destination, row.chat_id = "PRIVATE", row.telegram_user_id
+            row.fallback_reason = "GROUP_UNAVAILABLE_BEFORE_SEND"
         try:
             payload = Payload.model_validate_json(cipher(settings).decrypt(row.encrypted_payload))
             if (
@@ -169,7 +189,8 @@ async def finish(factory, identifier, owner, *, message_id=None, failure=None):
             # still ambiguous; only this committed transition permits private fallback.
             row.destination, row.chat_id = "PRIVATE", row.telegram_user_id
             row.provider_started_at = None
-            row.error_code = "GROUP_REJECTED_PRIVATE_FALLBACK"
+            row.fallback_reason = "GROUP_REJECTED_PRIVATE_FALLBACK"
+            row.error_code = row.fallback_reason
             return True
         row.ack_token_hash = row.ack_expires_at = None
         if code == "RATE_LIMITED" and row.attempt_count < 3:

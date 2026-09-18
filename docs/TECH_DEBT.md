@@ -447,3 +447,42 @@ abuse and metadata retention. TD-025 remains Google key/revoke/crash operations;
 TD-026 retains global request admission and attempt retention; TD-027 remains real
 Google sandbox acceptance. The new workflow is production-shaped, not pilot or
 production approval. Future features are not added as debt.
+
+## Independent Stage 4 reliability audit disposition
+
+No new debt ID and no closed obligation: **29 entries, 10 RESOLVED, 19 OPEN**;
+open severities remain 0 CRITICAL, 2 HIGH, 14 MEDIUM, 3 LOW.
+
+- **TD-028: OPEN.** Official Telegram documentation, hard-death probes, concurrent
+  fake-provider delivery, and browser checks do not substitute for combined dedicated
+  TEST Google/Telegram acceptance. No such acceptance was performed.
+- **TD-029: PARTIAL remediation, status OPEN.** Database-clock periodic heartbeats,
+  stale-worker operator health, bounded shutdown, immutable receipts, fallback
+  provenance, recovery of expired retired-bot work, and guarded rollback are implemented. New definitive failures purge
+  unnecessary ciphertext immediately; existing legacy payloads retain their seven-day
+  cleanup. Secret-store provisioning, key rotation/recovery exercises, fleet capacity,
+  alert routing, metadata/backup retention, and ambiguous-outcome review ownership
+  remain pilot requirements. A whole-evening outage cannot reconstruct a historical
+  missed-decision row the next morning; external uptime/queue monitoring must detect it.
+- **TD-017/026: PARTIAL remediation, status OPEN.** Five paused sends leave a two-slot
+  transaction pool responsive. Scheduling and delivery progress independently. The
+  measured due-decision cost is linear (23N + 1 SQL statements); every eligible
+  technician still needs an authoritative provider projection. Global request admission,
+  queue-age alerts, and deployment-scale timing remain open.
+- **TD-010/011: OPEN, HIGH.** Immutable Stage 4 receipts do not resolve deletion audit
+  retention or plaintext sensitive technician profile fields.
+- **TD-012/013/014/018/022/023/025/027: OPEN.** Deployment/origin approvals, optimistic
+  profile editing, legacy provider invariants (TD-014 overdue), external profile images,
+  real Telegram membership acceptance, abuse/metadata retention, Google credential
+  operations, and live Google acceptance remain unchanged.
+- **TD-016/019/020: OPEN, additional production gates.** Backup/restore durability,
+  runtime contracts, and accessibility acceptance remain unfulfilled.
+- **TD-015/024: OPEN, LATER SCALE.** Broader list scaling and Telegram display metadata
+  freshness remain later-scale obligations.
+
+All fourteen pilot blockers remain TD-010/011/012/013/014/017/018/022/023/025/026/027/
+028/029; production additionally requires TD-016/019/020. Neither pilot nor production
+is approved. Provider-side exactly-once/idempotent sendMessage is unavailable to this
+workflow: uncertainty is terminal and only confirmed manager resend may create a new
+attempt. This is an explicit operating constraint within TD-028/029, not a promised
+future product feature.

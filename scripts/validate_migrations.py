@@ -132,6 +132,23 @@ async def reset_stage2_test_fixtures():
 
 
 asyncio.run(reset_stage2_test_fixtures())
+
+
+# This script is already destructive and guarded to the disposable TEST database.
+# Remove audit test history explicitly before exercising historical rollback paths.
+async def clear_test_delivery_history():
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if await db.scalar(text("SELECT to_regclass('schedule_dispatches')")):
+                await db.execute(
+                    text("TRUNCATE schedule_dispatches, schedule_auto_decisions CASCADE")
+                )
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(clear_test_delivery_history())
 alembic("downgrade", "base")
 alembic("upgrade", "head")
 alembic("check")
@@ -472,8 +489,72 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["d4e509170001"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["d4e509170002"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
 )
+
+
+# A populated original Stage 4 database upgrades without altering legacy content.
+alembic("downgrade", "d4e509170001")
+legacy_dispatch = uuid.uuid4()
+
+
+async def legacy_history(action):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if action == "insert":
+                await db.execute(
+                    text("""
+                    INSERT INTO schedule_dispatches
+                    (id,technician_id,target_date,trigger,destination,status,source_version,
+                     fingerprint,job_count,encrypted_payload,payload_expires_at,attempt_count,
+                     available_at,delivery_deadline,finished_at,ack_status,bot_id,
+                     telegram_user_id,chat_id,private_generation,group_generation)
+                    VALUES (:id,:tech,'2026-09-18','MANUAL','PRIVATE','FAILED',:hash,:hash,
+                            0,'v1:inert-audit-migration',now()+interval '7 days',1,
+                            now(),now()+interval '1 hour',now(),'NOT_SENT',9000001,
+                            771001,771001,1,1)
+                """),
+                    {"id": legacy_dispatch, "tech": tech, "hash": "a" * 64},
+                )
+            elif action == "check":
+                row = (
+                    await db.execute(
+                        text("""
+                    SELECT status,encrypted_payload,requested_destination,fallback_reason
+                    FROM schedule_dispatches WHERE id=:id
+                """),
+                        {"id": legacy_dispatch},
+                    )
+                ).one()
+                assert row == ("FAILED", "v1:inert-audit-migration", None, None)
+                assert (
+                    await db.scalar(text("SELECT version_num FROM alembic_version"))
+                    == "d4e509170002"
+                )
+            else:
+                await db.execute(
+                    text("DELETE FROM schedule_dispatches WHERE id=:id"), {"id": legacy_dispatch}
+                )
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(legacy_history("insert"))
+alembic("upgrade", "head")
+asyncio.run(legacy_history("check"))
+refused = subprocess.run(
+    [sys.executable, "-m", "alembic", "downgrade", "c3e410a20917"],
+    cwd=root / "apps/api",
+    env=env,
+    capture_output=True,
+    text=True,
+)
+assert refused.returncode != 0 and "SCHEDULE_HISTORY_ROLLBACK_REFUSED" in refused.stderr
+asyncio.run(legacy_history("check"))
+asyncio.run(legacy_history("remove"))
+alembic("check")
+print("Audit migration preserves populated Stage 4; populated rollback refuses atomically.")

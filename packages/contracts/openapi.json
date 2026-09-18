@@ -2218,6 +2218,36 @@
             ],
             "title": "Destination"
           },
+          "requested_destination": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "WORK_GROUP",
+                  "PRIVATE"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Destination"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "GROUP_UNAVAILABLE_BEFORE_SEND",
+                  "GROUP_REJECTED_PRIVATE_FALLBACK"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
           "status": {
             "type": "string",
             "enum": [

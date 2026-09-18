@@ -24,6 +24,9 @@ and timestamps. Browser DTOs expose only bounded operational metadata.
 
 The versioned canonical JSON contains target date, canonical technician name,
 and the ordered projected job clock, cleaned title, and optional location.
+New projections normalize text to NFC, collapse whitespace, and treat empty
+locations as absent before both rendering and fingerprinting. Already committed
+version-1 payloads retain their exact canonical bytes and remain readable.
 Sorted object keys and stable separators yield SHA-256. Provider event IDs,
 fetch times, original descriptions, and calendar IDs are excluded. The source
 version separately binds active status/name, assignment, calendar/timezone,
@@ -44,8 +47,11 @@ The existing versioned SecretCipher authenticates encryption. Missing keys fail
 configuration, and incorrect keys/corrupt snapshots fail closed before sending.
 
 Only the encrypted canonical payload is persisted. It is purged in the same
-transaction that confirms SENT, and immediately when CANCELLED. FAILED and
-AMBIGUOUS ciphertext remains for at most seven days from creation, then the
+transaction that confirms SENT, and immediately when CANCELLED or definitively
+FAILED. FAILED has no ordinary retry path; explicit Resend rebuilds current
+content. Legacy FAILED ciphertext is preserved on migration and expires through
+the existing cleanup. AMBIGUOUS ciphertext remains for at most seven days from
+creation for controlled recovery review, then the
 running worker's bounded cleanup removes it. A stopped worker delays cleanup;
 operations must monitor this. Metadata remains for history; a broader metadata
 retention policy is an existing operational debt, not implicit indefinite legal
@@ -104,6 +110,9 @@ at creation and revalidated immediately before each send. Group bot send rights
 and technician membership are inspected through the provider outside SQL
 transactions. A definitive unavailable group can fall back to that same private
 identity. A transient membership-inspection failure is FAILED with zero attempts.
+History preserves requested destination, actual destination, and a closed fallback
+reason without chat IDs. Legacy requested destinations remain unknown rather than
+inventing a pre-audit request after fallback provenance was lost.
 A source/identity change cancels a queued dispatch; disabling auto cancels queued
 automatic dispatches, while explicit manual sends remain eligible.
 
@@ -160,8 +169,11 @@ if content changes later. In-flight or ambiguous delivery suppresses it too.
 A database automatic uniqueness constraint survives concurrent workers/restarts.
 Auto dispatches expire at 23:00 of the source local day; manual dispatches expire
 one hour after queueing. Expired pending work cancels without sending stale jobs.
-Worker cycles wait up to one minute between evaluations; provider latency can
-extend this interval. Worker lag and global request admission remain TD-017/026.
+Scheduler and delivery run in separate tasks within each cycle; delivery drains
+at most 20 dispatches sequentially per worker. Slow Google evaluation does not
+block that cycle's ready sends. Worker cycles wait up to one minute between
+evaluations; provider latency can extend this interval. Multiple instances are
+intentionally supported; capacity planning must bound the configured fleet. Worker lag and global request admission remain TD-017/026.
 
 ## UI, authorization, and privacy
 
@@ -233,5 +245,48 @@ safe result codes only, never provider exception bodies or message contents.
 Key loss fails closed; rotate only after draining/cancelling queued snapshots and
 purging retained payloads or through a separately reviewed migration. No automatic
 key-reencryption or operator plaintext inspection endpoint is provided. Rollback
-requires stopping both workers and acknowledging loss of Stage 4 history/settings;
-the migration removes only Stage 4 tables/function and preserves Stage 0-3 data.
+requires stopping both workers and the supported empty-history migration path below.
+Populated dispatch/decision history blocks downgrade; there is no loss-acceptance flag.
+
+## Independent Stage 4 audit operations
+
+The appended migration `d4e509170002` leaves `d4e509170001` unchanged. It preserves
+all existing dispatch rows and ciphertext, adds nullable provenance for legacy
+history, and protects terminal receipt fields and completed acknowledgements.
+Rollback refuses before removing any guard when dispatch or auto-decision history
+exists. There is no destructive bypass flag. Empty-history downgrade/re-upgrade is
+supported. Retain a verified backup and use an explicitly reviewed archive/retention
+procedure before considering any populated rollback; running an old code checkout's
+unguarded downgrade is not a supported escape hatch.
+
+Run `python -m hub.schedule_delivery.health` in the configured worker environment.
+It checks database connectivity and independently reports schedule and onboarding
+worker state. A schedule heartbeat older than 120 seconds is stale; any recent
+RUNNING schedule instance satisfies liveness. Heartbeats update every 15 seconds
+using the database clock, including while provider work is pending. This is process
+liveness, not evidence of completed deliveries: separately alert on queue age,
+ambiguous outcomes, and overdue purges. API `/api/health` deliberately reports only
+API/database health. The health command emits no bot IDs, payloads, or secrets.
+
+On shutdown the active cycle has 40 seconds to finish before cancellation. A
+cancelled marked send remains PROCESSING until its lease expires, then becomes
+AMBIGUOUS. A cancelled unmarked claim can be reclaimed. The 50-second Compose grace
+leaves time to close clients. Hard process death is still covered by lease recovery.
+Terminal SENT and ciphertext purge are one commit, so no durable SENT-with-payload
+crash window exists. An `attempt_count` increment records a durable possible provider
+attempt: death between marker commit and the HTTP call may count an unissued call.
+
+A whole-window outage with restart next morning does not send the missed schedule.
+It also cannot reconstruct a past MISSED decision when no evaluation occurred that
+evening; use worker uptime/queue monitoring to detect that operational gap. A
+Saturday MISSED decision intentionally prevents a Sunday retry for the same Monday.
+A definitively FAILED manual dispatch does not suppress a later first automatic
+attempt; SENT, AMBIGUOUS and active manual dispatches do suppress it regardless of
+fingerprint. Resend means send the current authoritative schedule again.
+
+Send preparation follows the existing global calendar mutation lock before the
+technician row lock and rechecks database-clock lease expiry after those waits.
+Expired leases/deadlines are recovered across bot rotations; live claims remain
+restricted to the configured bot. An expired marked attempt belonging to a retired
+bot becomes AMBIGUOUS, never a send through the replacement bot. An expired pending
+row is cancelled and its payload purged.

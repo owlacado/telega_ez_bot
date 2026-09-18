@@ -266,7 +266,20 @@ function Delivery({
                 {d.target_date} · {label[d.status]}
               </strong>
               <p>
-                {label[d.trigger]} · {label[d.destination]} · {d.job_count} jobs
+                {label[d.trigger]} · {label[d.destination]}
+                {d.fallback_reason && (
+                  <span>
+                    {" "}
+                    (requested {
+                      label[d.requested_destination ?? "WORK_GROUP"]
+                    };{" "}
+                    {d.fallback_reason === "GROUP_UNAVAILABLE_BEFORE_SEND"
+                      ? "group unavailable before send"
+                      : "group rejected delivery"}
+                    )
+                  </span>
+                )}{" "}
+                · {d.job_count} jobs
               </p>
               {d.sent_at && <p>Sent {new Date(d.sent_at).toLocaleString()}</p>}
               {d.status === "SENT" && (

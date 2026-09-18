@@ -129,6 +129,7 @@ async def create_dispatch(request, technician_id, body=None, *, automatic=False)
                 target_date=payload.target_date,
                 trigger="AUTOMATIC" if automatic else "MANUAL_RESEND" if parent else "MANUAL",
                 destination=chosen,
+                requested_destination=chosen,
                 fingerprint=payload.fingerprint,
                 source_version=source_version(identity),
                 job_count=len(payload.jobs),

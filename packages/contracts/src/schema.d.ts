@@ -809,6 +809,10 @@ export interface components {
              * @enum {string}
              */
             destination: "WORK_GROUP" | "PRIVATE";
+            /** Requested Destination */
+            requested_destination?: ("WORK_GROUP" | "PRIVATE") | null;
+            /** Fallback Reason */
+            fallback_reason?: ("GROUP_UNAVAILABLE_BEFORE_SEND" | "GROUP_REJECTED_PRIVATE_FALLBACK") | null;
             /**
              * Status
              * @enum {string}

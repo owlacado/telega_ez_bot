@@ -44,8 +44,8 @@ async def _acknowledge(factory, locks, event, bot_id):
                 .where(ScheduleDispatch.ack_token_hash == digest)
                 .with_for_update()
             )
+            tech = await db.get(Technician, technician_id, with_for_update=True)
             binding = await db.get(TelegramBinding, technician_id)
-            tech = await db.get(Technician, technician_id)
             stamp = await clock(db)
             if (
                 not row

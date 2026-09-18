@@ -37,6 +37,18 @@ class ScheduleDispatch(Base, Timestamps):
         ),
         CheckConstraint("trigger IN ('MANUAL','AUTOMATIC','MANUAL_RESEND')", name="trigger"),
         CheckConstraint("destination IN ('WORK_GROUP','PRIVATE')", name="destination"),
+        CheckConstraint(
+            "requested_destination IS NULL OR requested_destination IN ('WORK_GROUP','PRIVATE')",
+            name="requested_destination",
+        ),
+        CheckConstraint(
+            "fallback_reason IS NULL OR (destination = 'PRIVATE' "
+            "AND requested_destination IS NOT NULL "
+            "AND requested_destination = 'WORK_GROUP' AND fallback_reason IN "
+            "('GROUP_UNAVAILABLE_BEFORE_SEND','GROUP_REJECTED_PRIVATE_FALLBACK'))",
+            name="fallback_reason",
+        ),
+        CheckConstraint("message_id IS NULL OR message_id > 0", name="positive_message"),
         CheckConstraint("ack_status IN ('NOT_SENT','PENDING','ACKNOWLEDGED')", name="ack_status"),
         CheckConstraint("attempt_count >= 0 AND job_count >= 0", name="counts"),
         CheckConstraint(
@@ -103,6 +115,8 @@ class ScheduleDispatch(Base, Timestamps):
     target_date: Mapped[date] = mapped_column(Date)
     trigger: Mapped[str] = mapped_column(String(20))
     destination: Mapped[str] = mapped_column(String(16))
+    requested_destination: Mapped[str | None] = mapped_column(String(16))
+    fallback_reason: Mapped[str | None] = mapped_column(String(48))
     status: Mapped[str] = mapped_column(String(16), default="PENDING")
     source_version: Mapped[str] = mapped_column(String(64))
     fingerprint: Mapped[str] = mapped_column(String(64))

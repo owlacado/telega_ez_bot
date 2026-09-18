@@ -217,3 +217,38 @@ it("stale preview failure presents refresh guidance", async () => {
     "Schedule changed. Refresh the preview before sending.",
   );
 });
+
+it("shows requested and actual fallback destination", async () => {
+  mocked.mockResolvedValue({
+    ...data,
+    history: [
+      {
+        ...dispatch,
+        destination: "PRIVATE",
+        requested_destination: "WORK_GROUP",
+        fallback_reason: "GROUP_REJECTED_PRIVATE_FALLBACK",
+      },
+    ],
+  });
+  render(<ScheduleDelivery id="A" schedule={schedule} refresh={vi.fn()} />);
+  expect(
+    await screen.findByText(/requested Work group; group rejected delivery/),
+  ).toBeVisible();
+});
+it("polls pending acknowledgement slowly and stops on failure", async () => {
+  vi.useFakeTimers();
+  mocked
+    .mockResolvedValueOnce({ ...data, history: [dispatch] })
+    .mockRejectedValueOnce(Error("network"));
+  render(<ScheduleDelivery id="A" schedule={schedule} refresh={vi.fn()} />);
+  await act(async () => {});
+  await act(async () => vi.advanceTimersByTimeAsync(29999));
+  expect(mocked).toHaveBeenCalledTimes(1);
+  await act(async () => vi.advanceTimersByTimeAsync(1));
+  expect(mocked).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "Unable to load delivery status",
+  );
+  await act(async () => vi.advanceTimersByTimeAsync(60000));
+  expect(mocked).toHaveBeenCalledTimes(2);
+});
