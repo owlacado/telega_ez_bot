@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     google_oauth_redirect_uri: str | None = None
     google_calendar_credential_encryption_key: SecretStr | None = None
 
+    schedule_delivery_enabled: bool = False
+    schedule_payload_encryption_key: SecretStr | None = None
+    schedule_auto_delivery_local_time: str = Field(
+        default="20:00", pattern=r"^(?:[01][0-9]|2[0-2]):[0-5][0-9]$"
+    )
+
     telegram_mode: Literal["disabled", "real", "fake"] = "disabled"
     telegram_bot_token: SecretStr | None = None
     telegram_token_file: str | None = None
@@ -43,6 +49,7 @@ class Settings(BaseSettings):
             "telegram_expected_bot_username",
             "telegram_token_file",
             "telegram_bot_token",
+            "schedule_payload_encryption_key",
         ):
             if values.get(key) == "":
                 values[key] = None
@@ -90,6 +97,14 @@ class Settings(BaseSettings):
             if not self.google_calendar_credential_encryption_key:
                 raise ValueError("Google credential encryption key is required.")
             SecretCipher(self.google_calendar_credential_encryption_key.get_secret_value())
+        if self.schedule_delivery_enabled:
+            from hub.core.secrets import SecretCipher
+
+            if not self.schedule_payload_encryption_key:
+                raise ValueError("Schedule payload encryption key is required.")
+            SecretCipher(self.schedule_payload_encryption_key.get_secret_value())
+            if self.telegram_mode == "disabled" or not self.telegram_expected_bot_id:
+                raise ValueError("Schedule delivery requires configured Telegram identity.")
         if self.google_mode == "real":
             if not all(
                 (self.google_client_id, self.google_client_secret, self.google_oauth_redirect_uri)

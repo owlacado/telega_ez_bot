@@ -18,3 +18,6 @@ export type ManagerSession = components["schemas"]["ManagerRead"];
 export type GoogleConnection = components["schemas"]["GoogleConnectionRead"];
 
 export type ScheduleRead = components["schemas"]["ScheduleRead"];
+
+export type DeliveryRead = components["schemas"]["ScheduleDeliveryRead"];
+export type DispatchRead = components["schemas"]["DispatchRead"];

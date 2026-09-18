@@ -1,6 +1,6 @@
 # Technical debt register
 
-Scope: Stage 3 calendar event views following audited Stage 2 baseline `253071c`. **27 entries: 10 RESOLVED, 17 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 12, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md and AUDIT_STAGE2_GOOGLE_CALENDAR.md. The independent audit adds evidence and localized remediation without closing any existing operational obligation. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
+Scope: Stage 4 durable schedule delivery following audited Stage 3 baseline `b145177`. **29 entries: 10 RESOLVED, 19 OPEN.** Unresolved severity counts: **CRITICAL 0, HIGH 2, MEDIUM 14, LOW 3**. Resolved counts remain HIGH 3, MEDIUM 7. Stage 2 adds TD-025 through TD-027 and closes no unrelated debt. See STAGE2_GOOGLE_CALENDAR_VERIFICATION.md and AUDIT_STAGE2_GOOGLE_CALENDAR.md. The independent audit adds evidence and localized remediation without closing any existing operational obligation. TD-014's historical deadline remains overdue; Stage 2 protects its own new state model but does not repair pre-existing Telegram/GPS database combinations.
 
 Future stages must update this register when debt is discovered, resolved, or a milestone changes. RESOLVED means implemented and covered by the referenced audit checks. No CRITICAL finding was identified.
 
@@ -402,3 +402,48 @@ No new ID and no closure; 27 entries, 10 RESOLVED / 17 OPEN remain accurate.
 
 All twelve listed pilot blockers remain blockers. Production additionally requires TD-016/019/020.
 The fixed audit defects are documented in the audit report; they do not create unresolved debt IDs.
+
+## Stage 4 debt disposition
+
+No existing obligation is closed by schedule delivery. The original twelve pilot
+blockers remain TD-010/011/012/013/014/017/018/022/023/025/026/027; TD-014 remains
+explicitly overdue. Production additionally requires TD-016/019/020. TD-015/024
+remain later-scale items. New Stage 4 obligations are the two concrete items below.
+Current totals: 29 entries, 10 RESOLVED, 19 OPEN; open severities 0 CRITICAL,
+2 HIGH, 14 MEDIUM, 3 LOW. Historical stage totals above describe their own stages.
+
+| ID     | Severity | Area                                        | Required Before       | Status |
+| ------ | -------- | ------------------------------------------- | --------------------- | ------ |
+| TD-028 | MEDIUM   | Schedule delivery dedicated TEST acceptance | BEFORE INTERNAL PILOT | OPEN   |
+| TD-029 | MEDIUM   | Schedule payload keys and worker operations | BEFORE INTERNAL PILOT | OPEN   |
+
+### TD-028 - Combined schedule acceptance
+
+Official docs, fake transport, PostgreSQL concurrency tests, and browser tests do
+not replace the dedicated Google TEST + Telegram TEST acceptance runbook in
+SCHEDULE_DELIVERY.md. Validate actual membership changes, message HTML/limits,
+callbacks, late acknowledgements, local-time automatic delivery and uncertainty
+recovery using only the owner's test account/group and fake jobs. Record acceptance
+before pilot. No real-provider acceptance was executed during implementation.
+
+### TD-029 - Payload key and separate worker operations
+
+Before pilot, own secret-store provisioning, backup/recovery and reviewed key
+rotation for SCHEDULE_PAYLOAD_ENCRYPTION_KEY; monitor schedule_worker_states,
+backlogs, expired claims, ambiguity and the seven-day ciphertext purge. A stopped
+worker delays purging; durable DB backups need matching retention controls.
+Multiple workers are claim-safe, but operational alerting, rotation automation,
+and measured worker capacity remain deployment obligations. Historical metadata
+and callback abuse/retention are also covered by existing TD-023, not hidden as
+new feature scope.
+
+Stage 4 re-evaluation of existing blockers: TD-010/011 remain HIGH (accountability
+and profile encryption); TD-012 remains deployment/origin/credential approval;
+TD-013 remains profile optimistic concurrency; TD-014's old Telegram/GPS state
+invariants are unchanged. TD-017 gains safe dispatch result codes and heartbeat
+rows but retains hard deadline/admission/monitoring work. TD-018 external image
+handling is unchanged. TD-022 remains live Telegram acceptance; TD-023 remains
+abuse and metadata retention. TD-025 remains Google key/revoke/crash operations;
+TD-026 retains global request admission and attempt retention; TD-027 remains real
+Google sandbox acceptance. The new workflow is production-shaped, not pilot or
+production approval. Future features are not added as debt.

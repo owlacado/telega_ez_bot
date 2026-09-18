@@ -62,7 +62,7 @@ Dashboard setup checks include both active and inactive profiles and require an 
 
 Full SSNs have no model field and are rejected as unknown input. SSN last four is optional, accepts only four ASCII digits, and is masked in the form. Driver license and last-four values currently use ordinary PostgreSQL fields. Stage 1 adds manager authentication, authorization and audit. Field encryption, enterprise roles and a managed secrets vault remain deferred. Local ports bind only to loopback. Use fictional data until those capabilities are implemented.
 
-Photo URLs load only when explicitly supplied by a user; the browser fetches the image without a referrer. No remote fonts, sample photos, analytics, or background provider calls are used.
+Photo URLs load only when explicitly supplied by a user; the browser fetches the image without a referrer. No remote fonts, sample photos, or analytics are used. Provider workers run only through explicit opt-in configuration; Stage 4 additionally requires per-technician automatic enablement.
 
 Future adapters must accept internal technician identity and resolve their own bindings. Accounting output must come from an explicit real data source. GPS presentation supports `ACTIVE_TRIP`, `LAST_KNOWN_STOP`, `NO_DATA`, and `UNKNOWN`; there is no `PARKED` state, and public share data must not be treated as proof of a current parked position. No Moto Watchdog share token is stored.
 
@@ -107,7 +107,7 @@ Migration e7b310920001 follows the reconciliation head and preserves old credent
 `calendar_events` owns normalized read models, operational date windows, title/work-window filtering,
 job ordering and schedule formatting. The Google adapter alone issues Events.list HTTP reads.
 `CalendarProvider.list_events` returns normalized DTOs; no Google SDK event objects enter the domain.
-There is no event table, durable event cache, background synchronization or Telegram delivery.
+There is no event table, event mirror, or background event synchronization. Stage 4 stores only an encrypted delivery snapshot, purged on confirmed send; it reuses this projection for Telegram delivery.
 
 Manager-authorized GET routes `/api/technicians/{id}/calendar/today` and
 `/api/technicians/{id}/calendar/next-schedule` take short SQL snapshots, refresh credentials under the
@@ -129,3 +129,12 @@ AbortController and mount cleanup prevent stale success/failure from another tec
 Refresh clears previous jobs; errors cannot label cached jobs current. Strict Mode dispatch is deferred
 one microtask to deduplicate its immediate setup/cleanup cycle. Operational display times arrive as
 server-normalized `HH:mm`; date-only labels use explicit UTC formatting without changing their date.
+
+## Stage 4 schedule delivery
+
+See [Schedule delivery](SCHEDULE_DELIVERY.md) for the unified immutable dispatch path, dedicated
+payload key, separate worker, calendar-local automatic delivery (OFF by default),
+acknowledgement authorization, uncertainty recovery, retention, and dedicated TEST
+acceptance runbook. The Telegram polling worker receives callbacks; the schedule
+worker sends durable dispatches and evaluates automatic decisions. Neither starts
+inside the web API. Stage 3 job filtering and wall-clock projection remain authoritative.

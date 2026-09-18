@@ -85,7 +85,7 @@ class FakeCalendarProvider:
             "fake job",
             "Unnumbered repair",
         ]
-        if self.event_reads[key] > 1:
+        if self.event_reads[key] > 1 and not provider_calendar_id.startswith("test-stable-"):
             titles[0] += f" - refreshed {self.event_reads[key]}"
         rows = []
         for i, title in enumerate(titles):

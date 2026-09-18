@@ -452,6 +452,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/technicians/{technician_id}/schedule-delivery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** History */
+        get: operations["history_api_technicians__technician_id__schedule_delivery_get"];
+        /** Configure */
+        put: operations["configure_api_technicians__technician_id__schedule_delivery_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/schedule-dispatches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send */
+        post: operations["send_api_technicians__technician_id__schedule_dispatches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -717,6 +752,11 @@ export interface components {
              */
             created_at: string;
         };
+        /** DeliverySettingInput */
+        DeliverySettingInput: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** Disconnect */
         Disconnect: {
             /**
@@ -746,6 +786,60 @@ export interface components {
             expected_connection_id: string;
             /** Expected Generation */
             expected_generation: number;
+        };
+        /** DispatchRead */
+        DispatchRead: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Target Date
+             * Format: date
+             */
+            target_date: string;
+            /**
+             * Trigger
+             * @enum {string}
+             */
+            trigger: "MANUAL" | "AUTOMATIC" | "MANUAL_RESEND";
+            /**
+             * Destination
+             * @enum {string}
+             */
+            destination: "WORK_GROUP" | "PRIVATE";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "AMBIGUOUS" | "CANCELLED";
+            /** Fingerprint */
+            fingerprint: string;
+            /** Job Count */
+            job_count: number;
+            /** Attempt Count */
+            attempt_count: number;
+            /** Error Code */
+            error_code: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Sent At */
+            sent_at: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Ack Status
+             * @enum {string}
+             */
+            ack_status: "NOT_SENT" | "PENDING" | "ACKNOWLEDGED";
+            /** Acknowledged At */
+            acknowledged_at: string | null;
+            /** Resend Of Id */
+            resend_of_id: string | null;
         };
         /** GoogleConnectionRead */
         GoogleConnectionRead: {
@@ -961,8 +1055,27 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** ScheduleDeliveryRead */
+        ScheduleDeliveryRead: {
+            /** Enabled */
+            enabled: boolean;
+            /** Available */
+            available: boolean;
+            /** Destination */
+            destination: ("WORK_GROUP" | "PRIVATE") | null;
+            /** Local Time */
+            local_time: string;
+            /** History */
+            history: components["schemas"]["DispatchRead"][];
+            /** Automatic State */
+            automatic_state?: string | null;
+            /** Automatic Error */
+            automatic_error?: string | null;
+        };
         /** ScheduleRead */
         ScheduleRead: {
+            /** Fingerprint */
+            fingerprint?: string | null;
             technician: components["schemas"]["ScheduleTechnician"];
             calendar?: components["schemas"]["ScheduleCalendar"] | null;
             /**
@@ -1004,6 +1117,23 @@ export interface components {
             first_name: string;
             /** Last Name */
             last_name: string;
+        };
+        /** SendSchedule */
+        SendSchedule: {
+            /**
+             * Target Date
+             * Format: date
+             */
+            target_date: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Resend Of Id */
+            resend_of_id?: string | null;
+            /**
+             * Confirm Duplicate Risk
+             * @default false
+             */
+            confirm_duplicate_risk: boolean;
         };
         /** StartInput */
         StartInput: {
@@ -2130,6 +2260,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScheduleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    history_api_technicians__technician_id__schedule_delivery_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleDeliveryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_api_technicians__technician_id__schedule_delivery_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliverySettingInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleDeliveryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_api_technicians__technician_id__schedule_dispatches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendSchedule"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DispatchRead"];
                 };
             };
             /** @description Validation Error */

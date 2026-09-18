@@ -28,6 +28,9 @@ services:
       TELEGRAM_EXPECTED_BOT_ID: ${TELEGRAM_EXPECTED_BOT_ID:-}
       TELEGRAM_EXPECTED_BOT_USERNAME: ${TELEGRAM_EXPECTED_BOT_USERNAME:-}
       TELEGRAM_INVITE_SECONDS: ${TELEGRAM_INVITE_SECONDS:-900}
+      SCHEDULE_DELIVERY_ENABLED: ${SCHEDULE_DELIVERY_ENABLED:-false}
+      SCHEDULE_PAYLOAD_ENCRYPTION_KEY: ${SCHEDULE_PAYLOAD_ENCRYPTION_KEY:-}
+      SCHEDULE_AUTO_DELIVERY_LOCAL_TIME: ${SCHEDULE_AUTO_DELIVERY_LOCAL_TIME:-20:00}
       GOOGLE_MODE: ${GOOGLE_MODE:-disabled}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
@@ -78,6 +81,37 @@ services:
       TELEGRAM_EXPECTED_BOT_ID: ${TELEGRAM_EXPECTED_BOT_ID:-}
       TELEGRAM_EXPECTED_BOT_USERNAME: ${TELEGRAM_EXPECTED_BOT_USERNAME:-}
       TELEGRAM_TOKEN_FILE: /run/secrets/telegram-bot-token.txt
+      PTB_TIMEDELTA: "true"
+    volumes:
+      - ./.local/telegram-bot-token.txt:/run/secrets/telegram-bot-token.txt:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    stop_grace_period: 50s
+    restart: "no"
+  schedule-worker:
+    profiles: ["schedules"]
+    build:
+      context: .
+      dockerfile: infrastructure/api.Dockerfile
+    command: ["python", "-m", "hub.schedule_delivery.worker"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
+      APP_ENV: ${APP_ENV:-development}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
+      SCHEDULE_DELIVERY_ENABLED: ${SCHEDULE_DELIVERY_ENABLED:-false}
+      SCHEDULE_PAYLOAD_ENCRYPTION_KEY: ${SCHEDULE_PAYLOAD_ENCRYPTION_KEY:-}
+      SCHEDULE_AUTO_DELIVERY_LOCAL_TIME: ${SCHEDULE_AUTO_DELIVERY_LOCAL_TIME:-20:00}
+      TELEGRAM_MODE: ${TELEGRAM_MODE:-disabled}
+      TELEGRAM_EXPECTED_BOT_ID: ${TELEGRAM_EXPECTED_BOT_ID:-}
+      TELEGRAM_EXPECTED_BOT_USERNAME: ${TELEGRAM_EXPECTED_BOT_USERNAME:-}
+      TELEGRAM_TOKEN_FILE: /run/secrets/telegram-bot-token.txt
+      GOOGLE_MODE: ${GOOGLE_MODE:-disabled}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY: ${GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY:-}
       PTB_TIMEDELTA: "true"
     volumes:
       - ./.local/telegram-bot-token.txt:/run/secrets/telegram-bot-token.txt:ro

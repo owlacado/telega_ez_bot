@@ -7,6 +7,8 @@ import sys
 import uuid
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -424,3 +426,54 @@ alembic("upgrade", "head")
 asyncio.run(stage3_attempts(check=True))
 alembic("check")
 print("Stage 3 upgrade-attempt downgrade burns verifier; re-upgrade and drift passed.")
+
+
+# Stage 4 adds only durable delivery tables; populated Stage 3 data survives rollback.
+async def stage4_counts(setting=False):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if setting:
+                await db.execute(
+                    text("INSERT INTO schedule_delivery_settings (technician_id) VALUES (:id)"),
+                    {"id": tech},
+                )
+                assert (
+                    await db.scalar(
+                        text(
+                            "SELECT enabled FROM schedule_delivery_settings WHERE technician_id=:id"
+                        ),
+                        {"id": tech},
+                    )
+                    is False
+                )
+            return tuple(
+                [
+                    await db.scalar(text(f"SELECT count(*) FROM {table}"))
+                    for table in (
+                        "technicians",
+                        "calendars",
+                        "calendar_assignments",
+                        "calendar_connections",
+                        "google_oauth_attempts",
+                    )
+                ]
+            )
+    finally:
+        await engine.dispose()
+
+
+stage3_counts = asyncio.run(stage4_counts(setting=True))
+alembic("downgrade", "c3e410a20917")
+assert asyncio.run(stage4_counts()) == stage3_counts
+alembic("upgrade", "head")
+assert asyncio.run(stage4_counts()) == stage3_counts
+alembic("check")
+
+configuration = Config(str(root / "apps/api/alembic.ini"))
+configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
+assert ScriptDirectory.from_config(configuration).get_heads() == ["d4e509170001"]
+print(
+    "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
+    "one head and zero drift passed."
+)

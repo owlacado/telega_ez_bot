@@ -6,6 +6,7 @@ import type { ScheduleRead } from "@hub/contracts";
 import { useSchedule } from "@/lib/use-schedule";
 import { Modal } from "./modal";
 import { Loading } from "./ui";
+import { ScheduleDelivery } from "./schedule-delivery";
 
 export function previewLabel(today?: string | null, target?: string | null) {
   if (!today || !target) return "Preview Next Work Day Schedule";
@@ -191,9 +192,11 @@ function Preview({ id, onClose }: { id: string; onClose: () => void }) {
           </h3>
         )}
         <ScheduleContent {...resource} preview />
-        <p className="field-hint">
-          Telegram delivery will be added in the next stage.
-        </p>
+        <ScheduleDelivery
+          id={id}
+          schedule={resource.data}
+          refresh={resource.refresh}
+        />
         <button className="button secondary" onClick={onClose}>
           Close
         </button>
@@ -226,6 +229,7 @@ export function PreviewSchedule({
       </button>
       {open && (
         <Preview
+          key={id}
           id={id}
           onClose={() => {
             opened.current = false;

@@ -5,6 +5,12 @@ from hub.auth.models import Manager, ManagerSession, RateBucket
 from hub.calendars.models import Calendar, CalendarAssignment
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.integrations.models import GpsBinding, TelegramBinding
+from hub.schedule_delivery.models import (
+    ScheduleAutoDecision,
+    ScheduleDeliverySetting,
+    ScheduleDispatch,
+    ScheduleWorkerState,
+)
 from hub.technicians.models import Technician
 from hub.telegram.models import (
     TelegramInvitation,
@@ -14,6 +20,10 @@ from hub.telegram.models import (
 )
 
 __all__ = [
+    "ScheduleDispatch",
+    "ScheduleDeliverySetting",
+    "ScheduleAutoDecision",
+    "ScheduleWorkerState",
     "AuditEvent",
     "Manager",
     "ManagerSession",

@@ -1,6 +1,7 @@
 """On-demand projection; short SQL snapshots bracket external provider requests."""
 
 import logging
+from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
 from time import monotonic
 
@@ -26,26 +27,29 @@ from hub.telegram.locks import advisory_guard
 logger = logging.getLogger(__name__)
 
 
-async def snapshot(request, technician_id, preview=False):
-    async with request.app.state.session_factory() as db:
-        active = await db.scalar(
-            select(ManagerSession.id)
-            .join(Manager)
-            .where(
-                ManagerSession.id == request.state.session_id,
-                ManagerSession.manager_id == request.state.manager_id,
-                ManagerSession.revoked_at.is_(None),
-                ManagerSession.expires_at > now(),
-                Manager.is_active.is_(True),
+async def snapshot(request, technician_id, preview=False, *, worker=False, session=None):
+    async with (
+        nullcontext(session) if session is not None else request.app.state.session_factory()
+    ) as db:
+        if not worker:
+            active = await db.scalar(
+                select(ManagerSession.id)
+                .join(Manager)
+                .where(
+                    ManagerSession.id == request.state.session_id,
+                    ManagerSession.manager_id == request.state.manager_id,
+                    ManagerSession.revoked_at.is_(None),
+                    ManagerSession.expires_at > now(),
+                    Manager.is_active.is_(True),
+                )
             )
-        )
-        if active is None:
-            raise HTTPException(401, "Authentication required.")
+            if active is None:
+                raise HTTPException(401, "Authentication required.")
         tech = (
             await db.execute(
-                select(Technician.id, Technician.first_name, Technician.last_name).where(
-                    Technician.id == technician_id
-                )
+                select(
+                    Technician.id, Technician.first_name, Technician.last_name, Technician.status
+                ).where(Technician.id == technician_id)
             )
         ).first()
         if tech is None:
@@ -73,6 +77,9 @@ async def snapshot(request, technician_id, preview=False):
         result.timezone = cal.timezone
         connection = await google.current(db)
         identity = (
+            tech.status,
+            tech.first_name,
+            tech.last_name,
             assignment_id,
             cal.id,
             cal.timezone,
@@ -111,6 +118,7 @@ async def snapshot(request, technician_id, preview=False):
             result.state = "TIMEZONE_REQUIRED"
         else:
             result.state = "READY"
+        result._source_identity = identity
         return result, identity, (connection, cal)
 
 
@@ -137,13 +145,14 @@ async def remember_failure(request, connection_id, generation, exc):
                 "google.events.access_required",
                 connection_id,
                 actor_id=request.state.manager_id,
+                actor_kind="MANAGER" if request.state.manager_id else "SCHEDULE_WORKER",
                 outcome="FAILED",
             )
         await db.commit()
 
 
-async def _read_schedule(request, technician_id, preview=False):
-    result, identity, context = await snapshot(request, technician_id, preview)
+async def _read_schedule(request, technician_id, preview=False, *, worker=False):
+    result, identity, context = await snapshot(request, technician_id, preview, worker=worker)
     if result.state != "READY":
         return result
     connection, calendar = context
@@ -159,7 +168,7 @@ async def _read_schedule(request, technician_id, preview=False):
                     request.app.state.google_lock_engine, "google-lifecycle", 0
                 ):
                     latest_result, latest_identity, latest_context = await snapshot(
-                        request, technician_id, preview
+                        request, technician_id, preview, worker=worker
                     )
                     if latest_identity != identity or latest_result.state != "READY":
                         latest_result.state = "CHANGED"
@@ -204,7 +213,9 @@ async def _read_schedule(request, technician_id, preview=False):
                         else "PROVIDER_TEMPORARY_ERROR"
                     )
                 )
-                fresh, fresh_identity, _ = await snapshot(request, technician_id, preview)
+                fresh, fresh_identity, _ = await snapshot(
+                    request, technician_id, preview, worker=worker
+                )
                 if fresh_identity != identity:
                     fresh.state = "CHANGED"
                     result = fresh
@@ -221,10 +232,14 @@ async def _read_schedule(request, technician_id, preview=False):
                 )
                 fresh.error_code = exc.code
                 if fresh.state == "PROVIDER_ERROR":
-                    fresh.retry_at = (await snapshot(request, technician_id, preview))[0].retry_at
+                    fresh.retry_at = (
+                        await snapshot(request, technician_id, preview, worker=worker)
+                    )[0].retry_at
                 result = fresh
                 return result
-            fresh, fresh_identity, _ = await snapshot(request, technician_id, preview)
+            fresh, fresh_identity, _ = await snapshot(
+                request, technician_id, preview, worker=worker
+            )
             if (
                 fresh_identity != identity
                 or fresh.state != "READY"
@@ -235,6 +250,9 @@ async def _read_schedule(request, technician_id, preview=False):
                 return result
             fresh.jobs, fresh.warnings = jobs, warnings
             fresh.last_fetched_at = now()
+            from hub.schedule_delivery.domain import from_schedule
+
+            fresh.fingerprint = from_schedule(fresh).fingerprint
             result = fresh
             return result
     except RuntimeError as exc:
@@ -244,11 +262,11 @@ async def _read_schedule(request, technician_id, preview=False):
         return result
 
 
-async def read_schedule(request, technician_id, preview=False):
+async def read_schedule(request, technician_id, preview=False, *, worker=False):
     started = monotonic()
     result, outcome = None, "INTERRUPTED"
     try:
-        result = await _read_schedule(request, technician_id, preview)
+        result = await _read_schedule(request, technician_id, preview, worker=worker)
         outcome = (
             ("SUCCESS" if result.jobs else "NO_JOBS")
             if result.state == "READY"

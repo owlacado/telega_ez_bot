@@ -37,8 +37,7 @@ REPLIES = {
     "HELP": (
         "Use your manager's /start invitation to connect. /status shows "
         "connection status. /getid shows your own Telegram ID in a "
-        "private chat. Reports, expenses, receipts, and schedules are not "
-        "available yet."
+        "private chat. Use Schedule received on your delivered schedule to acknowledge it."
     ),
 }
 
@@ -63,6 +62,26 @@ async def operational_access(db, user_id: int, bot_id: int) -> bool:
 async def process_update(
     factory: async_sessionmaker, provider: TelegramProvider, event: TrustedEvent, bot_id: int
 ) -> UpdateResult:
+    if event.kind == "CALLBACK":
+        # Clear Telegram's progress indicator promptly, before database work. A failure
+        # to answer is cosmetic and must not prevent the authoritative acknowledgement.
+        try:
+            await provider.answer_callback(event.callback_query_id, "Checking schedule receipt...")
+        except Exception:
+            pass
+        from hub.schedule_delivery.acknowledgements import acknowledge
+
+        outcome = await acknowledge(factory, event, bot_id)
+        try:
+            await provider.answer_callback(
+                event.callback_query_id,
+                "Schedule received."
+                if outcome == "ACKNOWLEDGED"
+                else "Receipt unavailable. Check your current connection or try again.",
+            )
+        except Exception:
+            pass
+        return UpdateResult(outcome)
     async with factory() as db:
         if await db.get(TelegramProcessedUpdate, (bot_id, event.update_id)):
             return UpdateResult("DUPLICATE")

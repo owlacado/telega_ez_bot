@@ -21,6 +21,10 @@ const python = path.resolve(
   process.platform === "win32" ? "Scripts/python.exe" : "bin/python",
 );
 const running = Boolean(process.env.E2E_BASE_URL);
+const scheduleKey =
+  process.env.SCHEDULE_PAYLOAD_ENCRYPTION_KEY ??
+  randomBytes(32).toString("base64url") + "=";
+process.env.SCHEDULE_PAYLOAD_ENCRYPTION_KEY = scheduleKey;
 export default defineConfig({
   testDir: "./e2e",
   outputDir: `test-results/${running ? "production" : "development"}`,
@@ -46,6 +50,8 @@ export default defineConfig({
             APP_ENV: "test",
             ALLOWED_ORIGINS: '["http://127.0.0.1:3001"]',
             TELEGRAM_MODE: "fake",
+            SCHEDULE_DELIVERY_ENABLED: "true",
+            SCHEDULE_PAYLOAD_ENCRYPTION_KEY: scheduleKey,
             GOOGLE_MODE: "fake",
             GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY:
               randomBytes(32).toString("base64url") + "=",

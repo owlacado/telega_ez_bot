@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 Purpose = Literal["PRIVATE_TELEGRAM", "WORK_GROUP"]
@@ -54,7 +54,9 @@ class TrustedEvent:
     username: str | None = None
     chat_title: str | None = None
     command: str | None = None
-    payload: str | None = None
+    payload: str | None = field(default=None, repr=False)
+    callback_query_id: str | None = field(default=None, repr=False)
+    message_id: int | None = None
     member_user_id: int | None = None
     member_status: str | None = None
     member_present: bool = False

@@ -104,3 +104,12 @@ A polling offset whose last processed update is at least six days old (or missin
 Copying an invitation intentionally crosses into the operating-system clipboard, which may have history or device sync outside this application. Clear it after sharing the credential privately. Opening Telegram places the link in Telegram/browser history; the application itself does not persist it in storage or its route URL. No frontend analytics or remote QR service receives it.
 
 For manual TEST-bot acceptance, additionally test a default read-only group with the bot as a regular member, explicit bot restriction, loss/restoration of group access, username/group rename, and basic-group to supergroup migration. Verify that identities remain reserved while delivery is unavailable and migration requires revalidation. Live tests remain manual only. Resolve TD-022 membership policy and TD-023 public-bot abuse controls before internal pilot.
+
+## Stage 4 schedule delivery
+
+See [Schedule delivery](SCHEDULE_DELIVERY.md) for the unified immutable dispatch path, dedicated
+payload key, separate worker, calendar-local automatic delivery (OFF by default),
+acknowledgement authorization, uncertainty recovery, retention, and dedicated TEST
+acceptance runbook. The Telegram polling worker receives callbacks; the schedule
+worker sends durable dispatches and evaluates automatic decisions. Neither starts
+inside the web API. Stage 3 job filtering and wall-clock projection remain authoritative.

@@ -47,7 +47,7 @@ async def engine() -> AsyncIterator[AsyncEngine]:
             text(
                 "TRUNCATE technicians, calendars, managers, rate_buckets, "
                 "audit_events, telegram_worker_states, telegram_processed_updates, "
-                "google_oauth_attempts, calendar_connections "
+                "google_oauth_attempts, calendar_connections, schedule_worker_states "
                 "RESTART IDENTITY CASCADE"
             )
         )
@@ -101,7 +101,15 @@ def forbid_live_telegram(monkeypatch):
     async def forbidden(*args, **kwargs):
         raise AssertionError("Automated tests must use the fake Telegram provider.")
 
-    for method in ("initialize", "webhook_configured", "updates", "member", "send"):
+    for method in (
+        "initialize",
+        "webhook_configured",
+        "updates",
+        "member",
+        "send",
+        "send_schedule",
+        "answer_callback",
+    ):
         monkeypatch.setattr(TelegramBotAdapter, method, forbidden)
 
 

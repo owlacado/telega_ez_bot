@@ -3,7 +3,7 @@
 import logging
 from pathlib import Path
 
-from telegram import Bot
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions
 from telegram.error import (
     BadRequest,
     Conflict,
@@ -100,7 +100,7 @@ class TelegramBotAdapter:
                 offset=offset,
                 timeout=25,
                 limit=50,
-                allowed_updates=["message", "my_chat_member", "chat_member"],
+                allowed_updates=["message", "my_chat_member", "chat_member", "callback_query"],
             )
             return [
                 parse_update(value.to_dict(), self.settings.telegram_expected_bot_username)
@@ -129,6 +129,29 @@ class TelegramBotAdapter:
     async def send(self, chat_id: int, message: str) -> int:
         try:
             return (await self.bot.send_message(chat_id, message, protect_content=True)).message_id
+        except TelegramError as error:
+            raise safe_error(error) from None
+
+    async def send_schedule(self, chat_id: int, message: str, callback_data: str) -> int:
+        try:
+            return (
+                await self.bot.send_message(
+                    chat_id,
+                    message,
+                    parse_mode="HTML",
+                    protect_content=True,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True),
+                    reply_markup=InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Schedule received", callback_data=callback_data)]]
+                    ),
+                )
+            ).message_id
+        except TelegramError as error:
+            raise safe_error(error) from None
+
+    async def answer_callback(self, query_id: str, message: str) -> None:
+        try:
+            await self.bot.answer_callback_query(query_id, text=message)
         except TelegramError as error:
             raise safe_error(error) from None
 

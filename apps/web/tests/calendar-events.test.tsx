@@ -1,3 +1,7 @@
+// Calendar projection unit tests isolate the separately tested delivery panel.
+vi.mock("@/components/schedule-delivery", () => ({
+  ScheduleDelivery: () => null,
+}));
 import { StrictMode } from "react";
 import {
   act,
@@ -96,7 +100,7 @@ it("preserves calendar wall time, raw Today title and cleaned preview", () => {
   expect(screen.queryByText(job.summary)).not.toBeInTheDocument();
 });
 it("renders malicious long content as plain text", () => {
-  const summary = "<script>alert(1)</script> 😀 مرحبا ".repeat(20);
+  const summary = "<script>alert(1)</script> ðŸ˜€ Ù…Ø±Ø­Ø¨Ø§ ".repeat(20);
   const { container } = render(
     <ScheduleContent
       {...view({

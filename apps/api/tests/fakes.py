@@ -10,6 +10,8 @@ class FakeTelegram:
         self.webhook = False
         self.members: dict[tuple[int, int], Member] = {}
         self.events: list[TrustedEvent] = []
+        self.schedule_sent = []
+        self.callbacks = []
         self.sent: list[tuple[int, str]] = []
         self.offsets: list[int | None] = []
         self.send_error: ProviderError | None = None
@@ -41,6 +43,14 @@ class FakeTelegram:
             raise self.send_error
         self.sent.append((chat_id, message))
         return len(self.sent)
+
+    async def send_schedule(self, chat_id, message, callback_data):
+        result = await self.send(chat_id, message)
+        self.schedule_sent.append((chat_id, message, callback_data))
+        return result
+
+    async def answer_callback(self, query_id, message):
+        self.callbacks.append((query_id, message))
 
     async def close(self):
         self.closed = True

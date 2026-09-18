@@ -67,9 +67,7 @@ test("event scope upgrade, jobs, filtering, preview, refresh and technician isol
       name: "Next Work Day Schedule Preview",
     });
     await expect(modal.getByText("1. Furnace", { exact: true })).toBeVisible();
-    await expect(modal).toContainText(
-      "Telegram delivery will be added in the next stage.",
-    );
+    await expect(modal).toContainText("Telegram delivery");
     await page.screenshot({
       path: testInfo.outputPath("stage3-schedule-preview.png"),
       fullPage: true,

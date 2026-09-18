@@ -2,11 +2,11 @@
 
 A local operations workspace built around the human technician. PostgreSQL owns identity; calendars and future provider connections attach to an immutable UUID.
 
-**Stage 3: technician Today’s Jobs and next-work-day preview, alongside audited discovery, assignment and Telegram onboarding.** All business data requires a manager session. Google and Telegram default to disabled; the Telegram worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live provider validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
+**Stage 4: durable Telegram schedule delivery and acknowledgements, alongside audited calendar views, discovery, assignment and onboarding.** All business data requires a manager session. Google and Telegram default to disabled; the Telegram worker is an opt-in Compose profile. No provider credentials are needed for automated verification. This remains local-only; sensitive-field encryption, broader deployment hardening, and live provider validation are deferred. Use fictional profiles and do not enter real DL/SSN values.
 
 Connect Telegram now creates a one-time invitation and binds automatically when the intended technician presses Start. Work-group linking uses a separate invitation and requires that same linked account to send the group command; ordinary bot membership is sufficient. Existing invitations retain their old manager-review policy after upgrade. See [the onboarding runbook](docs/TELEGRAM_ONBOARDING.md) for safe link handling, configuration, disconnect/reconnect behavior and the manual TEST-bot procedure, and [completion verification](docs/TELEGRAM_COMPLETION_VERIFICATION.md) for current evidence.
 
-Google Calendar uses manager-initiated OAuth, encrypted offline credentials, complete manual CalendarList discovery, exclusion/restore, and atomic technician assignments. Discovery requests CalendarList read access. Managers can separately grant `calendar.events.readonly` for bounded on-demand jobs and schedule previews. Google event writes and Telegram schedule delivery are not implemented. See [Stage 3 rules](docs/STAGE3_CALENDAR_EVENTS.md) and [verification](docs/STAGE3_CALENDAR_EVENTS_VERIFICATION.md). See [Google integration and safe TEST-account acceptance](docs/GOOGLE_CALENDAR_INTEGRATION.md) and [Stage 2 verification](docs/STAGE2_GOOGLE_CALENDAR_VERIFICATION.md). No real Google account is needed for automated tests.
+Google Calendar uses manager-initiated OAuth, encrypted offline credentials, complete manual CalendarList discovery, exclusion/restore, and atomic technician assignments. Discovery requests CalendarList read access. Managers can separately grant `calendar.events.readonly` for bounded on-demand jobs and schedule previews. Google event writes remain unavailable. Stage 4 adds explicit schedule Send/Resend and opt-in calendar-local automatic delivery through an encrypted durable dispatch queue. See [Stage 3 rules](docs/STAGE3_CALENDAR_EVENTS.md) and [verification](docs/STAGE3_CALENDAR_EVENTS_VERIFICATION.md). See [Google integration and safe TEST-account acceptance](docs/GOOGLE_CALENDAR_INTEGRATION.md) and [Stage 2 verification](docs/STAGE2_GOOGLE_CALENDAR_VERIFICATION.md). No real Google account is needed for automated tests.
 
 ## Quick start on Windows
 
@@ -138,3 +138,14 @@ Commit both the OpenAPI snapshot and generated types. Runtime requests are valid
 Open a technician's **Connect Telegram** dialog, generate a link, review the claiming account, and explicitly approve it. Then connect and approve a separate work group. Replacement keeps the current identity until approval; replacing/disconnecting private access suspends group delivery until revalidation. Test messages require a selected approved destination and confirmation. Already delivered messages are not erased by local deletion.
 
 Read [Stage 1 scope](docs/STAGE1_SCOPE.md), [onboarding and dedicated-test-bot runbook](docs/TELEGRAM_ONBOARDING.md), [security and privacy](docs/TELEGRAM_SECURITY.md), [architecture](docs/ARCHITECTURE.md), and [verification evidence](docs/STAGE1_VERIFICATION.md). [Stage 0 scope](docs/STAGE0_SCOPE.md) and [historical verification](docs/VERIFICATION.md) describe the starting foundation.
+
+## Stage 4 schedule delivery
+
+See [Schedule delivery](docs/SCHEDULE_DELIVERY.md) for the unified immutable dispatch path, dedicated
+payload key, separate worker, calendar-local automatic delivery (OFF by default),
+acknowledgement authorization, uncertainty recovery, retention, and dedicated TEST
+acceptance runbook. The Telegram polling worker receives callbacks; the schedule
+worker sends durable dispatches and evaluates automatic decisions. Neither starts
+inside the web API. Stage 3 job filtering and wall-clock projection remain authoritative.
+
+Stage 4 quality evidence: [verification and self-audit](docs/STAGE4_SCHEDULE_DELIVERY_VERIFICATION.md).

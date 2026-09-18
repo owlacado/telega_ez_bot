@@ -1790,3 +1790,36 @@ td > small {
 .schedule-empty {
   padding: 1rem 0;
 }
+
+.schedule-delivery {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #e3e7ee;
+}
+.schedule-delivery > button {
+  justify-self: start;
+}
+.schedule-delivery label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.schedule-delivery input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.schedule-delivery .schedule-jobs p {
+  margin: 6px 0;
+}
+
+.schedule-delivery .schedule-jobs li {
+  display: block;
+}
+.schedule-delivery .schedule-jobs li > div {
+  width: 100%;
+  min-width: 0;
+}

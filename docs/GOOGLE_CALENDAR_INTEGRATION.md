@@ -1,6 +1,6 @@
 # Google Calendar integration - Stages 2 and 3
 
-CalendarList discovery manages provider metadata and local assignments. Stage 3 adds bounded read-only events and schedule previews after explicit event consent. Hub never deletes Google calendars, edits events, polls periodically, sends schedules, or uses Google Sheets. Google is authoritative for provider metadata; PostgreSQL is authoritative for technician identity, assignments, history, and exclusions.
+CalendarList discovery manages provider metadata and local assignments. Stage 3 adds bounded read-only events and schedule previews after explicit event consent. Hub never deletes Google calendars, edits events, or uses Google Sheets. Stage 4 optionally reads next-work-day schedules during its bounded automatic delivery window and delivers immutable snapshots through Telegram; CalendarList discovery remains manager initiated. Google is authoritative for provider metadata; PostgreSQL is authoritative for technician identity, assignments, history, and exclusions.
 
 ## Verified references
 
@@ -175,3 +175,12 @@ Telegram message. Record only synthetic counts, safe status codes and dates in a
 
 See STAGE3_CALENDAR_EVENTS.md for exact timezone, filtering, payload-budget and privacy rules, and
 STAGE3_CALENDAR_EVENTS_VERIFICATION.md for automated fake-provider evidence.
+
+## Stage 4 schedule delivery
+
+See [Schedule delivery](SCHEDULE_DELIVERY.md) for the unified immutable dispatch path, dedicated
+payload key, separate worker, calendar-local automatic delivery (OFF by default),
+acknowledgement authorization, uncertainty recovery, retention, and dedicated TEST
+acceptance runbook. The Telegram polling worker receives callbacks; the schedule
+worker sends durable dispatches and evaluates automatic decisions. Neither starts
+inside the web API. Stage 3 job filtering and wall-clock projection remain authoritative.

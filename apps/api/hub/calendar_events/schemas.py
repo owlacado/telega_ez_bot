@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 from hub.calendar_events.domain import CalendarEventView
 
@@ -19,6 +19,8 @@ class ScheduleCalendar(BaseModel):
 
 
 class ScheduleRead(BaseModel):
+    fingerprint: str | None = None
+    _source_identity: tuple | None = PrivateAttr(default=None)
     technician: ScheduleTechnician
     calendar: ScheduleCalendar | None = None
     state: Literal[

@@ -18,6 +18,7 @@ from hub.core.config import Settings
 from hub.core.database import session
 from hub.core.errors import install_error_handlers
 from hub.google_calendar.router import router as google_router
+from hub.schedule_delivery.router import router as schedule_router
 from hub.technicians.router import router as technicians_router
 from hub.telegram.router import router as telegram_router
 
@@ -66,6 +67,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(calendars_router)
     app.include_router(google_router)
     app.include_router(events_router)
+    app.include_router(schedule_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):

@@ -53,6 +53,67 @@ async def main():
                 telegram_expected_bot_username=BOT_USERNAME,
             )
             await Worker(settings, engine, provider).startup()
+        elif action == "schedule_setup":
+            from uuid import UUID
+
+            from hub.calendars.models import Calendar
+            from hub.integrations.models import TelegramBinding
+            from sqlalchemy import select
+
+            async with factory() as db, db.begin():
+                calendar = await db.get(Calendar, UUID(payload["calendar_id"]))
+                calendar.provider_calendar_id = "test-stable-schedule"
+                binding = await db.get(TelegramBinding, UUID(payload["technician_id"]))
+                if not binding:
+                    binding = TelegramBinding(technician_id=UUID(payload["technician_id"]))
+                    db.add(binding)
+                binding.bot_id, binding.telegram_user_id = BOT_ID, payload["user_id"]
+                binding.telegram_group_chat_id = payload["chat_id"]
+                binding.private_status = binding.group_status = "CONNECTED"
+                binding.private_availability = binding.group_availability = "AVAILABLE"
+                binding.private_generation = binding.group_generation = (
+                    binding.group_private_generation
+                ) = 1
+        elif action == "schedule_deliver":
+            from hub.schedule_delivery.delivery import deliver_one as deliver_schedule
+            from hub.schedule_delivery.models import ScheduleDispatch
+            from hub.telegram.types import ProviderError, TrustedEvent
+            from sqlalchemy import select
+
+            settings = Settings(
+                database_url=url,
+                app_env="test",
+                telegram_mode="fake",
+                telegram_expected_bot_id=BOT_ID,
+                telegram_expected_bot_username=BOT_USERNAME,
+                schedule_delivery_enabled=True,
+            )
+            provider.group(payload["chat_id"], payload["user_id"], payload["user_id"])
+            if payload.get("ambiguous"):
+                provider.send_error = ProviderError("NETWORK_UNCERTAIN")
+            await deliver_schedule(factory, engine, provider, settings)
+            if payload.get("acknowledge"):
+                async with factory() as db:
+                    dispatch = await db.scalar(
+                        select(ScheduleDispatch)
+                        .where(ScheduleDispatch.status == "SENT")
+                        .order_by(ScheduleDispatch.created_at.desc())
+                        .limit(1)
+                    )
+                await process_update(
+                    factory,
+                    provider,
+                    TrustedEvent(
+                        100001,
+                        "CALLBACK",
+                        chat_id=dispatch.chat_id,
+                        user_id=payload["user_id"],
+                        message_id=dispatch.message_id,
+                        payload=provider.schedule_sent[-1][2],
+                        callback_query_id="test-query",
+                    ),
+                    BOT_ID,
+                )
         elif action == "google_reset":
             from hub.calendars.models import Calendar, CalendarAssignment
             from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt

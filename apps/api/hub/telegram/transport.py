@@ -29,6 +29,28 @@ def _parse_update(update: dict, bot_username: str) -> TrustedEvent:
     update_id = identifier(update.get("update_id"))
     if update_id is None:
         raise ValueError("MALFORMED_UPDATE_ID")
+    callback = update.get("callback_query")
+    if callback:
+        query_id = callback.get("id")
+        payload = callback.get("data")
+        user, message = callback.get("from", {}), callback.get("message", {})
+        chat = message.get("chat", {})
+        if not isinstance(query_id, str) or not 1 <= len(query_id) <= 256:
+            return TrustedEvent(update_id, "IGNORED")
+        return TrustedEvent(
+            update_id,
+            "CALLBACK",
+            callback_query_id=query_id,
+            payload=payload
+            if isinstance(payload, str) and re.fullmatch(r"sch:[A-Za-z0-9_-]{43}", payload)
+            else None,
+            chat_id=identifier(chat.get("id")),
+            chat_type=chat.get("type"),
+            user_id=identifier(user.get("id")),
+            user_is_bot=user.get("is_bot") is not False,
+            anonymous=not identifier(user.get("id")),
+            message_id=identifier(message.get("message_id")),
+        )
     membership = update.get("my_chat_member") or update.get("chat_member")
     if membership:
         chat = membership.get("chat", {})
