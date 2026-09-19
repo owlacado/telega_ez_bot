@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import Dashboard from "@/app/(workspace)/page";
 import TechniciansPage from "@/app/(workspace)/technicians/page";
 import { Avatar } from "@/components/ui";
 import { Sidebar } from "@/components/sidebar";
@@ -318,4 +319,51 @@ it("falls back to initials when a profile photo fails", () => {
   fireEvent.error(screen.getByRole("img"));
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
   expect(screen.getByText("DT")).toBeInTheDocument();
+});
+
+it("missing accounting timezone is visible on card and dashboard before expense entry", async () => {
+  const complete = {
+    ...technician,
+    calendar,
+    accounting_timezone: null,
+    integrations: {
+      ...technician.integrations,
+      telegram_private: "CONNECTED",
+      telegram_group: "CONNECTED",
+      gps_status: "CONNECTED",
+    },
+  } as typeof technician;
+  mockedApi.mockImplementation(async (path) =>
+    path === "/technicians" ? [complete] : [calendar],
+  );
+  const card = render(<TechnicianCard technician={complete} />);
+  expect(
+    screen.getByText("Accounting timezone required for expenses"),
+  ).toBeInTheDocument();
+  card.unmount();
+  render(<Dashboard />);
+  await screen.findByText("Accounting timezone required for expenses");
+});
+
+it("timezone selector preserves current value and saves an explicit choice", async () => {
+  render(
+    <ProfilePanel
+      technician={{ ...technician, accounting_timezone: "America/New_York" }}
+      onUpdate={vi.fn()}
+    />,
+  );
+  const control = screen.getByLabelText("Accounting timezone");
+  expect(control).toHaveValue("America/New_York");
+  expect(screen.getByRole("option", { name: /Arizona/ })).toHaveValue(
+    "America/Phoenix",
+  );
+  fireEvent.change(control, { target: { value: "America/Denver" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
+  await screen.findByText("Profile saved.");
+  expect(mockedApi).toHaveBeenCalledWith(
+    `/technicians/${technician.id}`,
+    expect.objectContaining({
+      body: expect.stringContaining('"accounting_timezone":"America/Denver"'),
+    }),
+  );
 });

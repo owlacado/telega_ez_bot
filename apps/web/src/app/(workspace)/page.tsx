@@ -14,6 +14,7 @@ import { useResource } from "@/lib/use-resource";
 import { Avatar, EmptyState, ErrorNotice, Loading } from "@/components/ui";
 function missing(t: Technician): string[] {
   return [
+    !t.accounting_timezone && "Accounting timezone required for expenses",
     !t.calendar && "Calendar not assigned",
     t.integrations.telegram_private !== "CONNECTED" && "Telegram not connected",
     t.integrations.telegram_group !== "CONNECTED" && "Work group not connected",
@@ -72,7 +73,7 @@ export default function Dashboard() {
               {
                 title: "NEEDS SETUP",
                 value: attention?.length ?? 0,
-                note: "Profiles with missing connections",
+                note: "Profiles with incomplete setup",
                 Icon: CircleDot,
                 href: "#attention",
               },

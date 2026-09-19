@@ -9,6 +9,7 @@ import type {
 import { ApiError, api, errorMessage, json } from "@/lib/api";
 import { useResource } from "@/lib/use-resource";
 import { DisabledAction, ErrorNotice } from "./ui";
+import { AccountingTimezone } from "./accounting-timezone";
 import { TelegramConnections } from "./telegram-connections";
 export function ProfilePanel({
   technician: t,
@@ -166,15 +167,10 @@ export function ProfilePanel({
                 />
               </label>
             </div>
-            <label>
-              Accounting timezone
-              <input
-                name="accounting_timezone"
-                maxLength={64}
-                defaultValue={t.accounting_timezone ?? ""}
-                placeholder="America/Los_Angeles"
-              />
-            </label>
+            <AccountingTimezone
+              key={`${t.id}:${t.accounting_timezone}`}
+              value={t.accounting_timezone}
+            />
             <p className="field-hint">
               Set the technician’s IANA timezone to enable expenses. No calendar
               or browser timezone is assumed.

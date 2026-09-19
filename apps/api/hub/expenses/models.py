@@ -47,6 +47,7 @@ class ExpenseRevision(Base):
         UniqueConstraint("expense_id", "revision_number", name="uq_expense_revision"),
         CheckConstraint("revision_number > 0", name="positive_revision"),
         CheckConstraint("amount >= 0 AND amount <= 9999999999.99", name="money"),
+        CheckConstraint("scale(amount) <= 2", name="money_scale"),
         CheckConstraint(
             "length(trim(expense_type)) BETWEEN 1 AND 100 AND expense_type !~ '[<>[:cntrl:]]'",
             name="type",
@@ -66,7 +67,7 @@ class ExpenseRevision(Base):
     expense_date: Mapped[date] = mapped_column(Date, index=True)
     accounting_timezone: Mapped[str] = mapped_column(String(64))
     expense_type: Mapped[str] = mapped_column(String(100))
-    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    amount: Mapped[Decimal] = mapped_column(Numeric())
     note: Mapped[str] = mapped_column(Text)
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

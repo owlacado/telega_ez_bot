@@ -501,7 +501,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["f6e609180001"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["f6e609180002"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -545,7 +545,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "f6e609180001"
+                    == "f6e609180002"
                 )
             else:
                 await db.execute(
@@ -620,7 +620,7 @@ async def stage5_history(action):
                 ) == Decimal("123.45")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "f6e609180001"
+                    == "f6e609180002"
                 )
             else:
                 await db.execute(
@@ -691,7 +691,7 @@ async def stage6_history(action):
                 ) == Decimal("20.01")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "f6e609180001"
+                    == "f6e609180002"
                 )
             else:
                 await db.execute(
@@ -705,6 +705,10 @@ async def stage6_history(action):
 
 expense_id = uuid.uuid4()
 asyncio.run(stage6_history("insert"))
+# Audit successor has a lossless populated round-trip to the Stage 6 schema.
+alembic("downgrade", "f6e609180001")
+alembic("upgrade", "head")
+asyncio.run(stage6_history("check"))
 refused = subprocess.run(
     [sys.executable, "-m", "alembic", "downgrade", "e5f509180003"],
     cwd=root / "apps/api",

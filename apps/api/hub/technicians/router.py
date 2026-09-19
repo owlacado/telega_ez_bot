@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hub.audit.service import audit
@@ -81,6 +81,12 @@ async def update_technician(
     async with advisory_guard(request.app.state.engine, "technician", technician_id):
         technician = await require_technician(db, technician_id, lock=True)
         values = payload.model_dump(mode="json", exclude_unset=True)
+        zone = values.get("accounting_timezone")
+        if zone and not await db.scalar(
+            text("SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name=:zone)"),
+            {"zone": zone},
+        ):
+            raise HTTPException(422, "Accounting timezone is unavailable on this server.")
         for key, value in values.items():
             setattr(technician, key, value)
         if values.get("status") == "INACTIVE":

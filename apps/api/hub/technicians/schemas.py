@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 from pydantic import (
     AwareDatetime,
@@ -58,6 +58,8 @@ class TechnicianUpdate(InputModel):
     def timezone_name(cls, value):
         if value is not None:
             try:
+                if value not in available_timezones() or value in {"Factory", "localtime"}:
+                    raise ValueError("Unsupported timezone")
                 ZoneInfo(value)
             except (ZoneInfoNotFoundError, ValueError):
                 raise ValueError(
@@ -111,6 +113,7 @@ class TechnicianSummary(BaseModel):
     last_name: str
     photo_url: str | None
     status: Status
+    accounting_timezone: str | None = None
     calendar: CalendarSummary | None
     integrations: IntegrationSummary
     created_at: datetime
@@ -118,6 +121,5 @@ class TechnicianSummary(BaseModel):
 
 
 class TechnicianDetail(TechnicianSummary):
-    accounting_timezone: str | None = None
     driver_license_id: str | None
     ssn_last4: str | None

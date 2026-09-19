@@ -62,6 +62,11 @@ export function TechnicianCard({ technician: t }: { technician: Technician }) {
           )}
         </div>
       </div>
+      {!t.accounting_timezone && (
+        <p className="calendar-warning">
+          Accounting timezone required for expenses
+        </p>
+      )}
       <div className="card-integrations">
         {indicators.map(({ label, status, Icon }) => (
           <span

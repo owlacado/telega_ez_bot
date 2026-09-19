@@ -577,3 +577,32 @@ No new IDs or closures: **31 total, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
 Pilot blockers remain TD-010/011/012/013/014/017/018/022/023/025/026/027/028/029/030/031.
 Production adds TD-016/019/020. Full accounting parity, correction/void UI and uploads
 are explicitly deferred feature scope; they are not completed or new debt entries.
+
+## Independent Stage 6 expense audit disposition
+
+No new debt ID or closure: **31 entries, 10 RESOLVED, 21 OPEN**; open severities
+remain 0 CRITICAL, 2 HIGH, 16 MEDIUM, 3 LOW. See [the audit](AUDIT_STAGE6_EXPENSES.md).
+
+- **TD-030 remains OPEN.** A copied unexpired eligible Expense bearer permits form
+  preview, one submission and its receipt retry; it grants no manager reads and
+  cannot substitute for current binding eligibility. Browser history/local access
+  can expose a fragment. HTTPS, actual Telegram mobile handling and dedicated TEST
+  acceptance are still required; fake-provider tests do not close this gate.
+- **TD-031 remains OPEN.** A new 1,000-issuance mixed Report/Expense probe retains
+  1,000 metadata rows with five OPEN credentials. Immutable notes, business history,
+  expired session metadata and backups still require retention/anonymization and
+  archival policy. No purge or administrative business-deletion bypass was added.
+- **TD-013 remains OPEN.** Missing accounting timezone is now visible in setup
+  warnings and selectable from supported zones, but optimistic concurrent profile
+  editing remains unresolved. Historical expense date/zone snapshots do not change.
+- **TD-015 remains OPEN, partial read-model remediation.** Expense projection now
+  bounds each current-revision lookup and reuses one materialized current-facts set.
+  Synthetic 10/100/1,000/10,000 reads and >100/day correctness are measured in the
+  audit. This does not close broader list scaling or deployment capacity obligations.
+- All sixteen pilot blockers remain **TD-010/011/012/013/014/017/018/022/023/025/026/
+  027/028/029/030/031**. The two HIGH items remain generic audit retention and
+  sensitive profile encryption; TD-014 remains overdue. Production additionally
+  requires **TD-016/019/020**. TD-024 remains later-scale metadata freshness.
+
+The audit fixes expense integrity defects; it does not approve pilot/production,
+execute provider acceptance, or introduce Stage 7 accounting, Contracts or GPS.

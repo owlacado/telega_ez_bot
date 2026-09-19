@@ -1,6 +1,8 @@
 from uuid import UUID
+from zoneinfo import available_timezones
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hub.audit.service import audit
@@ -14,6 +16,12 @@ from hub.work_reports.router import capability
 
 router = APIRouter(tags=["expenses"])
 FORM_PATHS = {"/api/technician-forms/expense", "/api/technician-forms/expense/submit"}
+
+
+@router.get("/api/accounting-timezones", response_model=list[str])
+async def accounting_timezones(db: AsyncSession = Depends(session)):
+    database_zones = set(await db.scalars(text("SELECT name FROM pg_timezone_names")))
+    return sorted((available_timezones() & database_zones) - {"Factory", "localtime"})
 
 
 @router.post("/api/technician-forms/expense", response_model=ExpenseForm)

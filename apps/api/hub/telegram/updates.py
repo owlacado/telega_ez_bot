@@ -132,7 +132,8 @@ async def process_update(
                         result = "EXPENSE_FORM" if token else "UNAVAILABLE"
                         reply = (
                             (
-                                "Expenses\nOpen this private link within 15 minutes. "
+                                "Expenses\nOpen this private link within "
+                                f"{config.work_report_session_seconds // 60} minutes. "
                                 "Do not share it.\n"
                                 f"{config.allowed_origins[0]}/technician/expense#{token}"
                             )

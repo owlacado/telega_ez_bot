@@ -1705,6 +1705,31 @@
         }
       }
     },
+    "/api/accounting-timezones": {
+      "get": {
+        "tags": [
+          "expenses"
+        ],
+        "summary": "Accounting Timezones",
+        "operationId": "accounting_timezones_api_accounting_timezones_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "title": "Response Accounting Timezones Api Accounting Timezones Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/technician-forms/expense": {
       "post": {
         "tags": [
@@ -4479,6 +4504,17 @@
             ],
             "title": "Status"
           },
+          "accounting_timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accounting Timezone"
+          },
           "calendar": {
             "anyOf": [
               {
@@ -4501,17 +4537,6 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
-          },
-          "accounting_timezone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Accounting Timezone"
           },
           "driver_license_id": {
             "anyOf": [
@@ -4585,6 +4610,17 @@
               "INACTIVE"
             ],
             "title": "Status"
+          },
+          "accounting_timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accounting Timezone"
           },
           "calendar": {
             "anyOf": [

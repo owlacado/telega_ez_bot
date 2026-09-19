@@ -1,5 +1,11 @@
 import { StrictMode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ExpenseForm } from "@/components/expense-form";
@@ -185,4 +191,36 @@ it("opening a new capability in the same tab clears the prior receipt", async ()
   expect(fetch.mock.calls.at(-1)?.[1].headers.Authorization).toBe(
     `Bearer ${"b".repeat(43)}`,
   );
+});
+
+it("a late A request cannot replace B financial facts", async () => {
+  let resolveA!: (value: unknown) => void;
+  vi.mocked(api)
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveA = resolve;
+        }),
+    )
+    .mockResolvedValueOnce({
+      ...listing,
+      expenses: [
+        { ...expense, id: "b1", technician_id: "b", expense_type: "B only" },
+      ],
+      today_total: "9.99",
+    });
+  const { rerender } = render(<Expenses technicianId="a" />);
+  rerender(<Expenses technicianId="b" />);
+  await screen.findByRole("button", { name: /B only/ });
+  await act(async () => resolveA(listing));
+  expect(screen.queryByRole("button", { name: /Gas/ })).toBeNull();
+  expect(screen.getByText(/Today.*9.99/)).toBeInTheDocument();
+  expect(screen.queryByText(/40.00/)).toBeNull();
+});
+
+it("financial facts never claim net, profit or payout", async () => {
+  vi.mocked(api).mockResolvedValue(listing);
+  const { container } = render(<Expenses technicianId="a" />);
+  await screen.findByText(/Today/);
+  expect(container.textContent).not.toMatch(/net|profit|payout/i);
 });

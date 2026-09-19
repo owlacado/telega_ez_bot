@@ -10,7 +10,9 @@ it does not implement Daily/Weekly Accounting or payout formulas.
 An active linked technician uses **Expenses** or `/expenses` in the private bot.
 The manager must first set **Accounting timezone** on the technician profile to an
 explicit IANA zone (for example `America/Los_Angeles`). Existing profiles migrate
-with NULL; no automatic assignment or calendar/browser fallback is used. Without a
+with NULL; dashboard and technician cards show the missing setup requirement.
+The profile selector offers named US choices and the server-supported IANA list;
+Factory/environment-dependent pseudo-zones are rejected. No automatic assignment or calendar/browser fallback is used. Without a
 zone the bot explains that setup is needed and issues no credential. Clearing the
 zone before submission blocks the submission. Historical expenses remain readable.
 
@@ -20,7 +22,9 @@ The mobile form accepts:
   blank, markup delimiters and Unicode control/format characters rejected. There
   is no taxonomy, enum, dropdown or accounting bucket.
 - `amount`: required ASCII decimal string, 0.00 through 9999999999.99 inclusive,
-  at most two fractional digits, Decimal and PostgreSQL NUMERIC(12,2). Zero is
+  at most two fractional digits, Decimal and PostgreSQL unconstrained NUMERIC with
+  explicit range and scale <= 2 checks. Unlike NUMERIC(12,2), the storage type does
+  not silently round direct SQL input before validation. Zero is
   intentional legacy parity. No negatives, float JSON, exponent, commas,
   whitespace, nonfinite values or silent rounding.
 - `note`: optional plain multiline text, at most 4000 characters before cleanup;
@@ -106,7 +110,12 @@ restricted to a loopback database named `technician_hub_test`.
 
 ## Migration and operations
 
-Additive revision `f6e609180001` follows audited `e5f509180003`. Existing Work Report
+Additive revision `f6e609180001` follows audited `e5f509180003`; audit successor
+`f6e609180002` removes coercive numeric scale and rejects placeholder timezones.
+The successor preserves populated data and supports lossless rollback to the
+original Stage 6 schema. A pre-existing placeholder zone blocks upgrade with
+`ACCOUNTING_TIMEZONE_REVIEW_REQUIRED`; an operator must review the real intended
+zone, never invent a replacement or rewrite history automatically. Existing Work Report
 rows, profiles and manager accounts are preserved. Existing timezone remains NULL
 until explicitly configured by a manager. Deploy with old writers stopped before
 using EXPENSE sessions, since the old shared model only accepts WORK_REPORT.

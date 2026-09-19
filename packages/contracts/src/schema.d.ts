@@ -589,6 +589,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/accounting-timezones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Accounting Timezones */
+        get: operations["accounting_timezones_api_accounting_timezones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/technician-forms/expense": {
         parameters: {
             query?: never;
@@ -1681,6 +1698,8 @@ export interface components {
              * @enum {string}
              */
             status: "ACTIVE" | "INACTIVE";
+            /** Accounting Timezone */
+            accounting_timezone?: string | null;
             calendar: components["schemas"]["CalendarSummary"] | null;
             integrations: components["schemas"]["IntegrationSummary"];
             /**
@@ -1693,8 +1712,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /** Accounting Timezone */
-            accounting_timezone?: string | null;
             /** Driver License Id */
             driver_license_id: string | null;
             /** Ssn Last4 */
@@ -1718,6 +1735,8 @@ export interface components {
              * @enum {string}
              */
             status: "ACTIVE" | "INACTIVE";
+            /** Accounting Timezone */
+            accounting_timezone?: string | null;
             calendar: components["schemas"]["CalendarSummary"] | null;
             integrations: components["schemas"]["IntegrationSummary"];
             /**
@@ -3033,6 +3052,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accounting_timezones_api_accounting_timezones_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
                 };
             };
         };

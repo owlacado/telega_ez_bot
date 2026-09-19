@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import func, select, true
+from sqlalchemy.orm import aliased
 
 from hub.audit.service import audit
 from hub.expenses.models import ExpenseRevision, TechnicianExpense
@@ -59,6 +60,8 @@ async def submit(factory, token, payload):
                 raise HTTPException(409, "FORM_ALREADY_SUBMITTED")
             return ExpenseReceipt(expense_id=value.expense_id)
         instant = await forms.database_now(db)
+        if instant >= value.expires_at:
+            forms.unavailable()
         day = local_date(instant, tech.accounting_timezone)
         expense = TechnicianExpense(id=uuid4(), technician_id=tech.id)
         db.add(expense)
@@ -83,11 +86,21 @@ async def submit(factory, token, payload):
 
 
 def current_expenses():
-    return select(TechnicianExpense, ExpenseRevision).join(
+    # The unique (expense_id, revision_number) lookup is bounded per parent.
+    # A lateral LIMIT also prevents stale statistics after bulk intake from
+    # choosing a nested-loop full history scan for every expense.
+    revision = aliased(
         ExpenseRevision,
-        (ExpenseRevision.expense_id == TechnicianExpense.id)
-        & (ExpenseRevision.revision_number == TechnicianExpense.current_revision_number),
+        select(ExpenseRevision)
+        .where(
+            (ExpenseRevision.expense_id == TechnicianExpense.id)
+            & (ExpenseRevision.revision_number == TechnicianExpense.current_revision_number)
+        )
+        .correlate(TechnicianExpense)
+        .limit(1)
+        .lateral(),
     )
+    return select(TechnicianExpense, revision).join(revision, true())
 
 
 def expense_view(expense, revision):
@@ -114,7 +127,12 @@ async def list_expenses(db, tech, limit):
         if tech.accounting_timezone
         else None
     )
-    current = current_expenses().where(TechnicianExpense.technician_id == tech.id).subquery()
+    current = (
+        current_expenses()
+        .where(TechnicianExpense.technician_id == tech.id)
+        .cte("current_expense_facts")
+        .prefix_with("MATERIALIZED")
+    )
     summary = (
         select(
             func.coalesce(func.sum(current.c.amount), 0).label("total"), func.count().label("count")

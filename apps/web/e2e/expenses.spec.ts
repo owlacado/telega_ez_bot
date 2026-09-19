@@ -1,4 +1,5 @@
 import { test, expect, harness } from "./fixtures";
+test.use({ timezoneId: "Asia/Tokyo" });
 test("mobile expenses: lost response, new identical expense, manager facts", async ({
   page,
   request,
@@ -12,10 +13,14 @@ test("mobile expenses: lost response, new identical expense, manager facts", asy
     })
   ).json();
   try {
-    const configured = await request.patch(`/api/technicians/${tech.id}`, {
-      data: { accounting_timezone: "America/Los_Angeles" },
-    });
-    expect(configured.ok()).toBeTruthy();
+    await page.goto(`/technicians/${tech.id}`);
+    await expect(page.getByText(/Today.s total unavailable/)).toBeVisible();
+    await expect(page.getByLabel("Accounting timezone")).toHaveValue("");
+    await page
+      .getByLabel("Accounting timezone")
+      .selectOption("America/Los_Angeles");
+    await page.getByRole("button", { name: "Save profile" }).click();
+    await expect(page.getByText("Profile saved.")).toBeVisible();
     harness({
       action: "expense_setup",
       technician_id: tech.id,
@@ -29,7 +34,16 @@ test("mobile expenses: lost response, new identical expense, manager facts", asy
         origin: baseURL,
       }).url;
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto(issue());
+    const privateResponse = page.waitForResponse((response) =>
+      response.url().endsWith("/api/technician-forms/expense"),
+    );
+    const formResponse = await page.goto(issue());
+    // Next dev overrides the public HTML shell to no-cache; production must use no-store.
+    expect(formResponse?.headers()["cache-control"]).toContain(
+      process.env.E2E_BASE_URL ? "no-store" : "no-cache",
+    );
+    expect((await privateResponse).headers()["cache-control"]).toBe("no-store");
+    expect(formResponse?.headers()["referrer-policy"]).toBe("no-referrer");
     await page.getByLabel("Expense type").fill("Parking");
     await page.getByLabel("Amount ($)").fill("20.01");
     await page
@@ -91,6 +105,16 @@ test("mobile expenses: lost response, new identical expense, manager facts", asy
       await request.get(`/api/technicians/${tech.id}/expenses`)
     ).json();
     expect(list.today_count).toBe(2);
+    expect(list.accounting_timezone).toBe("America/Los_Angeles");
+    for (const expense of list.expenses) {
+      const local = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Los_Angeles",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(expense.submitted_at));
+      expect(expense.expense_date).toBe(local);
+    }
     expect(list.today_total).toBe("40.02");
     expect(new Set(list.expenses.map((e: { id: string }) => e.id)).size).toBe(
       2,

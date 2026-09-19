@@ -37,6 +37,7 @@ def summary(technician: Technician) -> TechnicianSummary:
         last_name=technician.last_name,
         photo_url=technician.photo_url,
         status=technician.status,
+        accounting_timezone=technician.accounting_timezone,
         calendar=CalendarSummary(
             id=assignment.calendar.id,
             name=assignment.calendar.name,
@@ -77,7 +78,6 @@ def summary(technician: Technician) -> TechnicianSummary:
 def detail(technician: Technician) -> TechnicianDetail:
     return TechnicianDetail(
         **summary(technician).model_dump(),
-        accounting_timezone=technician.accounting_timezone,
         driver_license_id=technician.driver_license_id,
         ssn_last4=technician.ssn_last4,
     )
