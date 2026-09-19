@@ -535,3 +535,18 @@ is approved. Provider-side exactly-once/idempotent sendMessage is unavailable to
 workflow: uncertainty is terminal and only confirmed manager resend may create a new
 attempt. This is an explicit operating constraint within TD-028/029, not a promised
 future product feature.
+
+## Independent Stage 5 audit disposition
+
+TD-030 remains OPEN. A copied valid Work Report bearer link can submit from another
+browser; server-side purpose, expiry, technician identity and binding-generation
+checks limit scope but do not prove Telegram actor identity in that browser.
+Dedicated TEST acceptance and deployment threat review remain required.
+
+TD-031 remains OPEN, with partial integrity remediation only. Canonical recurring
+occurrence keys, collision-safe migration, contiguous immutable revision guards and
+consistent form state prevent additional history corruption. The 1,000-session
+probe leaves five open sessions but retains old metadata; expired snapshot purge,
+retention/anonymization, privileged archive and backup policy remain unimplemented.
+No new debt IDs or closures: 31 total, 10 RESOLVED, 21 OPEN (0 CRITICAL, 2 HIGH,
+16 MEDIUM, 3 LOW). Existing pilot/production gates and overdue TD-014 are unchanged.

@@ -29,8 +29,10 @@ class TechnicianFormSession(Base):
         CheckConstraint("status IN ('OPEN','SUBMITTED','EXPIRED','REVOKED')", name="status"),
         CheckConstraint("expires_at > created_at", name="expiry"),
         CheckConstraint(
-            "(status = 'SUBMITTED') = (report_id IS NOT NULL "
-            "AND submitted_at IS NOT NULL AND payload_hash IS NOT NULL)",
+            "(status = 'SUBMITTED' AND report_id IS NOT NULL "
+            "AND submitted_at IS NOT NULL AND payload_hash IS NOT NULL) OR "
+            "(status <> 'SUBMITTED' AND report_id IS NULL "
+            "AND submitted_at IS NULL AND payload_hash IS NULL)",
             name="submission",
         ),
     )

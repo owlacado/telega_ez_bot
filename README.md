@@ -166,3 +166,5 @@ worker sends durable dispatches and evaluates automatic decisions. Neither start
 inside the web API. Stage 3 job filtering and wall-clock projection remain authoritative.
 
 Stage 4 quality evidence: [verification and self-audit](docs/STAGE4_SCHEDULE_DELIVERY_VERIFICATION.md).
+
+Independent Stage 5 audit: [Work Report integrity and verification](docs/AUDIT_STAGE5_WORK_REPORTS.md).

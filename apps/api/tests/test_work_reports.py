@@ -288,7 +288,11 @@ async def test_snapshot_outage_reassignment_midnight(app, client, ready, google,
                 created_at=before_midnight, expires_at=before_midnight + timedelta(minutes=15)
             )
         )
-    monkeypatch.setattr(service, "now", lambda: before_midnight + timedelta(minutes=5))
+
+    async def database_clock(db):
+        return before_midnight + timedelta(minutes=5)
+
+    monkeypatch.setattr(service, "database_now", database_clock)
     result = await client.post(BASE + "/submit", headers=headers, json=PAYLOAD)
     assert result.status_code == 200, result.text
     report = (await client.get(f"/api/work-reports/{result.json()['report_id']}")).json()

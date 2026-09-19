@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -139,4 +140,99 @@ it("manager reads only reports for the current technician and can refresh", asyn
     ),
   );
   expect(screen.queryByText(/Net|Profit|Payout/)).toBeNull();
+});
+
+it("returning from zero-only outcomes requires a fresh explicit amount", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      response({
+        ...form,
+        selected: job,
+        payment_choices: ["CASH", "ESTIMATE", "CANCEL", "CREDIT_CARD"],
+      }),
+    ),
+  );
+  render(<WorkReportForm />);
+  const payment = await screen.findByLabelText("Type of payment");
+  const amount = screen.getByLabelText(/Amount of closed/);
+  await userEvent.selectOptions(payment, "CASH");
+  await userEvent.type(amount, "850.25");
+  await userEvent.selectOptions(payment, "ESTIMATE");
+  expect(amount).toHaveValue("0.00");
+  await userEvent.selectOptions(payment, "CASH");
+  expect(amount).toHaveValue("");
+  expect(amount).not.toHaveAttribute("readonly");
+  await userEvent.selectOptions(payment, "CANCEL");
+  expect(amount).toHaveValue("0.00");
+  await userEvent.selectOptions(payment, "CREDIT_CARD");
+  expect(amount).toHaveValue("");
+});
+
+it("late A reports and an open A detail never appear on B", async () => {
+  const report = {
+    id: "ra",
+    technician_id: "a",
+    technician_name: "A private name",
+    title: "A private report",
+    location: "A private address",
+    operational_date: "2026-09-18",
+    start_time: "08:00",
+    end_time: "09:00",
+    payment_method: "CASH",
+    amount_closed: "1.00",
+    closed_by: "MYSELF",
+    reviews: { GOOGLE: 0, GROUPON: 0, FACEBOOK: 0 },
+    yearly_maintenance_plan_provided: false,
+    comments: "Private comment",
+    revision_number: 1,
+    submitted_at: "2026-09-18T17:00:00Z",
+  };
+  vi.mocked(api).mockResolvedValueOnce({ reports: [report], limit: 20 });
+  const { rerender } = render(<WorkReports technicianId="a" />);
+  await userEvent.click(
+    await screen.findByRole("button", { name: /A private report/ }),
+  );
+  expect(screen.getByRole("dialog")).toHaveTextContent("A private address");
+  let resolveA!: (value: unknown) => void;
+  vi.mocked(api).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveA = resolve;
+      }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Refresh reports" }),
+  );
+  vi.mocked(api).mockResolvedValueOnce({ reports: [], limit: 20 });
+  rerender(<WorkReports technicianId="b" />);
+  await screen.findByText("No reports submitted.");
+  resolveA({ reports: [report], limit: 20 });
+  await waitFor(() =>
+    expect(screen.queryByText("A private report")).toBeNull(),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByText("A private address")).toBeNull();
+});
+
+it("StrictMode effect replay shares one pending form open", async () => {
+  let resolve!: (value: unknown) => void;
+  const fetch = vi.fn().mockImplementation(
+    () =>
+      new Promise((r) => {
+        resolve = r;
+      }),
+  );
+  vi.stubGlobal("fetch", fetch);
+  render(
+    <StrictMode>
+      <WorkReportForm />
+    </StrictMode>,
+  );
+  expect(fetch).toHaveBeenCalledTimes(1);
+  resolve(response(form));
+  expect(
+    await screen.findByRole("button", { name: /Long repair/ }),
+  ).toBeVisible();
+  expect(screen.queryByRole("alert")).toBeNull();
 });

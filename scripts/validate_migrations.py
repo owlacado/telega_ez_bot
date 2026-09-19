@@ -493,7 +493,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["e5f509180001"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["e5f509180003"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -537,7 +537,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "e5f509180001"
+                    == "e5f509180003"
                 )
             else:
                 await db.execute(
@@ -612,7 +612,7 @@ async def stage5_history(action):
                 ) == Decimal("123.45")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "e5f509180001"
+                    == "e5f509180003"
                 )
             else:
                 await db.execute(

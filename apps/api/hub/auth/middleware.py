@@ -40,9 +40,9 @@ def install_auth(app: FastAPI, settings: Settings) -> None:
             # Enforce a bounded body even when Content-Length is absent/chunked.
             body = bytearray()
             async for chunk in request.stream():
-                body.extend(chunk)
-                if len(body) > 32768:
+                if len(body) + len(chunk) > 32768:
                     return failure(413, "body_too_large", "Report input is too large.")
+                body.extend(chunk)
             request._body = bytes(body)
 
             def unique_fields(pairs):

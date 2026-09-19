@@ -1,4 +1,63 @@
 import { test, expect, harness } from "./fixtures";
+import { randomBytes } from "node:crypto";
+
+for (const width of [320, 375, 390, 430]) {
+  test(`long synthetic Work Report form stays usable at ${width}px`, async ({
+    page,
+  }) => {
+    const job = {
+      choice_id: "00000000-0000-4000-8000-000000000001",
+      operational_date: "2026-09-18",
+      start_time: "08:00",
+      end_time: "09:00",
+      sequence: 1,
+      title: "<script>fictional</script>" + "LongWord".repeat(60),
+      location: "<img src=x onerror=alert(1)>" + "Address".repeat(130),
+      submitted: false,
+    };
+    await page.route("**/api/technician-forms/work-report", (route) =>
+      route.fulfill({
+        json: {
+          status: "OPEN",
+          expires_at: new Date(Date.now() + 600000).toISOString(),
+          jobs: [job],
+          selected: job,
+          payment_choices: ["CASH", "ESTIMATE", "CANCEL", "CREDIT_CARD"],
+          zero_amount_choices: ["ESTIMATE", "CANCEL"],
+        },
+      }),
+    );
+    await page.setViewportSize({ width, height: 812 });
+    await page.goto(
+      `/technician/work-report#${randomBytes(32).toString("base64url")}`,
+    );
+    const amount = page.getByLabel(/Amount of closed/);
+    const payment = page.getByLabel("Type of payment");
+    await payment.selectOption("CASH");
+    await amount.fill("99.99");
+    await payment.selectOption("ESTIMATE");
+    await expect(amount).toHaveValue("0.00");
+    await payment.selectOption("CASH");
+    await expect(amount).toHaveValue("");
+    await payment.selectOption("CANCEL");
+    await payment.selectOption("CREDIT_CARD");
+    await expect(amount).toHaveValue("");
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBeTruthy();
+    expect(
+      await page.locator(".report-mobile img, .report-mobile script").count(),
+    ).toBe(0);
+    await page
+      .getByRole("button", { name: "Submit report", exact: true })
+      .scrollIntoViewIfNeeded();
+    await expect(
+      page.getByRole("button", { name: "Submit report", exact: true }),
+    ).toBeInViewport();
+  });
+}
 
 test("mobile Work Report and manager immutable receipt", async ({
   page,

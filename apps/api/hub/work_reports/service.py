@@ -4,15 +4,14 @@ import hashlib
 import json
 import re
 import secrets
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import lazyload
 
 from hub.audit.service import audit
-from hub.auth.security import now
 from hub.calendar_events.service import read_schedule
 from hub.calendars.models import CalendarAssignment
 from hub.integrations.models import TelegramBinding
@@ -26,10 +25,27 @@ def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
 
 
+def canonical_job(job):
+    """Derive occurrence identity from server facts, including older cached forms."""
+    occurrence = [job["provider_event_id"]]
+    if job.get("recurring_event_id") and job.get("original_start_time"):
+        original = datetime.fromisoformat(job["original_start_time"])
+        if original.tzinfo is None:
+            unavailable()
+        occurrence = [job["recurring_event_id"], original.astimezone(UTC).isoformat()]
+    return {**job, "occurrence_key": digest(json.dumps([str(job["calendar_id"]), occurrence]))}
+
+
 def unavailable():
     raise HTTPException(
         410, "This form is unavailable. Open Submit Report again in your private bot."
     )
+
+
+async def database_now(db):
+    # Wall clock AFTER lock acquisition, not transaction-start now(), and not
+    # a potentially skewed API/worker process clock.
+    return await db.scalar(select(func.clock_timestamp()))
 
 
 async def issue(db, event, bot_id, settings):
@@ -76,9 +92,10 @@ async def issue(db, event, bot_id, settings):
         .order_by(TechnicianFormSession.created_at.desc())
         .with_for_update()
     )
+    current_time = await database_now(db)
     for index, previous in enumerate(sessions):
-        if previous.expires_at <= now() or index >= 4:
-            previous.status = "EXPIRED" if previous.expires_at <= now() else "REVOKED"
+        if previous.expires_at <= current_time or index >= 4:
+            previous.status = "EXPIRED" if previous.expires_at <= current_time else "REVOKED"
             previous.choices = None
             previous.selected = None
     token = secrets.token_urlsafe(32)
@@ -89,7 +106,8 @@ async def issue(db, event, bot_id, settings):
         telegram_user_id=event.user_id,
         bot_id=bot_id,
         binding_generation=binding.private_generation,
-        expires_at=now() + timedelta(seconds=settings.work_report_session_seconds),
+        created_at=current_time,
+        expires_at=current_time + timedelta(seconds=settings.work_report_session_seconds),
     )
     db.add(value)
     audit(db, "work_report.session_issued", value.id, actor_kind="TECHNICIAN")
@@ -132,7 +150,7 @@ async def authorize(db, token):
     ):
         unavailable()
     # A committed receipt can be replayed after TTL; open submissions cannot.
-    if value.status != "SUBMITTED" and value.expires_at <= now():
+    if value.status != "SUBMITTED" and value.expires_at <= await database_now(db):
         unavailable()
     return value, tech
 
@@ -158,14 +176,13 @@ def public_job(job, submitted=False):
 async def form_view(db, value):
     if value.status == "SUBMITTED":
         return FormRead(status="SUBMITTED", expires_at=value.expires_at, report_id=value.report_id)
+    choices = [canonical_job(job) for job in value.choices or []]
     existing = set(
         (
             await db.scalars(
                 select(WorkReport.occurrence_key).where(
                     WorkReport.technician_id == value.technician_id,
-                    WorkReport.occurrence_key.in_(
-                        [job["occurrence_key"] for job in value.choices or []]
-                    ),
+                    WorkReport.occurrence_key.in_([job["occurrence_key"] for job in choices]),
                 )
             )
         ).all()
@@ -173,7 +190,7 @@ async def form_view(db, value):
     return FormRead(
         status="OPEN",
         expires_at=value.expires_at,
-        jobs=[public_job(job, job["occurrence_key"] in existing) for job in value.choices or []],
+        jobs=[public_job(job, job["occurrence_key"] in existing) for job in choices],
         selected=public_job(value.selected) if value.selected else None,
     )
 
@@ -200,21 +217,23 @@ async def open_form(request, token):
             else [job.provider_event_id]
         )
         choices.append(
-            dict(
-                choice_id=str(uuid4()),
-                calendar_id=str(job.calendar_id),
-                occurrence_key=digest(json.dumps([str(job.calendar_id), occurrence])),
-                provider_event_id=job.provider_event_id,
-                recurring_event_id=job.recurring_event_id,
-                original_start_time=job.original_start_time.isoformat()
-                if job.original_start_time
-                else None,
-                operational_date=job.display_date.isoformat(),
-                start_time=job.display_start_time,
-                end_time=job.display_end_time,
-                sequence=job.job_number or sequence,
-                title=job.schedule_summary[:500],
-                location=(job.location or "")[:1000],
+            canonical_job(
+                dict(
+                    choice_id=str(uuid4()),
+                    calendar_id=str(job.calendar_id),
+                    occurrence_key=digest(json.dumps([str(job.calendar_id), occurrence])),
+                    provider_event_id=job.provider_event_id,
+                    recurring_event_id=job.recurring_event_id,
+                    original_start_time=job.original_start_time.isoformat()
+                    if job.original_start_time
+                    else None,
+                    operational_date=job.display_date.isoformat(),
+                    start_time=job.display_start_time,
+                    end_time=job.display_end_time,
+                    sequence=job.job_number or sequence,
+                    title=job.schedule_summary[:500],
+                    location=(job.location or "")[:1000],
+                )
             )
         )
     async with factory() as db, db.begin():
@@ -234,6 +253,9 @@ async def select_job(factory, token, choice_id):
         )
         if not selected:
             unavailable()
+        selected = canonical_job(selected)
+        if value.selected:
+            value.selected = canonical_job(value.selected)
         if value.selected and value.selected != selected:
             raise HTTPException(409, "Job is already selected. Open a new form to change jobs.")
         if value.selected is None:
@@ -271,6 +293,7 @@ async def submit(factory, token, payload):
         job = value.selected
         if not job:
             raise HTTPException(409, "Select a scheduled job first.")
+        job = canonical_job(job)
         exists = await db.scalar(
             select(WorkReport.id).where(
                 WorkReport.technician_id == tech.id,
@@ -317,7 +340,7 @@ async def submit(factory, token, payload):
             "SUBMITTED",
             report.id,
             fingerprint,
-            now(),
+            await database_now(db),
         )
         value.choices, value.selected = None, None
         audit(db, "work_report.submitted", report.id, actor_kind="TECHNICIAN")

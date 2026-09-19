@@ -54,6 +54,9 @@ async function formRequest<T>(
 export function WorkReportForm() {
   const token = useRef("");
   const busyRef = useRef(false);
+  const opening = useRef<{ token: string; request: Promise<FormState> } | null>(
+    null,
+  );
   const [form, setForm] = useState<FormState | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -65,13 +68,19 @@ export function WorkReportForm() {
     form?.zero_amount_choices?.some((value) => value === payment),
   );
   const load = useCallback(async (signal?: AbortSignal) => {
+    // Aborting a browser request does not cancel a server-side calendar read.
+    // Share the in-flight open across effect replay; each consumer ignores its
+    // result after cleanup without starting a competing provider read.
+    let pending = opening.current;
+    if (!pending || pending.token !== token.current) {
+      pending = {
+        token: token.current,
+        request: formRequest<FormState>(token.current),
+      };
+      opening.current = pending;
+    }
     try {
-      const next = await formRequest<FormState>(
-        token.current,
-        "",
-        undefined,
-        signal,
-      );
+      const next = await pending.request;
       if (!signal?.aborted) {
         setForm(next);
         setSuccess(next.status === "SUBMITTED");
@@ -79,6 +88,8 @@ export function WorkReportForm() {
       }
     } catch (reason) {
       if (!signal?.aborted) setError(errorMessage(reason));
+    } finally {
+      if (opening.current === pending) opening.current = null;
     }
   }, []);
   useEffect(() => {
@@ -213,12 +224,15 @@ export function WorkReportForm() {
                           value={payment}
                           onChange={(event) => {
                             setPayment(event.target.value);
-                            if (
+                            const nextForcedZero = Boolean(
                               form.zero_amount_choices?.some(
                                 (value) => value === event.target.value,
-                              )
-                            )
-                              setAmount("0.00");
+                              ),
+                            );
+                            // A zero-only outcome is not an entered paid amount.
+                            // Require explicit input when returning to a paid category.
+                            if (nextForcedZero) setAmount("0.00");
+                            else if (forcedZero) setAmount("");
                           }}
                         >
                           <option value="">Choose payment / outcome</option>

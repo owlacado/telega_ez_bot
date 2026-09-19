@@ -154,3 +154,20 @@ the fictional technician; do not bypass business-history retention for cleanup.
 Stop on identity, leakage, money, duplicate or retained-history discrepancies. Real
 acceptance and retention policy remain explicit gates; this runbook grants no live
 provider execution authority.
+
+## Independent audit follow-up
+
+[The independent Stage 5 audit](AUDIT_STAGE5_WORK_REPORTS.md) verifies and records
+the final gates. Form issuance/expiry uses PostgreSQL wall-clock time after lock
+acquisition. Recurring occurrence original-start instants normalize to UTC before
+hashing, including legacy cached forms. Migration e5f509180003 rekeys derived
+identities only and refuses collisions without deleting or merging history.
+Stop older application writers during upgrade; populated downgrade is refused.
+Migration e5f509180002 also enforces contiguous revisions and complete submitted
+session markers. Historical financial snapshots remain unchanged.
+
+Leaving ESTIMATE/CANCEL for a paid method clears the forced zero and requires a
+fresh entered amount. Concurrent component effect opens share their in-flight
+request to avoid colliding with the calendar reader's busy guard. A genuine read
+failure still exposes explicit retry. Bearer transferability and expired-form
+retention remain the documented TD-030/031 deployment obligations.
