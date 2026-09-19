@@ -102,7 +102,9 @@ async def test_private_atomic_connection_metadata_hash_audit_and_home(
         factory, provider, replace(incoming, update_id=2, payload=None), BOT_ID
     )
     assert home.outcome == "CONNECTED"
-    assert home.reply == "You're connected to Technician Hub. /report — Submit Report"
+    assert home.reply == (
+        "You're connected to Technician Hub. /report — Submit Report; /expenses — Expenses"
+    )
     assert (await claim(engine, provider, invitation, update_id=3)).outcome == "INVALID_INVITATION"
     assert (await claim(engine, provider, invitation)).outcome == "DUPLICATE"
 

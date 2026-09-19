@@ -102,10 +102,15 @@ async def delete_technician(
         technician = await require_technician(db, technician_id, lock=True)
         if technician.updated_at != payload.expected_updated_at:
             raise HTTPException(409, "Profile changed. Reload the page and confirm deletion again.")
+        from hub.expenses.models import TechnicianExpense
         from hub.work_reports.models import WorkReport
 
         if await db.scalar(
             select(WorkReport.id).where(WorkReport.technician_id == technician_id).limit(1)
+        ) or await db.scalar(
+            select(TechnicianExpense.id)
+            .where(TechnicianExpense.technician_id == technician_id)
+            .limit(1)
         ):
             raise HTTPException(
                 409,

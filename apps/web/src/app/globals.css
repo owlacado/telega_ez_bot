@@ -1902,3 +1902,7 @@ td > small {
 .report-success {
   padding: 24px;
 }
+
+.expense-receipt {
+  overflow-wrap: anywhere;
+}

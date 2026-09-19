@@ -17,6 +17,7 @@ from hub.calendars.router import router as calendars_router
 from hub.core.config import Settings
 from hub.core.database import session
 from hub.core.errors import install_error_handlers
+from hub.expenses.router import router as expenses_router
 from hub.google_calendar.router import router as google_router
 from hub.schedule_delivery.router import router as schedule_router
 from hub.technicians.router import router as technicians_router
@@ -70,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(events_router)
     app.include_router(schedule_router)
     app.include_router(reports_router)
+    app.include_router(expenses_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):
@@ -82,13 +84,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response = await call_next(request)
         except Exception:
             tags = getattr(request.scope.get("route"), "tags", ())
-            if "calendar-events" not in tags and "work-reports" not in tags:
+            if not {"calendar-events", "work-reports", "expenses"}.intersection(tags):
                 raise
             # Unexpected schedule failures must retain privacy headers too. Never
             # serialize/log the exception, whose arguments can contain provider PII.
             from starlette.responses import JSONResponse
 
-            module = "work_reports" if "work-reports" in tags else "calendar_events"
+            module = (
+                "expenses"
+                if "expenses" in tags
+                else "work_reports"
+                if "work-reports" in tags
+                else "calendar_events"
+            )
             logging.getLogger(f"hub.{module}.service").error("%s result=INTERNAL_ERROR", module)
             response = JSONResponse(
                 {

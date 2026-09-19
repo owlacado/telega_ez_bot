@@ -20,6 +20,7 @@ class Technician(Timestamps, Base):
     last_name: Mapped[str] = mapped_column(String(100))
     photo_url: Mapped[str | None] = mapped_column(String(2048))
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE", server_default="ACTIVE")
+    accounting_timezone: Mapped[str | None] = mapped_column(String(64))
     driver_license_id: Mapped[str | None] = mapped_column(String(100))
     ssn_last4: Mapped[str | None] = mapped_column(String(4))
     assignments = relationship(

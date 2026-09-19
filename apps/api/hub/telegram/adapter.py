@@ -140,7 +140,9 @@ class TelegramBotAdapter:
                     message,
                     protect_content=True,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
-                    reply_markup=ReplyKeyboardMarkup([["Submit Report"]], resize_keyboard=True)
+                    reply_markup=ReplyKeyboardMarkup(
+                        [["Submit Report", "Expenses"]], resize_keyboard=True
+                    )
                     if chat_id > 0 and message.startswith("You're connected to Technician Hub.")
                     else None,
                 )

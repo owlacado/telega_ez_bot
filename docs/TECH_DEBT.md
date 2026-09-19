@@ -1,8 +1,8 @@
 # Technical debt register
 
-Current Stage 5 disposition: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
+Current Stage 6 disposition: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
 2 HIGH, 16 MEDIUM, 3 LOW). Historical counts below describe earlier stages.
-No existing debt is closed by Work Reports.
+No existing debt is closed by Work Reports or Expenses.
 
 Manager CLI blocker follow-up: the user confirmed a password shorter than 14
 characters. Provisioning correctly rejected it before hashing or database writes;
@@ -11,7 +11,7 @@ operator errors and actual CLI/terminal regression coverage resolve that localiz
 diagnostic defect. No policy weakening, dependency upgrade, manager seeding or
 schema change was needed. This closes no existing debt ID, and does not establish
 what happened in an earlier unrecorded provisioning attempt. See
-[the investigation](MANAGER_CLI_PROVISIONING.md). Stage 5 audit gates remain open.
+[the investigation](MANAGER_CLI_PROVISIONING.md). Stage 5 engineering audit completed at `e16a363`; live acceptance and release gates remain open.
 
 ## Stage 5 obligations and carried gates
 
@@ -550,3 +550,30 @@ probe leaves five open sessions but retains old metadata; expired snapshot purge
 retention/anonymization, privileged archive and backup policy remain unimplemented.
 No new debt IDs or closures: 31 total, 10 RESOLVED, 21 OPEN (0 CRITICAL, 2 HIGH,
 16 MEDIUM, 3 LOW). Existing pilot/production gates and overdue TD-014 are unchanged.
+
+## Stage 6 expense disposition
+
+No new IDs or closures: **31 total, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
+2 HIGH, 16 MEDIUM, 3 LOW).
+
+- **TD-030 remains OPEN and includes Expense dedicated TEST acceptance.** Validate
+  actual mobile Telegram link handling, configured technician timezone, midnight,
+  retries, HTTPS/origin policy and the same transferable-bearer threat model. Fake
+  browser/DB acceptance is not live-provider approval.
+- **TD-031 remains OPEN and now includes expense history, immutable notes and
+  timezone snapshots.** RESTRICT deletion and revision integrity are implemented;
+  policy for retention/anonymization/archive/backup and expired session metadata is
+  still required. Expense forms introduce no binary storage. A future attachment
+  capability needs an explicit private-storage/security policy before implementation.
+- **TD-013 remains OPEN.** Profile optimistic edit protection includes the newly
+  explicit accounting timezone. No silent timezone default was added. Managers must
+  configure and verify each technician timezone before enabling expense issuance.
+- **TD-010/011/012/014/017/018/022/023/025/026/027/028/029 remain OPEN** with their
+  existing audit-retention, profile-encryption, deployment, overdue invariant,
+  admission/monitoring, images and provider/worker operational obligations.
+- **TD-016/019/020 remain additional production gates** for durability, runtime
+  contracts and accessibility/cross-browser acceptance; TD-015/024 remain later scale.
+
+Pilot blockers remain TD-010/011/012/013/014/017/018/022/023/025/026/027/028/029/030/031.
+Production adds TD-016/019/020. Full accounting parity, correction/void UI and uploads
+are explicitly deferred feature scope; they are not completed or new debt entries.

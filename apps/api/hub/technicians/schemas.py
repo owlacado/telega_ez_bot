@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import (
     AwareDatetime,
@@ -50,6 +51,19 @@ class TechnicianUpdate(InputModel):
     status: Status | None = None
     driver_license_id: Annotated[str, Field(max_length=100)] | None = None
     ssn_last4: Last4 | None = None
+    accounting_timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("accounting_timezone")
+    @classmethod
+    def timezone_name(cls, value):
+        if value is not None:
+            try:
+                ZoneInfo(value)
+            except (ZoneInfoNotFoundError, ValueError):
+                raise ValueError(
+                    "Use a valid IANA timezone, for example America/Los_Angeles."
+                ) from None
+        return value
 
     @field_validator("first_name", "last_name", "status")
     @classmethod
@@ -104,5 +118,6 @@ class TechnicianSummary(BaseModel):
 
 
 class TechnicianDetail(TechnicianSummary):
+    accounting_timezone: str | None = None
     driver_license_id: str | None
     ssn_last4: str | None

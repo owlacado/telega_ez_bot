@@ -24,3 +24,9 @@ export type ScheduleRead = components["schemas"]["ScheduleRead"];
 
 export type DeliveryRead = components["schemas"]["ScheduleDeliveryRead"];
 export type DispatchRead = components["schemas"]["DispatchRead"];
+
+export type ExpenseForm = components["schemas"]["ExpenseForm"];
+export type ExpenseReceipt = components["schemas"]["ExpenseReceipt"];
+export type ExpenseInput = components["schemas"]["ExpenseInput"];
+export type ExpenseRead = components["schemas"]["ExpenseRead"];
+export type ExpenseList = components["schemas"]["ExpenseList"];

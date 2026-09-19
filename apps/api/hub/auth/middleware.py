@@ -9,7 +9,10 @@ from starlette.responses import JSONResponse
 from hub.auth.models import Manager, ManagerSession
 from hub.auth.security import csrf_for, digest, now
 from hub.core.config import Settings
-from hub.work_reports.router import FORM_PATHS
+from hub.expenses.router import FORM_PATHS as EXPENSE_PATHS
+from hub.work_reports.router import FORM_PATHS as REPORT_PATHS
+
+FORM_PATHS = REPORT_PATHS | EXPENSE_PATHS
 
 COOKIE_NAME = "hub_session"
 PUBLIC_PATHS = {"/api/health", "/api/auth/login"}

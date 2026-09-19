@@ -3,6 +3,7 @@
 from hub.audit.models import AuditEvent
 from hub.auth.models import Manager, ManagerSession, RateBucket
 from hub.calendars.models import Calendar, CalendarAssignment
+from hub.expenses.models import ExpenseRevision, TechnicianExpense
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.integrations.models import GpsBinding, TelegramBinding
 from hub.schedule_delivery.models import (
@@ -22,6 +23,8 @@ from hub.work_reports.models import TechnicianFormSession, WorkReport, WorkRepor
 
 __all__ = [
     "TechnicianFormSession",
+    "TechnicianExpense",
+    "ExpenseRevision",
     "WorkReport",
     "WorkReportRevision",
     "ScheduleDispatch",

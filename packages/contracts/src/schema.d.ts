@@ -589,6 +589,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/technician-forms/expense": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Form */
+        post: operations["open_form_api_technician_forms_expense_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technician-forms/expense/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit */
+        post: operations["submit_api_technician_forms_expense_submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Expenses */
+        get: operations["expenses_api_technicians__technician_id__expenses_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/expenses/{expense_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Expense */
+        get: operations["expense_api_expenses__expense_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/expense-sessions/{session_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke */
+        post: operations["revoke_api_technicians__technician_id__expense_sessions__session_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -946,6 +1031,110 @@ export interface components {
             acknowledged_at: string | null;
             /** Resend Of Id */
             resend_of_id: string | null;
+        };
+        /** ExpenseForm */
+        ExpenseForm: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "OPEN" | "SUBMITTED";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Technician Name */
+            technician_name: string;
+            /** Accounting Timezone */
+            accounting_timezone: string | null;
+            /** Expense Date */
+            expense_date: string | null;
+            /** Expense Id */
+            expense_id?: string | null;
+        };
+        /** ExpenseInput */
+        ExpenseInput: {
+            /** Expense Type */
+            expense_type: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** ExpenseList */
+        ExpenseList: {
+            /** Expenses */
+            expenses: components["schemas"]["ExpenseRead"][];
+            /** Limit */
+            limit: number;
+            /** Today */
+            today: string | null;
+            /** Accounting Timezone */
+            accounting_timezone: string | null;
+            /** Today Total */
+            today_total: string;
+            /** Today Count */
+            today_count: number;
+        };
+        /** ExpenseRead */
+        ExpenseRead: {
+            /** Expense Type */
+            expense_type: string;
+            /** Amount */
+            amount: string;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Technician Id
+             * Format: uuid
+             */
+            technician_id: string;
+            /** Technician Name */
+            technician_name: string;
+            /**
+             * Expense Date
+             * Format: date
+             */
+            expense_date: string;
+            /** Accounting Timezone */
+            accounting_timezone: string;
+            /** Revision Number */
+            revision_number: number;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+        };
+        /** ExpenseReceipt */
+        ExpenseReceipt: {
+            /**
+             * Expense Id
+             * Format: uuid
+             */
+            expense_id: string;
+            /**
+             * Revision Number
+             * @default 1
+             */
+            revision_number: number;
+            /**
+             * Message
+             * @default Expense saved successfully.
+             */
+            message: string;
         };
         /** FormRead */
         FormRead: {
@@ -1504,6 +1693,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Accounting Timezone */
+            accounting_timezone?: string | null;
             /** Driver License Id */
             driver_license_id: string | null;
             /** Ssn Last4 */
@@ -1554,6 +1745,8 @@ export interface components {
             driver_license_id?: string | null;
             /** Ssn Last4 */
             ssn_last4?: string | null;
+            /** Accounting Timezone */
+            accounting_timezone?: string | null;
         };
         /** TelegramState */
         TelegramState: {
@@ -2815,6 +3008,153 @@ export interface operations {
         };
     };
     revoke_api_technicians__technician_id__work_report_sessions__session_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                technician_id: string;
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_form_api_technician_forms_expense_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseForm"];
+                };
+            };
+        };
+    };
+    submit_api_technician_forms_expense_submit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseReceipt"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    expenses_api_technicians__technician_id__expenses_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    expense_api_expenses__expense_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                expense_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_api_technicians__technician_id__expense_sessions__session_id__revoke_post: {
         parameters: {
             query?: never;
             header?: never;

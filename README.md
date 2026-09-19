@@ -168,3 +168,13 @@ inside the web API. Stage 3 job filtering and wall-clock projection remain autho
 Stage 4 quality evidence: [verification and self-audit](docs/STAGE4_SCHEDULE_DELIVERY_VERIFICATION.md).
 
 Independent Stage 5 audit: [Work Report integrity and verification](docs/AUDIT_STAGE5_WORK_REPORTS.md).
+
+## Stage 6: technician expenses
+
+Private Telegram **Expenses** opens the shared secure mobile form. PostgreSQL
+stores expense facts and immutable revision 1; managers see a read-only list and
+truthful expense-only daily totals. Set the technician's explicit **Accounting
+timezone** in their profile first; existing profiles have no default. No receipt
+upload, Google Form/Sheet mapping, corrections, payout or full accounting is added.
+See [Expenses](docs/EXPENSES.md), [legacy evidence](docs/LEGACY_EXPENSE_INVENTORY.md),
+and [verification](docs/STAGE6_EXPENSES_VERIFICATION.md).

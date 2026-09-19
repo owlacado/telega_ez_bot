@@ -77,6 +77,7 @@ def summary(technician: Technician) -> TechnicianSummary:
 def detail(technician: Technician) -> TechnicianDetail:
     return TechnicianDetail(
         **summary(technician).model_dump(),
+        accounting_timezone=technician.accounting_timezone,
         driver_license_id=technician.driver_license_id,
         ssn_last4=technician.ssn_last4,
     )

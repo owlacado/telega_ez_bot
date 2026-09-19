@@ -25,13 +25,15 @@ from hub.core.database import Base
 class TechnicianFormSession(Base):
     __tablename__ = "technician_form_sessions"
     __table_args__ = (
-        CheckConstraint("purpose = 'WORK_REPORT'", name="purpose"),
+        CheckConstraint("purpose IN ('WORK_REPORT','EXPENSE')", name="purpose"),
         CheckConstraint("status IN ('OPEN','SUBMITTED','EXPIRED','REVOKED')", name="status"),
         CheckConstraint("expires_at > created_at", name="expiry"),
         CheckConstraint(
-            "(status = 'SUBMITTED' AND report_id IS NOT NULL "
+            "(status = 'SUBMITTED' AND ((purpose = 'WORK_REPORT' AND report_id IS "
+            "NOT NULL AND expense_id IS NULL) OR (purpose = 'EXPENSE' AND "
+            "expense_id IS NOT NULL AND report_id IS NULL)) "
             "AND submitted_at IS NOT NULL AND payload_hash IS NOT NULL) OR "
-            "(status <> 'SUBMITTED' AND report_id IS NULL "
+            "(status <> 'SUBMITTED' AND report_id IS NULL AND expense_id IS NULL "
             "AND submitted_at IS NULL AND payload_hash IS NULL)",
             name="submission",
         ),
@@ -54,6 +56,9 @@ class TechnicianFormSession(Base):
     selected: Mapped[dict | None] = mapped_column(JSONB)
     report_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("work_reports.id", ondelete="RESTRICT")
+    )
+    expense_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("technician_expenses.id", ondelete="RESTRICT")
     )
     payload_hash: Mapped[str | None] = mapped_column(String(64))
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

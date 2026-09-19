@@ -38,7 +38,7 @@ def canonical_job(job):
 
 def unavailable():
     raise HTTPException(
-        410, "This form is unavailable. Open Submit Report again in your private bot."
+        410, "This form is unavailable. Open the matching form again in your private bot."
     )
 
 
@@ -48,7 +48,9 @@ async def database_now(db):
     return await db.scalar(select(func.clock_timestamp()))
 
 
-async def issue(db, event, bot_id, settings):
+async def issue(db, event, bot_id, settings, *, purpose="WORK_REPORT"):
+    if purpose not in {"WORK_REPORT", "EXPENSE"}:
+        raise ValueError("Unsupported form purpose")
     if not (
         event.kind == "COMMAND"
         and event.chat_type == "private"
@@ -82,6 +84,8 @@ async def issue(db, event, bot_id, settings):
         or not can_deliver(binding, "PRIVATE_TELEGRAM", bot_id)
     ):
         return None
+    if purpose == "EXPENSE" and not tech.accounting_timezone:
+        return None
     # Bound active credentials, allowing two legitimate forms to race safely.
     sessions = await db.scalars(
         select(TechnicianFormSession)
@@ -102,6 +106,7 @@ async def issue(db, event, bot_id, settings):
     value = TechnicianFormSession(
         id=uuid4(),
         technician_id=identifier,
+        purpose=purpose,
         token_hash=digest(token),
         telegram_user_id=event.user_id,
         bot_id=bot_id,
@@ -110,11 +115,11 @@ async def issue(db, event, bot_id, settings):
         expires_at=current_time + timedelta(seconds=settings.work_report_session_seconds),
     )
     db.add(value)
-    audit(db, "work_report.session_issued", value.id, actor_kind="TECHNICIAN")
+    audit(db, f"{purpose.lower()}.session_issued", value.id, actor_kind="TECHNICIAN")
     return token
 
 
-async def authorize(db, token):
+async def authorize(db, token, *, purpose="WORK_REPORT"):
     if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
         unavailable()
     identifier = await db.scalar(
@@ -142,7 +147,7 @@ async def authorize(db, token):
     if not tech or tech.status != "ACTIVE" or not binding or not value:
         unavailable()
     if (
-        value.purpose != "WORK_REPORT"
+        value.purpose != purpose
         or value.status in {"REVOKED", "EXPIRED"}
         or binding.telegram_user_id != value.telegram_user_id
         or binding.private_generation != value.binding_generation

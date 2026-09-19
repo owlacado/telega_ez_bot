@@ -81,7 +81,7 @@ async def revoke(
 ):
     await require_technician(db, technician_id, lock=True)
     value = await db.get(TechnicianFormSession, session_id, with_for_update=True)
-    if not value or value.technician_id != technician_id:
+    if not value or value.technician_id != technician_id or value.purpose != "WORK_REPORT":
         raise HTTPException(404, "Form not found.")
     if value.status == "OPEN":
         value.status, value.choices, value.selected = "REVOKED", None, None

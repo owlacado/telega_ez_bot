@@ -95,13 +95,15 @@ def _parse_update(update: dict, bot_username: str) -> TrustedEvent:
         if not addressed or addressed.lower() == bot_username.lower():
             command = (
                 name.lower()
-                if name.lower() in {"/start", "/help", "/status", "/getid", "/report"}
+                if name.lower() in {"/start", "/help", "/status", "/getid", "/report", "/expenses"}
                 else None
             )
         if raw.strip().lower() == "get id":
             command = "/getid"
         if raw.strip().lower() == "submit report":
             command = "/report"
+        if raw.strip().lower() == "expenses":
+            command = "/expenses"
         if len(words) == 2 and re.fullmatch(r"[A-Za-z0-9_-]{43}", words[1]):
             payload = words[1]
         elif len(words) == 2:

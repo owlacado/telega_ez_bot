@@ -47,6 +47,8 @@ export function ProfilePanel({
       status: form.get("status") as "ACTIVE" | "INACTIVE",
       driver_license_id: String(form.get("driver_license_id")).trim() || null,
       ssn_last4: String(form.get("ssn_last4")).trim() || null,
+      accounting_timezone:
+        String(form.get("accounting_timezone") ?? "").trim() || null,
     };
     try {
       onUpdate(
@@ -164,6 +166,19 @@ export function ProfilePanel({
                 />
               </label>
             </div>
+            <label>
+              Accounting timezone
+              <input
+                name="accounting_timezone"
+                maxLength={64}
+                defaultValue={t.accounting_timezone ?? ""}
+                placeholder="America/Los_Angeles"
+              />
+            </label>
+            <p className="field-hint">
+              Set the technician’s IANA timezone to enable expenses. No calendar
+              or browser timezone is assumed.
+            </p>
             <p className="field-hint sensitive-hint">
               Do not enter real DL or SSN values while field encryption is
               deferred.

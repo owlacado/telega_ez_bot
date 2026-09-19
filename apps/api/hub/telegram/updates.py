@@ -32,13 +32,15 @@ REPLIES = {
         "attention. Ask your manager to review setup checks and retry "
         "verification."
     ),
-    "CONNECTED": "You're connected to Technician Hub. /report — Submit Report",
+    "CONNECTED": (
+        "You're connected to Technician Hub. /report — Submit Report; /expenses — Expenses"
+    ),
     "UNAVAILABLE": "Your connection is currently unavailable. Contact your manager.",
     "HELP": (
         "Use your manager's /start invitation to connect. /status shows "
-        "connection status. /getid shows your own Telegram ID in a "
-        "private chat. /report — Submit Report. Use Schedule received on your "
-        "delivered schedule to acknowledge it."
+        "connection status. /getid shows your own Telegram ID in a private chat. "
+        "/report — Submit Report; /expenses — Expenses. Use Schedule received "
+        "on your delivered schedule to acknowledge it."
     ),
 }
 
@@ -121,6 +123,26 @@ async def process_update(
                 elif event.chat_type == "private" and event.chat_id == event.user_id:
                     if event.command == "/help":
                         result = "HELP"
+                    elif event.command == "/expenses":
+                        from hub.core.config import Settings
+                        from hub.expenses.service import issue
+
+                        config = settings or Settings()
+                        token = await issue(db, event, bot_id, config)
+                        result = "EXPENSE_FORM" if token else "UNAVAILABLE"
+                        reply = (
+                            (
+                                "Expenses\nOpen this private link within 15 minutes. "
+                                "Do not share it.\n"
+                                f"{config.allowed_origins[0]}/technician/expense#{token}"
+                            )
+                            if token
+                            else (
+                                "Expenses unavailable. Ask your manager to check your "
+                                "connection and "
+                                "accounting timezone."
+                            )
+                        )
                     elif event.command == "/report":
                         from hub.core.config import Settings
                         from hub.work_reports.service import issue

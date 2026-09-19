@@ -140,6 +140,13 @@ async def clear_test_delivery_history():
     engine = create_async_engine(url, hide_parameters=True)
     try:
         async with engine.begin() as db:
+            if await db.scalar(text("SELECT to_regclass('technician_expenses')")):
+                await db.execute(
+                    text(
+                        "TRUNCATE technician_form_sessions, expense_revisions, technician_expenses"
+                    )
+                )
+                await db.execute(text("UPDATE technicians SET accounting_timezone=NULL"))
             if await db.scalar(text("SELECT to_regclass('work_reports')")):
                 await db.execute(
                     text("TRUNCATE technician_form_sessions, work_report_revisions, work_reports")
@@ -250,7 +257,8 @@ async def completion_fixture(seed=False, upgraded=True):
                         "INSERT INTO telegram_outbox "
                         "(id,technician_id,invitation_id,bot_id,destination,kind,generation,"
                         "private_generation,state,requested_by) VALUES "
-                        "(:id,:tech,:invite,9000001,'PRIVATE_ACCOUNT','APPROVED',0,0,'QUEUED',:tech)"
+                        "(:id,:tech,:invite,9000001,'PRIVATE_ACCOUNT',"
+                        "'APPROVED',0,0,'QUEUED',:tech)"
                     ),
                     {"id": calendar, "tech": tech, "invite": assignment},
                 )
@@ -493,7 +501,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["e5f509180003"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["f6e609180001"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -537,7 +545,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "e5f509180003"
+                    == "f6e609180001"
                 )
             else:
                 await db.execute(
@@ -612,7 +620,7 @@ async def stage5_history(action):
                 ) == Decimal("123.45")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "e5f509180003"
+                    == "f6e609180001"
                 )
             else:
                 await db.execute(
@@ -639,3 +647,81 @@ alembic("upgrade", "head")
 asyncio.run(fixture(check=True))
 alembic("check")
 print("Stage 5 populated report rollback refused; empty round-trip preserves Stage 4 data.")
+
+
+# Stage 6 forward migration retains a populated audited Stage 5 report.
+alembic("downgrade", "e5f509180003")
+asyncio.run(stage5_history("insert"))
+alembic("upgrade", "head")
+asyncio.run(stage5_history("check"))
+
+
+async def stage6_history(action):
+    from datetime import UTC, datetime
+    from decimal import Decimal
+
+    from hub.expenses.models import ExpenseRevision, TechnicianExpense
+    from sqlalchemy import insert
+
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if action == "insert":
+                await db.execute(
+                    insert(TechnicianExpense).values(id=expense_id, technician_id=tech)
+                )
+                instant = datetime(2026, 9, 18, 12, tzinfo=UTC)
+                await db.execute(
+                    insert(ExpenseRevision).values(
+                        expense_id=expense_id,
+                        revision_number=1,
+                        technician_name="Migration fictional",
+                        expense_date=instant.date(),
+                        accounting_timezone="UTC",
+                        expense_type="Parking",
+                        amount=Decimal("20.01"),
+                        note="Synthetic migration sentinel",
+                        submitted_at=instant,
+                    )
+                )
+            elif action == "check":
+                assert await db.scalar(
+                    text("SELECT amount FROM expense_revisions WHERE expense_id=:id"),
+                    {"id": expense_id},
+                ) == Decimal("20.01")
+                assert (
+                    await db.scalar(text("SELECT version_num FROM alembic_version"))
+                    == "f6e609180001"
+                )
+            else:
+                await db.execute(
+                    text(
+                        "TRUNCATE technician_form_sessions, expense_revisions, technician_expenses"
+                    )
+                )
+    finally:
+        await engine.dispose()
+
+
+expense_id = uuid.uuid4()
+asyncio.run(stage6_history("insert"))
+refused = subprocess.run(
+    [sys.executable, "-m", "alembic", "downgrade", "e5f509180003"],
+    cwd=root / "apps/api",
+    env=env,
+    capture_output=True,
+    text=True,
+)
+assert refused.returncode != 0 and "EXPENSE_HISTORY_ROLLBACK_REFUSED" in refused.stderr
+asyncio.run(stage6_history("check"))
+asyncio.run(stage5_history("check"))
+asyncio.run(stage6_history("remove"))
+alembic("downgrade", "e5f509180003")
+alembic("upgrade", "head")
+asyncio.run(stage5_history("check"))
+asyncio.run(fixture(check=True))
+alembic("check")
+print(
+    "Stage 6 populated Stage 5 preserved; expense rollback refused; empty expense "
+    "roundtrip and zero drift passed."
+)

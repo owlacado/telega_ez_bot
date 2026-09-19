@@ -53,7 +53,7 @@ async def main():
                 telegram_expected_bot_username=BOT_USERNAME,
             )
             await Worker(settings, engine, provider).startup()
-        elif action == "work_report_issue":
+        elif action in {"work_report_issue", "expense_issue"}:
             from hub.telegram.types import TrustedEvent
 
             settings = Settings(
@@ -68,21 +68,42 @@ async def main():
                     user_id=payload["user_id"],
                     chat_id=payload["user_id"],
                     chat_type="private",
-                    command="/report",
+                    command="/expenses" if action == "expense_issue" else "/report",
                 ),
                 BOT_ID,
                 settings=settings,
             )
-            if result.outcome != "WORK_REPORT_FORM":
+            if result.outcome != (
+                "EXPENSE_FORM" if action == "expense_issue" else "WORK_REPORT_FORM"
+            ):
                 raise RuntimeError("Test form was not issued")
             print(json.dumps({"url": result.reply.splitlines()[-1]}))
-        elif action == "work_report_cleanup":
+        elif action in {"work_report_cleanup", "expense_cleanup"}:
             from sqlalchemy import text
 
             async with factory() as db, db.begin():
                 # Guarded disposable database only; product has no deletion bypass.
                 await db.execute(
-                    text("TRUNCATE technician_form_sessions, work_report_revisions, work_reports")
+                    text(
+                        "TRUNCATE technician_form_sessions, work_report_revisions, "
+                        "work_reports, expense_revisions, technician_expenses"
+                    )
+                )
+        elif action == "expense_setup":
+            from uuid import UUID
+
+            from hub.integrations.models import TelegramBinding
+
+            async with factory() as db, db.begin():
+                db.add(
+                    TelegramBinding(
+                        technician_id=UUID(payload["technician_id"]),
+                        bot_id=BOT_ID,
+                        telegram_user_id=payload["user_id"],
+                        private_status="CONNECTED",
+                        private_availability="AVAILABLE",
+                        private_generation=1,
+                    )
                 )
         elif action == "schedule_setup":
             from uuid import UUID
