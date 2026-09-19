@@ -5,6 +5,8 @@ EVENT_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly"
 
 SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
 
+SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
+
 
 @dataclass(frozen=True)
 class Authorization:
@@ -50,9 +52,15 @@ class ProviderError(Exception):
 
 
 class CalendarProvider(Protocol):
-    def build_authorization_url(self, state: str, event_access: bool = False) -> Authorization: ...
+    def build_authorization_url(
+        self, state: str, event_access: bool = False, sheets_access: bool = False
+    ) -> Authorization: ...
     async def exchange_authorization_code(
-        self, code: str, verifier: str, event_access: bool = False
+        self,
+        code: str,
+        verifier: str,
+        event_access: bool = False,
+        sheets_access: bool = False,
     ) -> TokenGrant: ...
     async def refresh_credentials(
         self, refresh_token: str, scopes: tuple[str, ...] = (SCOPE,)

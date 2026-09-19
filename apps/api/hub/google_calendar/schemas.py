@@ -25,6 +25,7 @@ class GoogleConnectionRead(BaseModel):
 
 class StartInput(InputModel):
     request_event_access: bool = False
+    request_sheets_access: bool = False
     mode: Literal["CONNECT", "RECONNECT", "SWITCH"] = "CONNECT"
     expected_connection_id: UUID | None = None
     expected_generation: int | None = None

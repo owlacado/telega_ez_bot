@@ -9,6 +9,7 @@ import type {
 import { useResource } from "@/lib/use-resource";
 import { download, errorMessage } from "@/lib/api";
 import { ErrorNotice, Loading } from "./ui";
+import { AccountingMirror } from "./accounting-mirror";
 
 const labels: Record<string, string> = {
   CASH: "Cash",
@@ -273,6 +274,12 @@ function Detail({ id, mode }: { id: string; mode: "daily" | "weekly" }) {
                     : "Download All Tech XLSX"}
                 </button>
               </div>
+              <AccountingMirror technicianId={id} weekStart={week.week_start} />
+              <AccountingMirror
+                technicianId={id}
+                weekStart={week.week_start}
+                allTechnicians
+              />
               <Totals value={week.totals} />
               {week.days.map((d) => (
                 <details className="accounting-date" key={d.business_date}>

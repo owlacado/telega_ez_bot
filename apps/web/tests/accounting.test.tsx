@@ -178,7 +178,7 @@ it("shows seven dates, mixed summary and server week navigation", async () => {
   expect(screen.getByText(/Sunday · 2026-09-20/)).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Previous week" }));
   await waitFor(() =>
-    expect(api).toHaveBeenLastCalledWith(
+    expect(api).toHaveBeenCalledWith(
       "/technicians/a/accounting/weekly?week_start=2026-09-07",
       expect.anything(),
     ),

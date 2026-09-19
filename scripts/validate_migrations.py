@@ -501,7 +501,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["f6e609180002"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["f9a609190001"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -545,7 +545,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "f6e609180002"
+                    == "f9a609190001"
                 )
             else:
                 await db.execute(
@@ -620,7 +620,7 @@ async def stage5_history(action):
                 ) == Decimal("123.45")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "f6e609180002"
+                    == "f9a609190001"
                 )
             else:
                 await db.execute(
@@ -691,7 +691,7 @@ async def stage6_history(action):
                 ) == Decimal("20.01")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "f6e609180002"
+                    == "f9a609190001"
                 )
             else:
                 await db.execute(
@@ -728,4 +728,72 @@ alembic("check")
 print(
     "Stage 6 populated Stage 5 preserved; expense rollback refused; empty expense "
     "roundtrip and zero drift passed."
+)
+
+
+async def stage9_mirror_fixture(action):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if action == "insert":
+                await db.execute(
+                    text(
+                        "INSERT INTO accounting_mirror_targets "
+                        "(id,kind,technician_id,google_connection_id,spreadsheet_id) "
+                        "VALUES (:id,'INDIVIDUAL',:tech,:connection,'migrationSheet_12345')"
+                    ),
+                    {"id": assignment, "tech": tech, "connection": tech},
+                )
+            elif action == "check":
+                row = (
+                    await db.execute(
+                        text(
+                            "SELECT kind,technician_id,spreadsheet_id "
+                            "FROM accounting_mirror_targets WHERE id=:id"
+                        ),
+                        {"id": assignment},
+                    )
+                ).one()
+                assert row == ("INDIVIDUAL", tech, "migrationSheet_12345")
+                assert (
+                    await db.scalar(text("SELECT version_num FROM alembic_version"))
+                    == "f9a609190001"
+                )
+            else:
+                await db.execute(
+                    text("DELETE FROM accounting_mirror_targets WHERE id=:id"),
+                    {"id": assignment},
+                )
+    finally:
+        await engine.dispose()
+
+
+# Stage 8 data upgrades additively. Populated mirror configuration blocks destructive rollback,
+# while an empty Stage 9 schema supports the project's reviewable downgrade/re-upgrade policy.
+alembic("downgrade", "f6e609180002")
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+asyncio.run(stage5_history("check"))
+asyncio.run(stage9_mirror_fixture("insert"))
+asyncio.run(stage9_mirror_fixture("check"))
+refused = subprocess.run(
+    [sys.executable, "-m", "alembic", "downgrade", "f6e609180002"],
+    cwd=root / "apps/api",
+    env=env,
+    capture_output=True,
+    text=True,
+)
+assert refused.returncode != 0 and "ACCOUNTING_MIRROR_DATA_REVIEW_REQUIRED" in refused.stderr
+asyncio.run(stage9_mirror_fixture("check"))
+asyncio.run(stage9_mirror_fixture("remove"))
+alembic("downgrade", "f6e609180002")
+asyncio.run(fixture(check=True))
+alembic("upgrade", "head")
+asyncio.run(fixture(check=True))
+asyncio.run(stage5_history("check"))
+alembic("check")
+alembic("heads")
+print(
+    "Stage 9 populated Stage 8 preservation, destructive-data rollback refusal, "
+    "empty round-trip, one head, and zero drift passed."
 )

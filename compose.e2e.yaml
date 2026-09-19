@@ -23,6 +23,10 @@ services:
       TELEGRAM_MODE: fake
       TELEGRAM_EXPECTED_BOT_ID: "9000001"
       TELEGRAM_EXPECTED_BOT_USERNAME: hub_dedicated_test_bot
+      SCHEDULE_DELIVERY_ENABLED: "true"
+      SCHEDULE_PAYLOAD_ENCRYPTION_KEY: 1ajUDMfGL53YFA8iShNsP-xjjA0YvMk_0QPLePP2uKs=
+      GOOGLE_MODE: fake
+      GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY: h296Hlwktt4byynveKVcQuxX7eN8ty77nlor-a3Omyc=
     command:
       [
         "sh",

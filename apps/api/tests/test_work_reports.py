@@ -13,8 +13,10 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 
+from hub.accounting_mirrors.models import AccountingMirrorRefresh, AccountingMirrorTarget
 from hub.audit.models import AuditEvent
 from hub.auth.security import now
+from hub.google_calendar.models import CalendarConnection
 from hub.integrations.models import TelegramBinding
 from hub.technicians.models import Technician
 from hub.telegram.types import TrustedEvent
@@ -107,6 +109,18 @@ async def test_full_flow_snapshot_privacy_receipt_manager_retention(
         assert session.token_hash == service.digest(token) and session.token_hash != token
         assert token not in str(session.__dict__)
     google.events = []  # Subsequent provider state cannot rewrite selected work.
+    async with app.state.session_factory() as db, db.begin():
+        connection = await db.scalar(
+            select(CalendarConnection).where(CalendarConnection.is_current.is_(True))
+        )
+        db.add(
+            AccountingMirrorTarget(
+                kind="INDIVIDUAL",
+                technician_id=ready,
+                google_connection_id=connection.id,
+                spreadsheet_id="stage9WorkReport_12345",
+            )
+        )
     result = await client.post(BASE + "/submit", headers=headers, json=PAYLOAD)
     assert result.status_code == 200, result.text
     assert result.headers["cache-control"] == "no-store"
@@ -118,6 +132,9 @@ async def test_full_flow_snapshot_privacy_receipt_manager_retention(
     )
     assert changed.status_code == 409 and "FORM_ALREADY_SUBMITTED" in changed.text
     assert await counts(app) == (1, 1)
+    async with app.state.session_factory() as db:
+        refresh = await db.scalar(select(AccountingMirrorRefresh))
+        assert refresh and refresh.week_start.isoformat() == "2026-09-14"
     reports = await client.get(f"/api/technicians/{ready}/work-reports")
     report = reports.json()["reports"][0]
     assert report["amount_closed"] == "850.10" and report["reviews"] == PAYLOAD["reviews"]

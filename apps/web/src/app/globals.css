@@ -2004,6 +2004,15 @@ td > small {
 .accounting-body section + section {
   margin-top: 24px;
 }
+.accounting-mirror {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface);
+}
+.accounting-mirror .panel-heading {
+  margin-bottom: 8px;
+}
 .accounting-navigation label,
 .accounting-navigation input {
   min-width: 0;

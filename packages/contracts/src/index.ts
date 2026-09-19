@@ -35,3 +35,4 @@ export type DailyAccounting = components["schemas"]["DailyAccounting"];
 export type WeeklyAccounting = components["schemas"]["WeeklyAccounting"];
 export type CurrentAccounting = components["schemas"]["CurrentAccounting"];
 export type AccountingTotals = components["schemas"]["AccountingTotals"];
+export type AccountingMirrorStatus = components["schemas"]["MirrorStatusRead"];

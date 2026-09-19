@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import lazyload
 
+from hub.accounting_mirrors.service import enqueue_for_business_change
 from hub.audit.service import audit
 from hub.calendar_events.service import read_schedule
 from hub.calendars.models import CalendarAssignment
@@ -349,6 +350,7 @@ async def submit(factory, token, payload):
         )
         value.choices, value.selected = None, None
         audit(db, "work_report.submitted", report.id, actor_kind="TECHNICIAN")
+        await enqueue_for_business_change(db, tech.id, date.fromisoformat(job["operational_date"]))
         await db.flush()
         response = SubmissionRead(report_id=report.id)
     # Form receipt is authoritative. No provider call can roll back this commit.

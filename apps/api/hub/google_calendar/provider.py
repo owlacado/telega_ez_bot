@@ -15,10 +15,12 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from oauthlib.oauth2 import OAuth2Error
 
+from hub.accounting_mirrors.provider import GoogleSheetsHttpMixin
 from hub.core.config import Settings
 from hub.google_calendar.types import (
     EVENT_SCOPE,
     SCOPE,
+    SHEETS_SCOPE,
     Authorization,
     DiscoveredCalendar,
     ProviderError,
@@ -42,7 +44,7 @@ async def _thread_call(function, *args):
         raise
 
 
-class GoogleCalendarProvider:
+class GoogleCalendarProvider(GoogleSheetsHttpMixin):
     def __init__(self, settings: Settings):
         self.settings = settings
         # These libraries can log request bodies/headers at DEBUG, including credentials.
@@ -55,7 +57,7 @@ class GoogleCalendarProvider:
                 if child.startswith(name + "."):
                     logging.getLogger(child).disabled = True
 
-    def _flow(self, verifier=None, event_access=False):
+    def _flow(self, verifier=None, event_access=False, sheets_access=False):
         settings = self.settings
         flow = Flow.from_client_config(
             {
@@ -66,7 +68,11 @@ class GoogleCalendarProvider:
                     "token_uri": "https://oauth2.googleapis.com/token",
                 }
             },
-            scopes=[SCOPE, EVENT_SCOPE] if event_access else [SCOPE],
+            scopes=[
+                SCOPE,
+                *([EVENT_SCOPE] if event_access else []),
+                *([SHEETS_SCOPE] if sheets_access else []),
+            ],
             redirect_uri=settings.google_oauth_redirect_uri,
             code_verifier=verifier,
             autogenerate_code_verifier=verifier is None,
@@ -74,8 +80,8 @@ class GoogleCalendarProvider:
         flow.oauth2session.trust_env = False
         return flow
 
-    def build_authorization_url(self, state, event_access=False):
-        flow = self._flow(event_access=event_access)
+    def build_authorization_url(self, state, event_access=False, sheets_access=False):
+        flow = self._flow(event_access=event_access, sheets_access=sheets_access)
         try:
             url, _ = flow.authorization_url(
                 state=state,
@@ -87,9 +93,11 @@ class GoogleCalendarProvider:
         finally:
             flow.oauth2session.close()
 
-    async def exchange_authorization_code(self, code, verifier, event_access=False):
+    async def exchange_authorization_code(
+        self, code, verifier, event_access=False, sheets_access=False
+    ):
         def exchange():
-            flow = self._flow(verifier, event_access=event_access)
+            flow = self._flow(verifier, event_access=event_access, sheets_access=sheets_access)
             try:
                 try:
                     token = flow.fetch_token(code=code, timeout=TIMEOUT, allow_redirects=False)
@@ -99,7 +107,14 @@ class GoogleCalendarProvider:
                     token = getattr(changed_scope, "token", None)
                     if not isinstance(token, dict):
                         raise ProviderError("SCOPE_REQUIRED") from None
-                scopes = token.get("scope", [SCOPE, EVENT_SCOPE] if event_access else [SCOPE])
+                scopes = token.get(
+                    "scope",
+                    [
+                        SCOPE,
+                        *([EVENT_SCOPE] if event_access else []),
+                        *([SHEETS_SCOPE] if sheets_access else []),
+                    ],
+                )
                 if isinstance(scopes, str):
                     scopes = scopes.split()
                 if SCOPE not in scopes:

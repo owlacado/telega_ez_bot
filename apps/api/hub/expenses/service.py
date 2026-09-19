@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select, true
 from sqlalchemy.orm import aliased
 
+from hub.accounting_mirrors.service import enqueue_for_business_change
 from hub.audit.service import audit
 from hub.expenses.models import ExpenseRevision, TechnicianExpense
 from hub.expenses.schemas import ExpenseForm, ExpenseList, ExpenseRead, ExpenseReceipt
@@ -82,6 +83,7 @@ async def submit(factory, token, payload):
         value.payload_hash = fingerprint
         value.submitted_at = instant
         audit(db, "expense.submitted", expense.id, actor_kind="TECHNICIAN")
+        await enqueue_for_business_change(db, tech.id, day)
         return ExpenseReceipt(expense_id=expense.id)
 
 

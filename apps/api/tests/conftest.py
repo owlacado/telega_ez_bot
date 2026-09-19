@@ -47,7 +47,8 @@ async def engine() -> AsyncIterator[AsyncEngine]:
             text(
                 "TRUNCATE technicians, calendars, managers, rate_buckets, "
                 "audit_events, telegram_worker_states, telegram_processed_updates, "
-                "google_oauth_attempts, calendar_connections, schedule_worker_states "
+                "google_oauth_attempts, calendar_connections, schedule_worker_states, "
+                "accounting_mirror_worker_states "
                 "RESTART IDENTITY CASCADE"
             )
         )

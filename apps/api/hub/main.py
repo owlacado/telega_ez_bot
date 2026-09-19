@@ -12,6 +12,9 @@ import hub.models  # noqa: F401
 from hub.accounting.router import router as accounting_router
 from hub.accounting.xlsx_router import all_router as accounting_xlsx_all_router
 from hub.accounting.xlsx_router import technician_router as accounting_xlsx_technician_router
+from hub.accounting_mirrors.router import all_router as accounting_mirror_all_router
+from hub.accounting_mirrors.router import health_router as accounting_mirror_health_router
+from hub.accounting_mirrors.router import technician_router as accounting_mirror_technician_router
 from hub.auth.middleware import install_auth
 from hub.auth.router import router as auth_router
 from hub.auth.security import password_hasher, random_token
@@ -76,6 +79,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(reports_router)
     app.include_router(expenses_router)
     app.include_router(accounting_router)
+    app.include_router(accounting_mirror_technician_router)
+    app.include_router(accounting_mirror_all_router)
+    app.include_router(accounting_mirror_health_router)
     app.include_router(accounting_xlsx_technician_router)
     app.include_router(accounting_xlsx_all_router)
 
@@ -90,14 +96,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response = await call_next(request)
         except Exception:
             tags = getattr(request.scope.get("route"), "tags", ())
-            if not {"calendar-events", "work-reports", "expenses", "accounting"}.intersection(tags):
+            if not {
+                "calendar-events",
+                "work-reports",
+                "expenses",
+                "accounting",
+                "accounting-mirrors",
+            }.intersection(tags):
                 raise
             # Unexpected schedule failures must retain privacy headers too. Never
             # serialize/log the exception, whose arguments can contain provider PII.
             from starlette.responses import JSONResponse
 
             module = (
-                "accounting"
+                "accounting_mirrors"
+                if "accounting-mirrors" in tags
+                else "accounting"
                 if "accounting" in tags
                 else "expenses"
                 if "expenses" in tags

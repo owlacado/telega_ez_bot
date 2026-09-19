@@ -1,7 +1,7 @@
 # Technical debt register
 
-Current Stage 8 audit disposition: **32 entries, 10 RESOLVED, 22 OPEN** (0 CRITICAL,
-2 HIGH, 16 MEDIUM, 4 LOW). Historical counts below describe earlier stages.
+Current Stage 9 disposition: **35 entries, 10 RESOLVED, 25 OPEN** (0 CRITICAL,
+2 HIGH, 18 MEDIUM, 5 LOW). Historical counts below describe earlier stages.
 No existing debt is closed by Work Reports or Expenses.
 
 Manager CLI blocker follow-up: the user confirmed a password shorter than 14
@@ -713,3 +713,35 @@ bounded evidence rather than production capacity approval. TD-032 records only t
 long-cell display approximation. The existing pilot blockers and the additional
 TD-016/019/020 production blockers remain unchanged. Google Sheets is future scope,
 not debt.
+
+## Stage 9 Google Sheets mirror disposition
+
+Stage 9 adds three obligations and closes none. Prior pilot and production blockers
+remain open. TD-032 stays specific to XLSX display.
+
+## TD-033: Real Google Sheets provider acceptance is unexecuted
+
+- **Severity:** MEDIUM
+- **Area:** Google Sheets integration
+- **Description:** OAuth, metadata, RAW writes, formatting, retries, and
+  reconciliation are verified with a fake; no live Google account was contacted.
+- **Required before milestone:** BEFORE INTERNAL PILOT
+- **Status:** OPEN
+
+## TD-034: Very-large-fleet Sheets limits need deployment evidence
+
+- **Severity:** MEDIUM
+- **Area:** Google Sheets capacity
+- **Description:** Bounded chunks and local scale probes cover pilot sizes, but real
+  quotas, latency, and grid limits for very large fleets need TEST-provider evidence.
+- **Required before milestone:** BEFORE PRODUCTION
+- **Status:** OPEN
+
+## TD-035: Google row-height rendering remains approximate
+
+- **Severity:** LOW
+- **Area:** Google Sheets presentation
+- **Description:** Height and width roles translate to Google pixel units, but Google
+  font metrics can clip unusually long wrapped text.
+- **Required before milestone:** LATER SCALE
+- **Status:** OPEN

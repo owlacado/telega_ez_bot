@@ -742,6 +742,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/technicians/{technician_id}/accounting/mirror": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Individual Status */
+        get: operations["individual_status_api_technicians__technician_id__accounting_mirror_get"];
+        /** Configure Individual */
+        put: operations["configure_individual_api_technicians__technician_id__accounting_mirror_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/technicians/{technician_id}/accounting/mirror/action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Individual Action */
+        post: operations["individual_action_api_technicians__technician_id__accounting_mirror_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounting/weekly/all/mirror": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All Status */
+        get: operations["all_status_api_accounting_weekly_all_mirror_get"];
+        /** Configure All */
+        put: operations["configure_all_api_accounting_weekly_all_mirror_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounting/weekly/all/mirror/action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** All Action */
+        post: operations["all_action_api_accounting_weekly_all_mirror_action_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounting/mirror-worker/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Worker Health */
+        get: operations["worker_health_api_accounting_mirror_worker_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/technicians/{technician_id}/accounting/weekly.xlsx": {
         parameters: {
             query?: never;
@@ -1589,6 +1676,106 @@ export interface components {
              */
             expires_at: string;
         };
+        /** MirrorActionInput */
+        MirrorActionInput: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "ENABLE" | "DISABLE" | "REMOVE" | "SYNC";
+            /** Expected Generation */
+            expected_generation: number;
+        };
+        /** MirrorConfigureInput */
+        MirrorConfigureInput: {
+            /** Spreadsheet */
+            spreadsheet: string;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+        };
+        /** MirrorStatusRead */
+        MirrorStatusRead: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "INDIVIDUAL" | "ALL_TECH";
+            /** Technician Id */
+            technician_id?: string | null;
+            /**
+             * Week Start
+             * Format: date
+             */
+            week_start: string;
+            /**
+             * Week End
+             * Format: date
+             */
+            week_end: string;
+            /**
+             * Configured
+             * @default false
+             */
+            configured: boolean;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Target Id */
+            target_id?: string | null;
+            /** Target Generation */
+            target_generation?: number | null;
+            /** Spreadsheet Id */
+            spreadsheet_id?: string | null;
+            /** Open Url */
+            open_url?: string | null;
+            /**
+             * Auth State
+             * @enum {string}
+             */
+            auth_state: "READY" | "NEEDS_PERMISSION" | "NEEDS_AUTH" | "NOT_CONNECTED";
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "NOT_CONFIGURED" | "NEEDS_PERMISSION" | "READY" | "DISABLED" | "PENDING" | "SYNCING" | "SYNCED" | "FAILED" | "NEEDS_AUTH";
+            /** Requested Generation */
+            requested_generation?: number | null;
+            /** Completed Generation */
+            completed_generation?: number | null;
+            /**
+             * Pending Newer Generation
+             * @default false
+             */
+            pending_newer_generation: boolean;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Last Attempt At */
+            last_attempt_at?: string | null;
+            /** Last Error Code */
+            last_error_code?: string | null;
+            /** Google Sheet Id */
+            google_sheet_id?: number | null;
+            /**
+             * Worker State
+             * @enum {string}
+             */
+            worker_state: "RUNNING" | "STALE" | "MISSING";
+        };
+        /** MirrorWorkerHealthRead */
+        MirrorWorkerHealthRead: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "RUNNING" | "STALE" | "MISSING";
+            /** Running Instances */
+            running_instances: number;
+        };
         /** ReportFact */
         ReportFact: {
             /**
@@ -1868,6 +2055,11 @@ export interface components {
              * @default false
              */
             request_event_access: boolean;
+            /**
+             * Request Sheets Access
+             * @default false
+             */
+            request_sheets_access: boolean;
             /**
              * Mode
              * @default CONNECT
@@ -3602,6 +3794,234 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    individual_status_api_technicians__technician_id__accounting_mirror_get: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_individual_api_technicians__technician_id__accounting_mirror_put: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MirrorConfigureInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    individual_action_api_technicians__technician_id__accounting_mirror_action_post: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MirrorActionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    all_status_api_accounting_weekly_all_mirror_get: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    configure_all_api_accounting_weekly_all_mirror_put: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MirrorConfigureInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    all_action_api_accounting_weekly_all_mirror_action_post: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MirrorActionInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorStatusRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    worker_health_api_accounting_mirror_worker_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MirrorWorkerHealthRead"];
                 };
             };
         };

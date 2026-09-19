@@ -5,6 +5,7 @@ test("canonical accounting daily weekly and current revision", async ({
   request,
 }, testInfo) => {
   harness({ action: "expense_cleanup" });
+  harness({ action: "mirror_google_setup" });
   const tech = await (
     await request.post("/api/technicians", {
       data: {
@@ -100,6 +101,48 @@ test("canonical accounting daily weekly and current revision", async ({
     const currentHeading = await page.locator(".accounting h3").textContent();
     const currentWeek = currentHeading?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
     expect(currentWeek).toBeTruthy();
+    const selectedWeek = currentWeek!;
+    const individualMirror = page.getByRole("region", {
+      name: "Technician Google Sheets mirror",
+    });
+    await individualMirror
+      .getByLabel("Existing Spreadsheet ID or URL")
+      .fill("stage9Individual_12345");
+    await individualMirror.getByRole("button", { name: "Configure" }).click();
+    await expect(individualMirror).toContainText("Ready to sync");
+    await individualMirror
+      .getByRole("button", { name: "Sync this week" })
+      .click();
+    await expect(individualMirror).toContainText("Sync queued");
+    const allMirror = page.getByRole("region", {
+      name: "All Tech Google Sheets mirror",
+    });
+    await allMirror
+      .getByLabel("Existing Spreadsheet ID or URL")
+      .fill("stage9AllTech_12345");
+    await allMirror.getByRole("button", { name: "Configure" }).click();
+    await allMirror.getByRole("button", { name: "Sync this week" }).click();
+    await expect(allMirror).toContainText("Sync queued");
+    const mirrorResult = harness({ action: "mirror_process" });
+    expect(mirrorResult.results).toEqual([true, true]);
+    expect(mirrorResult.sheets).toHaveLength(2);
+    const weekEnd = new Date(`${selectedWeek}T00:00:00Z`);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
+    expect(
+      mirrorResult.sheets.every(
+        (sheet: { title: string }) =>
+          sheet.title ===
+          `${selectedWeek} - ${weekEnd.toISOString().slice(0, 10)}`,
+      ),
+    ).toBeTruthy();
+    expect(JSON.stringify(mirrorResult.sheets)).toContain("$193.01");
+    expect(
+      mirrorResult.sheets.every(
+        (sheet: { format_count: number }) => sheet.format_count > 0,
+      ),
+    ).toBeTruthy();
+    await expect(individualMirror).toContainText("Synced", { timeout: 10_000 });
+    await expect(allMirror).toContainText("Synced", { timeout: 10_000 });
     const individualDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download XLSX" }).click();
     const individual = await individualDownload;
@@ -201,6 +244,7 @@ test("canonical accounting daily weekly and current revision", async ({
       fullPage: true,
     });
   } finally {
+    harness({ action: "mirror_cleanup" });
     harness({ action: "expense_cleanup" });
     for (const currentTech of [tech, ...extraTechs]) {
       const currentResponse = await request.get(

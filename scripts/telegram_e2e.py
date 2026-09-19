@@ -149,6 +149,88 @@ async def main():
                     text("UPDATE work_reports SET current_revision_number=2 WHERE id=:id"),
                     {"id": identifier},
                 )
+        elif action == "mirror_google_setup":
+            from datetime import UTC, datetime
+
+            from hub.accounting_mirrors.provider import SHEETS_SCOPE
+            from hub.core.secrets import SecretCipher
+            from hub.google_calendar.models import CalendarConnection
+            from hub.google_calendar.types import SCOPE
+            from sqlalchemy import select
+
+            key = "acpU14UT8v3AsP9osikC88Q27CgN1o0jLIZu4aPKwHE="
+            async with factory() as db, db.begin():
+                connection = await db.scalar(
+                    select(CalendarConnection).where(CalendarConnection.is_current.is_(True))
+                )
+                if connection is None:
+                    connection = CalendarConnection(
+                        provider="GOOGLE",
+                        account_key="stage9-e2e-primary",
+                        account_label="Stage 9 fake Google",
+                        is_current=True,
+                        status="CONNECTED",
+                        generation=1,
+                        encrypted_refresh_token=SecretCipher(key).encrypt("fake-refresh-only"),
+                        granted_scopes=[SCOPE, SHEETS_SCOPE],
+                        connected_at=datetime.now(UTC),
+                    )
+                    db.add(connection)
+                else:
+                    connection.status = "CONNECTED"
+                    connection.encrypted_refresh_token = SecretCipher(key).encrypt(
+                        "fake-refresh-only"
+                    )
+                    connection.granted_scopes = [SCOPE, SHEETS_SCOPE]
+            print(json.dumps({"ready": True}))
+        elif action == "mirror_process":
+            from hub.accounting_mirrors.models import AccountingMirrorTarget
+            from hub.accounting_mirrors.worker import run_once
+            from hub.google_calendar.fake import FakeCalendarProvider
+            from hub.google_calendar.types import SCOPE, SHEETS_SCOPE, TokenGrant
+            from pydantic import SecretStr
+            from sqlalchemy import select
+
+            fake = FakeCalendarProvider()
+            fake.grant = TokenGrant(
+                "fake-access-only",
+                "fake-refresh-only",
+                tuple(sorted((SCOPE, SHEETS_SCOPE))),
+            )
+            settings = Settings(
+                database_url=url,
+                app_env="test",
+                google_mode="fake",
+                google_calendar_credential_encryption_key=SecretStr(
+                    "acpU14UT8v3AsP9osikC88Q27CgN1o0jLIZu4aPKwHE="
+                ),
+            )
+            results = await run_once(factory, settings, fake, limit=20)
+            async with factory() as db:
+                targets = (await db.scalars(select(AccountingMirrorTarget))).all()
+            inspected = []
+            for target in targets:
+                book = fake.spreadsheets.get(target.spreadsheet_id)
+                if not book:
+                    continue
+                for sheet in book["sheets"]:
+                    inspected.append(
+                        {
+                            "kind": target.kind,
+                            "spreadsheet_id": target.spreadsheet_id,
+                            "title": sheet["title"],
+                            "values": sheet["values"],
+                            "format_count": len(sheet["formats"]),
+                            "rows": sheet["rows"],
+                            "columns": sheet["columns"],
+                        }
+                    )
+            print(json.dumps({"results": results, "calls": fake.sheets_calls, "sheets": inspected}))
+        elif action == "mirror_cleanup":
+            from hub.accounting_mirrors.models import AccountingMirrorTarget
+
+            async with factory() as db, db.begin():
+                await db.execute(delete(AccountingMirrorTarget))
         elif action == "xlsx_inspect":
             from datetime import datetime
             from decimal import Decimal

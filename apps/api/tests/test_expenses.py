@@ -13,10 +13,12 @@ from pydantic import ValidationError
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError
 
+from hub.accounting_mirrors.models import AccountingMirrorRefresh, AccountingMirrorTarget
 from hub.audit.models import AuditEvent
 from hub.expenses import service
 from hub.expenses.models import ExpenseRevision, TechnicianExpense
 from hub.expenses.schemas import ExpenseInput
+from hub.google_calendar.models import CalendarConnection
 from hub.integrations.models import TelegramBinding
 from hub.technicians.models import Technician
 from hub.telegram.transport import parse_update
@@ -98,6 +100,27 @@ async def test_complete_flow_privacy_manager_retention(app, client, ready, caplo
         assert value.expires_at - value.created_at == timedelta(
             seconds=app.state.settings.work_report_session_seconds
         )
+    async with app.state.session_factory() as db, db.begin():
+        connection = CalendarConnection(
+            provider="GOOGLE",
+            account_key="expense-stage9",
+            account_label="Expense Stage 9",
+            is_current=True,
+            status="CONNECTED",
+            generation=1,
+            encrypted_refresh_token="v1:test-placeholder",
+            granted_scopes=[],
+        )
+        db.add(connection)
+        await db.flush()
+        db.add(
+            AccountingMirrorTarget(
+                kind="INDIVIDUAL",
+                technician_id=ready,
+                google_connection_id=connection.id,
+                spreadsheet_id="stage9Expense_12345",
+            )
+        )
     result = await client.post(BASE + "/submit", headers=headers, json=PAYLOAD)
     assert result.status_code == 200, result.text
     assert (
@@ -106,6 +129,9 @@ async def test_complete_flow_privacy_manager_retention(app, client, ready, caplo
     assert (
         await client.post(BASE + "/submit", headers=headers, json={**PAYLOAD, "amount": "2.00"})
     ).status_code == 409
+    async with app.state.session_factory() as db:
+        refresh = await db.scalar(select(AccountingMirrorRefresh))
+        assert refresh and refresh.week_start.weekday() == 0
     listing = await client.get(f"/api/technicians/{ready}/expenses")
     assert listing.status_code == 200, listing.text
     data = listing.json()

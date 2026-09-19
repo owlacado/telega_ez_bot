@@ -4,9 +4,15 @@ from dataclasses import replace
 from datetime import timedelta
 from urllib.parse import urlencode
 
+from hub.accounting_mirrors.provider import (
+    SheetMetadata,
+    SheetsProviderError,
+    formatting_requests,
+)
 from hub.google_calendar.types import (
     EVENT_SCOPE,
     SCOPE,
+    SHEETS_SCOPE,
     Authorization,
     DiscoveredCalendar,
     TokenGrant,
@@ -27,20 +33,33 @@ class FakeCalendarProvider:
         self.events = None
         self.error = None
         self.calls = []
+        self.sheets_error = None
+        self.spreadsheets = {}
+        self.sheets_calls = []
+        self.ambiguous_add_once = False
 
-    def build_authorization_url(self, state, event_access=False):
+    def build_authorization_url(self, state, event_access=False, sheets_access=False):
         return Authorization(
             "/api/calendar-connections/google/callback?"
             + urlencode(
-                {"state": state, "code": "fake-event-code" if event_access else "fake-code"}
+                {
+                    "state": state,
+                    "code": "fake-upgrade-code" if event_access or sheets_access else "fake-code",
+                }
             ),
             "fake-pkce-verifier",
         )
 
-    async def exchange_authorization_code(self, code, verifier, event_access=False):
+    async def exchange_authorization_code(
+        self, code, verifier, event_access=False, sheets_access=False
+    ):
         self.calls.append("exchange")
-        if code == "fake-event-code":
-            self.grant = replace(self.grant, scopes=(SCOPE, EVENT_SCOPE))
+        scopes = {SCOPE, *self.grant.scopes}
+        if event_access:
+            scopes.add(EVENT_SCOPE)
+        if sheets_access:
+            scopes.add(SHEETS_SCOPE)
+        self.grant = replace(self.grant, scopes=tuple(sorted(scopes)))
         if self.error:
             raise self.error
         return self.grant
@@ -104,3 +123,89 @@ class FakeCalendarProvider:
                 )
             )
         return rows
+
+    def _spreadsheet(self, identifier):
+        return self.spreadsheets.setdefault(identifier, {"next": 1, "sheets": []})
+
+    def _sheets_failure(self):
+        if self.sheets_error:
+            raise self.sheets_error
+
+    async def get_spreadsheet_metadata(self, access_token, spreadsheet_id):
+        self.sheets_calls.append("metadata")
+        self._sheets_failure()
+        book = self._spreadsheet(spreadsheet_id)
+        return tuple(
+            SheetMetadata(item["id"], item["title"], item["rows"], item["columns"])
+            for item in book["sheets"]
+        )
+
+    async def add_sheet(self, access_token, spreadsheet_id, title, rows, columns):
+        self.sheets_calls.append("add_sheet")
+        self._sheets_failure()
+        book = self._spreadsheet(spreadsheet_id)
+        if any(item["title"] == title for item in book["sheets"]):
+            raise SheetsProviderError("CONFIGURATION_ERROR")
+        item = {
+            "id": book["next"],
+            "title": title,
+            "rows": max(rows, 1),
+            "columns": max(columns, 1),
+            "values": [],
+            "formats": [],
+        }
+        book["next"] += 1
+        book["sheets"].append(item)
+        if self.ambiguous_add_once:
+            self.ambiguous_add_once = False
+            raise SheetsProviderError("PROVIDER_TEMPORARY_ERROR", retryable=True)
+        return SheetMetadata(item["id"], title, item["rows"], item["columns"])
+
+    def _sheet(self, spreadsheet_id, *, sheet_id=None, title=None):
+        for item in self._spreadsheet(spreadsheet_id)["sheets"]:
+            if (sheet_id is not None and item["id"] == sheet_id) or (
+                title is not None and item["title"] == title
+            ):
+                return item
+        raise SheetsProviderError("SPREADSHEET_NOT_FOUND")
+
+    async def clear_owned_range(self, access_token, spreadsheet_id, sheet_id, rows, columns):
+        self.sheets_calls.append("clear")
+        self._sheets_failure()
+        sheet = self._sheet(spreadsheet_id, sheet_id=sheet_id)
+        for row in range(min(rows, len(sheet["values"]))):
+            for column in range(min(columns, len(sheet["values"][row]))):
+                sheet["values"][row][column] = ""
+        sheet["formats"] = [
+            item
+            for item in sheet["formats"]
+            if item.get("startRowIndex", 0) >= rows or item.get("startColumnIndex", 0) >= columns
+        ]
+
+    async def write_values(self, access_token, spreadsheet_id, sheet_title, values):
+        self.sheets_calls.append(("values", "RAW"))
+        self._sheets_failure()
+        sheet = self._sheet(spreadsheet_id, title=sheet_title)
+        width = max((len(row) for row in values), default=0)
+        sheet["rows"] = max(sheet["rows"], len(values), 1)
+        sheet["columns"] = max(sheet["columns"], width, 1)
+        while len(sheet["values"]) < len(values):
+            sheet["values"].append([])
+        for row_index, row in enumerate(values):
+            while len(sheet["values"][row_index]) < width:
+                sheet["values"][row_index].append("")
+            for column_index, value in enumerate(row):
+                sheet["values"][row_index][column_index] = value
+
+    async def batch_update_formatting(
+        self, access_token, spreadsheet_id, sheet_id, payload, current_rows, current_columns
+    ):
+        self.sheets_calls.append("format")
+        self._sheets_failure()
+        sheet = self._sheet(spreadsheet_id, sheet_id=sheet_id)
+        sheet["rows"] = max(sheet["rows"], payload.row_count, current_rows, 1)
+        sheet["columns"] = max(sheet["columns"], payload.column_count, current_columns, 1)
+        sheet["formats"] = formatting_requests(sheet_id, payload, sheet["rows"], sheet["columns"])
+
+    def inspect_sheet(self, spreadsheet_id, title):
+        return self._sheet(spreadsheet_id, title=title)

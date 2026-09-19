@@ -2099,6 +2099,351 @@
         }
       }
     },
+    "/api/technicians/{technician_id}/accounting/mirror": {
+      "get": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "Individual Status",
+        "operationId": "individual_status_api_technicians__technician_id__accounting_mirror_get",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "Configure Individual",
+        "operationId": "configure_individual_api_technicians__technician_id__accounting_mirror_put",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MirrorConfigureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/technicians/{technician_id}/accounting/mirror/action": {
+      "post": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "Individual Action",
+        "operationId": "individual_action_api_technicians__technician_id__accounting_mirror_action_post",
+        "parameters": [
+          {
+            "name": "technician_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Technician Id"
+            }
+          },
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MirrorActionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/weekly/all/mirror": {
+      "get": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "All Status",
+        "operationId": "all_status_api_accounting_weekly_all_mirror_get",
+        "parameters": [
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "Configure All",
+        "operationId": "configure_all_api_accounting_weekly_all_mirror_put",
+        "parameters": [
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MirrorConfigureInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/weekly/all/mirror/action": {
+      "post": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "All Action",
+        "operationId": "all_action_api_accounting_weekly_all_mirror_action_post",
+        "parameters": [
+          {
+            "name": "week_start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "title": "Week Start"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MirrorActionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatusRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/accounting/mirror-worker/health": {
+      "get": {
+        "tags": [
+          "accounting-mirrors"
+        ],
+        "summary": "Worker Health",
+        "operationId": "worker_health_api_accounting_mirror_worker_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorWorkerHealthRead"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/technicians/{technician_id}/accounting/weekly.xlsx": {
       "get": {
         "tags": [
@@ -4266,6 +4611,282 @@
         ],
         "title": "ManagerRead"
       },
+      "MirrorActionInput": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "ENABLE",
+              "DISABLE",
+              "REMOVE",
+              "SYNC"
+            ],
+            "title": "Action"
+          },
+          "expected_generation": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Generation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "expected_generation"
+        ],
+        "title": "MirrorActionInput"
+      },
+      "MirrorConfigureInput": {
+        "properties": {
+          "spreadsheet": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 10,
+            "title": "Spreadsheet"
+          },
+          "replace": {
+            "type": "boolean",
+            "title": "Replace",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "spreadsheet"
+        ],
+        "title": "MirrorConfigureInput"
+      },
+      "MirrorStatusRead": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "INDIVIDUAL",
+              "ALL_TECH"
+            ],
+            "title": "Kind"
+          },
+          "technician_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Id"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Week Start"
+          },
+          "week_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Week End"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "default": false
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Id"
+          },
+          "target_generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Generation"
+          },
+          "spreadsheet_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spreadsheet Id"
+          },
+          "open_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Url"
+          },
+          "auth_state": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "NEEDS_PERMISSION",
+              "NEEDS_AUTH",
+              "NOT_CONNECTED"
+            ],
+            "title": "Auth State"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "NOT_CONFIGURED",
+              "NEEDS_PERMISSION",
+              "READY",
+              "DISABLED",
+              "PENDING",
+              "SYNCING",
+              "SYNCED",
+              "FAILED",
+              "NEEDS_AUTH"
+            ],
+            "title": "State"
+          },
+          "requested_generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Generation"
+          },
+          "completed_generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed Generation"
+          },
+          "pending_newer_generation": {
+            "type": "boolean",
+            "title": "Pending Newer Generation",
+            "default": false
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error Code"
+          },
+          "google_sheet_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Sheet Id"
+          },
+          "worker_state": {
+            "type": "string",
+            "enum": [
+              "RUNNING",
+              "STALE",
+              "MISSING"
+            ],
+            "title": "Worker State"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "week_start",
+          "week_end",
+          "auth_state",
+          "state",
+          "worker_state"
+        ],
+        "title": "MirrorStatusRead"
+      },
+      "MirrorWorkerHealthRead": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "RUNNING",
+              "STALE",
+              "MISSING"
+            ],
+            "title": "State"
+          },
+          "running_instances": {
+            "type": "integer",
+            "title": "Running Instances"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "running_instances"
+        ],
+        "title": "MirrorWorkerHealthRead"
+      },
       "ReportFact": {
         "properties": {
           "id": {
@@ -4996,6 +5617,11 @@
           "request_event_access": {
             "type": "boolean",
             "title": "Request Event Access",
+            "default": false
+          },
+          "request_sheets_access": {
+            "type": "boolean",
+            "title": "Request Sheets Access",
             "default": false
           },
           "mode": {

@@ -79,4 +79,7 @@ class GoogleOAuthAttempt(Timestamps, Base):
     request_event_access: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )
+    request_sheets_access: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     expected_impact_version: Mapped[str | None] = mapped_column(String(64))

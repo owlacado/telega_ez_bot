@@ -21,7 +21,14 @@ from hub.core.secrets import SecretCipher
 from hub.google_calendar.fake import FakeCalendarProvider
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.google_calendar.provider import GoogleCalendarProvider
-from hub.google_calendar.types import SCOPE, DiscoveredCalendar, ProviderError, TokenGrant
+from hub.google_calendar.types import (
+    EVENT_SCOPE,
+    SCOPE,
+    SHEETS_SCOPE,
+    DiscoveredCalendar,
+    ProviderError,
+    TokenGrant,
+)
 
 BASE = "/api/calendar-connections/google"
 
@@ -58,6 +65,43 @@ async def connect(client, mode="CONNECT", confirm=False):
     assert response.status_code == 303
     assert response.headers["location"] == "/calendars?google=connected"
     return (await client.get(BASE)).json()
+
+
+async def test_explicit_sheets_scope_upgrade_preserves_calendar(client, google):
+    connected = await connect(client)
+    assert connected["granted_scopes"] == [SCOPE]
+    response = await client.post(
+        BASE + "/start",
+        json={
+            "mode": "RECONNECT",
+            "request_sheets_access": True,
+            "expected_connection_id": connected["id"],
+            "expected_generation": connected["generation"],
+            "expected_impact_version": connected["impact_version"],
+        },
+    )
+    assert response.status_code == 200
+    assert (await client.get(response.json()["authorization_url"])).status_code == 303
+    upgraded = (await client.get(BASE)).json()
+    assert {SCOPE, SHEETS_SCOPE} <= set(upgraded["granted_scopes"])
+    assert EVENT_SCOPE not in upgraded["granted_scopes"]
+    assert (await client.post(BASE + "/scan")).status_code == 200
+
+
+async def test_sheets_scope_cannot_be_silently_added_to_initial_connect(client, google):
+    status = (await client.get(BASE)).json()
+    response = await client.post(
+        BASE + "/start",
+        json={
+            "mode": "CONNECT",
+            "request_sheets_access": True,
+            "expected_connection_id": status["id"],
+            "expected_generation": status["generation"],
+            "expected_impact_version": status["impact_version"],
+        },
+    )
+    assert response.status_code == 409
+    assert google.calls == []
 
 
 async def catalog(client):

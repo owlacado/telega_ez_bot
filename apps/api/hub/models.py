@@ -1,5 +1,10 @@
 """Register every model with Alembic without application or transport startup."""
 
+from hub.accounting_mirrors.models import (
+    AccountingMirrorRefresh,
+    AccountingMirrorTarget,
+    AccountingMirrorWorkerState,
+)
 from hub.audit.models import AuditEvent
 from hub.auth.models import Manager, ManagerSession, RateBucket
 from hub.calendars.models import Calendar, CalendarAssignment
@@ -22,6 +27,9 @@ from hub.telegram.models import (
 from hub.work_reports.models import TechnicianFormSession, WorkReport, WorkReportRevision
 
 __all__ = [
+    "AccountingMirrorRefresh",
+    "AccountingMirrorTarget",
+    "AccountingMirrorWorkerState",
     "TechnicianFormSession",
     "TechnicianExpense",
     "ExpenseRevision",
