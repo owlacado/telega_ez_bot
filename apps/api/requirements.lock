@@ -49,3 +49,5 @@ pyasn1==0.6.4
 pyasn1-modules==0.4.2
 charset-normalizer==3.5.1
 urllib3==2.8.0
+et_xmlfile==2.0.0
+openpyxl==3.1.5

@@ -10,6 +10,8 @@ from starlette.concurrency import run_in_threadpool
 
 import hub.models  # noqa: F401
 from hub.accounting.router import router as accounting_router
+from hub.accounting.xlsx_router import all_router as accounting_xlsx_all_router
+from hub.accounting.xlsx_router import technician_router as accounting_xlsx_technician_router
 from hub.auth.middleware import install_auth
 from hub.auth.router import router as auth_router
 from hub.auth.security import password_hasher, random_token
@@ -74,6 +76,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(reports_router)
     app.include_router(expenses_router)
     app.include_router(accounting_router)
+    app.include_router(accounting_xlsx_technician_router)
+    app.include_router(accounting_xlsx_all_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):

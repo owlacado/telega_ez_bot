@@ -742,6 +742,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/technicians/{technician_id}/accounting/weekly.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Individual Weekly Xlsx */
+        get: operations["individual_weekly_xlsx_api_technicians__technician_id__accounting_weekly_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/accounting/weekly/all.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All Tech Weekly Xlsx */
+        get: operations["all_tech_weekly_xlsx_api_accounting_weekly_all_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -3559,6 +3593,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurrentAccounting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    individual_weekly_xlsx_api_technicians__technician_id__accounting_weekly_xlsx_get: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path: {
+                technician_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    all_tech_weekly_xlsx_api_accounting_weekly_all_xlsx_get: {
+        parameters: {
+            query: {
+                week_start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
                 };
             };
             /** @description Validation Error */

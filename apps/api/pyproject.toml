@@ -8,7 +8,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
   "fastapi", "uvicorn[standard]", "sqlalchemy[asyncio]>=2.0,<2.1",
-  "asyncpg>=0.31", "pydantic>=2,<3", "pydantic-settings", "alembic", "argon2-cffi==25.1.0", "python-telegram-bot==22.8", "google-auth-oauthlib==1.4.1", "cryptography==50.0.1"
+  "asyncpg>=0.31", "pydantic>=2,<3", "pydantic-settings", "alembic", "argon2-cffi==25.1.0", "python-telegram-bot==22.8", "google-auth-oauthlib==1.4.1", "cryptography==50.0.1", "openpyxl==3.1.5"
 ]
 
 [project.optional-dependencies]

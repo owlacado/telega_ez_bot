@@ -9,11 +9,12 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import { Accounting, Totals } from "@/components/accounting";
-import { api } from "@/lib/api";
+import { api, ApiError, download } from "@/lib/api";
 import type { AccountingTotals } from "@hub/contracts";
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
   api: vi.fn(),
+  download: vi.fn(),
 }));
 const totals: AccountingTotals = {
   gross_total: "1793.16",
@@ -310,4 +311,89 @@ it("ignores an older week response after a newer selection", async () => {
     resolve({ ...weekly, week_start: "2026-09-07", week_end: "2026-09-13" }),
   );
   expect(screen.queryByText(/Weekly · 2026-09-07/)).not.toBeInTheDocument();
+});
+it("downloads individual and All Tech XLSX for the exact server-selected week", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : weekly,
+  );
+  vi.mocked(download).mockResolvedValue("weekly.xlsx");
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Download XLSX" }),
+  );
+  expect(download).toHaveBeenCalledWith(
+    "/technicians/a/accounting/weekly.xlsx?week_start=2026-09-14",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Download All Tech XLSX" }),
+  );
+  expect(download).toHaveBeenLastCalledWith(
+    "/accounting/weekly/all.xlsx?week_start=2026-09-14",
+  );
+});
+it("downloads a navigated historical week instead of the current week", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current")
+      ? current
+      : path.includes("2026-09-07")
+        ? {
+            ...weekly,
+            week_start: "2026-09-07",
+            week_end: "2026-09-13",
+          }
+        : weekly,
+  );
+  vi.mocked(download).mockResolvedValue("historical.xlsx");
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Previous week" }),
+  );
+  await screen.findByText(/Weekly · 2026-09-07/);
+  await userEvent.click(screen.getByRole("button", { name: "Download XLSX" }));
+  expect(download).toHaveBeenCalledWith(
+    "/technicians/a/accounting/weekly.xlsx?week_start=2026-09-07",
+  );
+});
+it("prevents duplicate download clicks while a workbook is being prepared", async () => {
+  let resolve!: (value: string) => void;
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : weekly,
+  );
+  vi.mocked(download).mockImplementation(
+    () => new Promise((completion) => (resolve = completion)),
+  );
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  const button = await screen.findByRole("button", { name: "Download XLSX" });
+  await userEvent.dblClick(button);
+  expect(download).toHaveBeenCalledTimes(1);
+  expect(
+    screen.getByRole("button", { name: "Preparing XLSX…" }),
+  ).toBeDisabled();
+  expect(
+    screen.getByRole("button", { name: "Download All Tech XLSX" }),
+  ).toBeDisabled();
+  await act(async () => resolve("weekly.xlsx"));
+  expect(screen.getByRole("button", { name: "Download XLSX" })).toBeEnabled();
+});
+it("shows a safe workbook authorization or server error", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : weekly,
+  );
+  vi.mocked(download).mockRejectedValue(
+    new ApiError("Sign in to continue.", 401),
+  );
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Download XLSX" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Sign in to continue.",
+  );
+  expect(
+    screen.queryByText(/stack|filesystem|traceback/i),
+  ).not.toBeInTheDocument();
 });

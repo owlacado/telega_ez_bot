@@ -7,6 +7,7 @@ import type {
   AccountingTotals,
 } from "@hub/contracts";
 import { useResource } from "@/lib/use-resource";
+import { download, errorMessage } from "@/lib/api";
 import { ErrorNotice, Loading } from "./ui";
 
 const labels: Record<string, string> = {
@@ -165,6 +166,10 @@ function Current({ id }: { id: string }) {
 }
 function Detail({ id, mode }: { id: string; mode: "daily" | "weekly" }) {
   const [selector, setSelector] = useState("");
+  const [downloading, setDownloading] = useState<"individual" | "all" | null>(
+    null,
+  );
+  const [downloadError, setDownloadError] = useState("");
   const { data, error, reload } = useResource<
     DailyAccounting | WeeklyAccounting
   >(
@@ -174,6 +179,22 @@ function Detail({ id, mode }: { id: string; mode: "daily" | "weekly" }) {
   const week = data && "week_start" in data ? data : null;
   const previous = day?.previous_date ?? week?.previous_week;
   const next = day?.next_date ?? week?.next_week;
+  async function downloadWorkbook(kind: "individual" | "all") {
+    if (!week || downloading) return;
+    setDownloadError("");
+    setDownloading(kind);
+    try {
+      const path =
+        kind === "individual"
+          ? `/technicians/${id}/accounting/weekly.xlsx?week_start=${week.week_start}`
+          : `/accounting/weekly/all.xlsx?week_start=${week.week_start}`;
+      await download(path);
+    } catch (downloadFailure) {
+      setDownloadError(errorMessage(downloadFailure));
+    } finally {
+      setDownloading(null);
+    }
+  }
   return (
     <>
       <div className="accounting-navigation">
@@ -207,6 +228,7 @@ function Detail({ id, mode }: { id: string; mode: "daily" | "weekly" }) {
         </label>
       </div>
       <ErrorNotice message={error} retry={reload} />
+      {downloadError && <ErrorNotice message={downloadError} />}
       {!data && !error && <Loading />}
       {data && !error && (
         <>
@@ -231,6 +253,26 @@ function Detail({ id, mode }: { id: string; mode: "daily" | "weekly" }) {
               <h3>
                 Weekly · {week.week_start} – {week.week_end}
               </h3>
+              <div className="accounting-navigation">
+                <button
+                  className="button primary"
+                  disabled={downloading !== null}
+                  onClick={() => downloadWorkbook("individual")}
+                >
+                  {downloading === "individual"
+                    ? "Preparing XLSX…"
+                    : "Download XLSX"}
+                </button>
+                <button
+                  className="button"
+                  disabled={downloading !== null}
+                  onClick={() => downloadWorkbook("all")}
+                >
+                  {downloading === "all"
+                    ? "Preparing all technicians…"
+                    : "Download All Tech XLSX"}
+                </button>
+              </div>
               <Totals value={week.totals} />
               {week.days.map((d) => (
                 <details className="accounting-date" key={d.business_date}>

@@ -149,6 +149,45 @@ async def main():
                     text("UPDATE work_reports SET current_revision_number=2 WHERE id=:id"),
                     {"id": identifier},
                 )
+        elif action == "xlsx_inspect":
+            from decimal import Decimal
+
+            from openpyxl import load_workbook
+
+            root = Path(__file__).resolve().parents[1]
+            workbook_path = Path(payload["path"]).resolve()
+            if workbook_path.suffix.lower() != ".xlsx" or root not in workbook_path.parents:
+                raise RuntimeError("Workbook inspection is limited to local test artifacts")
+            book = load_workbook(workbook_path, data_only=False, keep_links=False)
+            values = [
+                cell.value
+                for worksheet in book.worksheets
+                for row in worksheet.iter_rows()
+                for cell in row
+                if cell.value is not None
+            ]
+            expected_total = Decimal(payload["expected_total"])
+            print(
+                json.dumps(
+                    {
+                        "sheet": book.active.title,
+                        "name_found": payload["expected_name"] in values,
+                        "total_found": any(
+                            isinstance(value, (int, float))
+                            and Decimal(str(value)).quantize(Decimal("0.01")) == expected_total
+                            for value in values
+                        ),
+                        "formula_count": sum(
+                            cell.data_type == "f"
+                            for worksheet in book.worksheets
+                            for row in worksheet.iter_rows()
+                            for cell in row
+                        ),
+                        "external_links": len(book._external_links),
+                        "size": workbook_path.stat().st_size,
+                    }
+                )
+            )
         elif action == "expense_setup":
             from uuid import UUID
 

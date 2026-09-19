@@ -55,6 +55,50 @@ test("canonical accounting daily weekly and current revision", async ({
     await expect(page.locator(".accounting-metrics").first()).toContainText(
       "$193.01",
     );
+    const individualDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download XLSX" }).click();
+    const individual = await individualDownload;
+    expect(individual.suggestedFilename()).toMatch(
+      /^Accounting_Fictional_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+    const individualPath = testInfo.outputPath("individual-weekly.xlsx");
+    await individual.saveAs(individualPath);
+    expect(
+      harness({
+        action: "xlsx_inspect",
+        path: individualPath,
+        expected_name: "Accounting Fictional",
+        expected_total: "193.01",
+      }),
+    ).toMatchObject({
+      sheet: "Weekly Report",
+      name_found: true,
+      total_found: true,
+      formula_count: 0,
+      external_links: 0,
+    });
+    const allTechDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download All Tech XLSX" }).click();
+    const allTech = await allTechDownload;
+    expect(allTech.suggestedFilename()).toMatch(
+      /^All_Tech_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx$/,
+    );
+    const allTechPath = testInfo.outputPath("all-tech-weekly.xlsx");
+    await allTech.saveAs(allTechPath);
+    expect(
+      harness({
+        action: "xlsx_inspect",
+        path: allTechPath,
+        expected_name: "Accounting Fictional",
+        expected_total: "193.01",
+      }),
+    ).toMatchObject({
+      sheet: "All Tech Weekly Report",
+      name_found: true,
+      total_found: true,
+      formula_count: 0,
+      external_links: 0,
+    });
     harness({ action: "accounting_correct", technician_id: tech.id });
     await page.getByRole("button", { name: "Refresh accounting" }).click();
     await expect(page.locator(".accounting-metrics").first()).toContainText(

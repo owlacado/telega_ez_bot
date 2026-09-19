@@ -661,3 +661,19 @@ resolved defects do not create continuing debt.
 All existing pilot and production blockers remain unchanged. See
 `AUDIT_STAGE7_ACCOUNTING.md` for the independent oracle, 20/20 mutation evidence,
 transaction/write-blocking probes, privacy results, and final gate details.
+
+## Stage 8 weekly XLSX disposition
+
+No new ID and no closure: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
+2 HIGH, 16 MEDIUM, 3 LOW). Weekly XLSX generation consumes the audited canonical
+accounting projection, adds no formula or mutable financial configuration, and does
+not alter TD-015's deployment-scale fleet/lifetime capacity obligation. Local tests
+cover 30 technicians, 100 reports, and 100 expenses with bounded in-memory files and
+four All Tech database statements, but this is not production capacity evidence.
+
+The authoritative legacy tree contains a maintained Python renderer, centralized
+styles, layout documentation, and workbook regression tests but no exact workbook
+artifact. Stage 8 documents this visual-evidence limit without inventing a separate
+debt item because the current renderer is the latest available reference and all
+semantically material styles are preserved. Google Sheets remains planned future
+scope, not technical debt.
