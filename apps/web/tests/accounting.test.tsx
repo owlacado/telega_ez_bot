@@ -87,6 +87,44 @@ it("renders server totals even when visible facts are empty", () => {
   expect(screen.getByText("$143.00")).toBeVisible();
   expect(screen.queryByText(/Net|Profit|Payout/)).not.toBeInTheDocument();
 });
+it("preserves exact server money beyond JavaScript safe integer cents", () => {
+  render(
+    <Totals
+      value={{
+        ...totals,
+        gross_total: "99999999999900.00",
+        expense_total: "90071992547409.91",
+      }}
+    />,
+  );
+  expect(screen.getByText("$99999999999900.00")).toBeVisible();
+  expect(screen.getByText("$90071992547409.91")).toBeVisible();
+  for (const label of [
+    "Cash",
+    "Zelle",
+    "Check",
+    "Credit Card / Cash App",
+    "Venmo",
+    "SUPER",
+    "Estimate",
+    "Cancel",
+  ]) {
+    expect(screen.getByText(label)).toBeVisible();
+  }
+  expect(screen.getAllByText("$0.00")).toHaveLength(2);
+});
+it("uses the server Today date instead of the browser date", async () => {
+  vi.mocked(api).mockResolvedValue({
+    ...current,
+    accounting_timezone: "Asia/Tokyo",
+    calculated_at: "2026-09-18T20:00:00Z",
+    today: "2026-09-19",
+    daily: { ...daily, business_date: "2026-09-19" },
+  });
+  render(<Accounting technicianId="a" />);
+  expect(await screen.findByText("Today · 2026-09-19")).toBeVisible();
+  expect(screen.queryByText("Today · 2026-09-18")).not.toBeInTheDocument();
+});
 it("handles loading then missing timezone without false UTC totals", async () => {
   vi.mocked(api).mockResolvedValue({
     ...context,
@@ -245,4 +283,31 @@ it("ignores an older date response after a newer selection", async () => {
   await screen.findByText("Daily · 2026-09-16");
   await act(async () => resolve({ ...daily, business_date: "2026-09-17" }));
   expect(screen.queryByText("Daily · 2026-09-17")).not.toBeInTheDocument();
+});
+it("ignores an older week response after a newer selection", async () => {
+  let resolve!: (value: unknown) => void;
+  vi.mocked(api).mockImplementation((path) =>
+    path.includes("current")
+      ? Promise.resolve(current)
+      : path.includes("week_start=2026-09-07")
+        ? new Promise((r) => (resolve = r))
+        : Promise.resolve({
+            ...weekly,
+            week_start: "2026-08-31",
+            week_end: "2026-09-06",
+          }),
+  );
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Previous week" }),
+  );
+  await waitFor(() => expect(resolve).toBeDefined());
+  const input = screen.getByLabelText("Week starting Monday");
+  fireEvent.change(input, { target: { value: "2026-08-31" } });
+  await screen.findByText(/Weekly · 2026-08-31/);
+  await act(async () =>
+    resolve({ ...weekly, week_start: "2026-09-07", week_end: "2026-09-13" }),
+  );
+  expect(screen.queryByText(/Weekly · 2026-09-07/)).not.toBeInTheDocument();
 });

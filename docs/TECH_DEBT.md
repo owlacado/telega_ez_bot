@@ -633,3 +633,31 @@ Unproven net/payout/fee formulas remain excluded, not silently guessed.
 Future XLSX/Sheets renderer work is planned Stage 8 scope, not a newly invented
 "exports missing" debt. No financial configuration versioning obligation was added
 because no mutable monetary formula/configuration was proven necessary.
+
+## Independent Stage 7 accounting integrity audit disposition
+
+No new ID or closure: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
+2 HIGH, 16 MEDIUM, 3 LOW). The audit found and fixed one localized Medium API issue:
+duplicate Daily/Weekly selectors are now rejected instead of silently taking the last
+value. It also corrected one Low flaky EXPLAIN assertion that demanded an index scan
+for tiny relations where PostgreSQL may correctly prefer a sequential scan. These
+resolved defects do not create continuing debt.
+
+- **TD-015 remains OPEN, with stronger bounded-scale evidence.** Four service
+  statements returned 10,000 current WorkReports plus 10,000 current Expenses, each
+  retaining a historical revision, in 506.24 ms locally. A separate probe retained
+  1,000 historical revisions behind one current report and expense; query count
+  remained four and only current facts were materialized. Existing technician and
+  unique revision indexes remained in the EXPLAIN path. Lifetime parent scans and
+  fleet concurrency still need deployment-specific capacity evidence.
+- **TD-013, TD-030 and TD-031 remain OPEN.** Repeatable-read gives each accounting
+  response a coherent, read-only profile/current-revision snapshot; it does not add
+  optimistic profile editing or change immutable financial-history retention,
+  anonymization, archive, backup, or transferable form-capability obligations.
+- The independent legacy source/formula search reconfirmed raw computed sheet values
+  and no proven Net/Profit/Payout, SUPER adjustment, commission, fee, or other mutable
+  financial configuration. No speculative debt or Stage 8 export obligation was added.
+
+All existing pilot and production blockers remain unchanged. See
+`AUDIT_STAGE7_ACCOUNTING.md` for the independent oracle, 20/20 mutation evidence,
+transaction/write-blocking probes, privacy results, and final gate details.

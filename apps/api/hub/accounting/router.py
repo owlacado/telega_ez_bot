@@ -3,7 +3,7 @@ from datetime import date as Date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,21 +39,30 @@ class CurrentSelector(Selector):
     pass
 
 
+def reject_duplicate_selector(request: Request, name: str) -> None:
+    if len(request.query_params.getlist(name)) > 1:
+        raise HTTPException(422, f"{name} must be supplied at most once.")
+
+
 @router.get("/daily", response_model=DailyAccounting)
 async def daily(
+    request: Request,
     technician_id: UUID,
     query: Annotated[DailySelector, Query()],
     db: AsyncSession = Depends(session),
 ):
+    reject_duplicate_selector(request, "date")
     return await calculate(db, technician_id, "daily", query.date)
 
 
 @router.get("/weekly", response_model=WeeklyAccounting)
 async def weekly(
+    request: Request,
     technician_id: UUID,
     query: Annotated[WeeklySelector, Query()],
     db: AsyncSession = Depends(session),
 ):
+    reject_duplicate_selector(request, "week_start")
     if query.week_start and (query.week_start.weekday() != 0 or shift(query.week_start, 6) is None):
         raise HTTPException(422, "week_start must be a Monday with seven representable dates.")
     return await calculate(db, technician_id, "weekly", query.week_start)

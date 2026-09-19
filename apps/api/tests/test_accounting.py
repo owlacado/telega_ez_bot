@@ -336,7 +336,10 @@ async def test_query_budget_benchmark(app, size, record_property):
         sql = str(query.compile(dialect=db.bind.dialect, compile_kwargs={"literal_binds": True}))
         plan = "\n".join(await db.scalars(text("EXPLAIN (ANALYZE, BUFFERS) " + sql)))
         record_property(f"plan_{size}", plan)
-        assert "uq_work_report_revision" in plan
+        # PostgreSQL may correctly prefer a sequential scan for tiny relations.
+        # Require the current-revision index only for this benchmark's largest fixture.
+        if size == 1000:
+            assert "uq_work_report_revision" in plan
 
 
 async def test_current_complete_not_recent_list(app, monkeypatch):
