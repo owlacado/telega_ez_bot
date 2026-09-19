@@ -142,15 +142,21 @@ test("mobile Work Report and manager immutable receipt", async ({
     );
     await page.setViewportSize({ width: 1365, height: 1000 });
     await page.goto(`/technicians/${tech.id}`);
-    await expect(page.getByText("1 reports shown")).toBeVisible();
-    await page.getByRole("button", { name: /Cash · \$850.25/ }).click();
-    const detail = page.getByRole("dialog", {
-      name: "Work report · read only",
-    });
+    const saved = (
+      await (
+        await request.get(`/api/technicians/${tech.id}/work-reports`)
+      ).json()
+    ).reports[0];
+    await page.getByRole("button", { name: "Daily report" }).click();
+    await page.getByLabel("Business date").fill(saved.operational_date);
     await expect(
-      detail.getByText("<script>Plain text only</script> 😀"),
+      page
+        .locator(".accounting")
+        .getByText("<script>Plain text only</script> 😀"),
     ).toBeVisible();
-    await expect(detail.getByText("Revision", { exact: true })).toBeVisible();
+    await expect(
+      page.locator(".accounting").getByText("Revision 1"),
+    ).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath("stage5-manager-report.png"),
       fullPage: true,

@@ -1,0 +1,248 @@
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, expect, it, vi } from "vitest";
+import { Accounting, Totals } from "@/components/accounting";
+import { api } from "@/lib/api";
+import type { AccountingTotals } from "@hub/contracts";
+vi.mock("@/lib/api", async (original) => ({
+  ...(await original<typeof import("@/lib/api")>()),
+  api: vi.fn(),
+}));
+const totals: AccountingTotals = {
+  gross_total: "1793.16",
+  expense_total: "150.82",
+  report_count: 11,
+  expense_count: 6,
+  maintenance_count: 3,
+  payments: {
+    CASH: "250.02",
+    ZELLE: "200.02",
+    CHECK: "300.03",
+    CREDIT_CARD: "143.00",
+    VENMO: "500.05",
+    SUPER: "400.04",
+    ESTIMATE: "0.00",
+    CANCEL: "0.00",
+  },
+  reviews: { GOOGLE: 7, GROUPON: 3, FACEBOOK: 7 },
+  closed_by: { MYSELF: 6, CALL_CENTER: 5 },
+};
+const context = {
+  technician_id: "a",
+  technician_name: "Synthetic Tech",
+  accounting_timezone: "America/Los_Angeles",
+  today: "2026-09-18",
+  setup_required: false,
+  calculated_at: "2026-09-18T12:00:00Z",
+};
+const daily = {
+  ...context,
+  business_date: "2026-09-18",
+  previous_date: "2026-09-17",
+  next_date: "2026-09-19",
+  totals,
+  reports: [],
+  expenses: [],
+};
+const weekly = {
+  ...context,
+  week_start: "2026-09-14",
+  week_end: "2026-09-20",
+  previous_week: "2026-09-07",
+  next_week: "2026-09-21",
+  totals,
+  days: Array.from({ length: 7 }, (_, i) => ({
+    ...daily,
+    business_date: `2026-09-${14 + i}`,
+  })),
+};
+const current = { ...context, daily, weekly };
+beforeEach(() => vi.resetAllMocks());
+it("displays canonical overview without doing arithmetic or using recent lists", async () => {
+  vi.mocked(api).mockResolvedValue(current);
+  render(<Accounting technicianId="a" />);
+  const today = await screen.findByRole("region", { name: "Today accounting" });
+  expect(today).toHaveTextContent("$1793.16");
+  expect(today).toHaveTextContent("$150.82");
+  expect(
+    screen.getByRole("region", { name: "This week accounting" }),
+  ).toHaveTextContent("Facebook reviews: 7");
+  expect(api).toHaveBeenCalledTimes(1);
+  expect(api).toHaveBeenCalledWith(
+    "/technicians/a/accounting/current",
+    expect.anything(),
+  );
+});
+it("renders server totals even when visible facts are empty", () => {
+  render(<Totals value={totals} />);
+  expect(screen.getByText("$1793.16")).toBeVisible();
+  expect(screen.getByText("$150.82")).toBeVisible();
+  expect(screen.getByText("$143.00")).toBeVisible();
+  expect(screen.queryByText(/Net|Profit|Payout/)).not.toBeInTheDocument();
+});
+it("handles loading then missing timezone without false UTC totals", async () => {
+  vi.mocked(api).mockResolvedValue({
+    ...context,
+    accounting_timezone: null,
+    setup_required: true,
+    today: null,
+    daily: null,
+    weekly: null,
+  });
+  render(<Accounting technicianId="a" />);
+  expect(
+    await screen.findByText(/configure accounting timezone/),
+  ).toBeVisible();
+  expect(screen.queryByText("$0.00")).not.toBeInTheDocument();
+});
+it("renders empty daily and uses server dates for navigation", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : daily,
+  );
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Daily report" }));
+  expect(
+    await screen.findByText("No work reports for this date."),
+  ).toBeVisible();
+  expect(screen.getByText("No expenses for this date.")).toBeVisible();
+  expect(screen.getByText(/Accounting timezone: America/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Previous day" }));
+  await waitFor(() =>
+    expect(api).toHaveBeenLastCalledWith(
+      "/technicians/a/accounting/daily?date=2026-09-17",
+      expect.anything(),
+    ),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Today" }));
+  await waitFor(() =>
+    expect(api).toHaveBeenLastCalledWith(
+      "/technicians/a/accounting/daily",
+      expect.anything(),
+    ),
+  );
+});
+it("shows seven dates, mixed summary and server week navigation", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : weekly,
+  );
+  const { container } = render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  expect(await screen.findByText(/Weekly · 2026-09-14/)).toBeVisible();
+  expect(container.querySelectorAll("details")).toHaveLength(7);
+  expect(screen.getByText(/Sunday · 2026-09-20/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Previous week" }));
+  await waitFor(() =>
+    expect(api).toHaveBeenLastCalledWith(
+      "/technicians/a/accounting/weekly?week_start=2026-09-07",
+      expect.anything(),
+    ),
+  );
+});
+it("renders report and expense content as plain text", async () => {
+  const detail = {
+    ...daily,
+    reports: [
+      {
+        id: "r",
+        sequence: 1,
+        title: "Synthetic job",
+        location: "<img src=x>",
+        start_time: "09:00",
+        end_time: "10:00",
+        amount: "0.00",
+        payment_method: "ESTIMATE",
+        closed_by: "MYSELF",
+        google_reviews: 1,
+        groupon_reviews: 2,
+        facebook_reviews: 3,
+        maintenance: true,
+        comments: "<script>report</script>",
+        revision_number: 2,
+      },
+    ],
+    expenses: [
+      {
+        id: "e",
+        expense_type: "Gas",
+        amount: "20.00",
+        note: "<script>expense</script>",
+        accounting_timezone: "America/Denver",
+        revision_number: 2,
+      },
+    ],
+  };
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : detail,
+  );
+  const { container } = render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Daily report" }));
+  expect(await screen.findByText("<script>expense</script>")).toBeVisible();
+  expect(screen.getByText("<script>report</script>")).toBeVisible();
+  expect(container.querySelector("script,img")).toBeNull();
+});
+it("hides outdated totals after a refresh error", async () => {
+  vi.mocked(api)
+    .mockResolvedValueOnce(current)
+    .mockRejectedValue(new Error("Unavailable"));
+  render(<Accounting technicianId="a" />);
+  await screen.findByRole("region", { name: "Today accounting" });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Refresh accounting" }),
+  );
+  await screen.findByRole("alert");
+  expect(
+    screen.queryByRole("region", { name: "Today accounting" }),
+  ).not.toBeInTheDocument();
+});
+it("ignores late technician A responses under B", async () => {
+  let resolve!: (value: unknown) => void;
+  vi.mocked(api).mockImplementation((path) =>
+    path.includes("/a/")
+      ? new Promise((r) => (resolve = r))
+      : Promise.resolve({
+          ...current,
+          technician_id: "b",
+          daily: { ...daily, totals: { ...totals, gross_total: "5.00" } },
+        }),
+  );
+  const { rerender } = render(<Accounting technicianId="a" />);
+  rerender(<Accounting technicianId="b" />);
+  await screen.findByText("$5.00");
+  await act(async () => resolve(current));
+  expect(
+    within(screen.getByRole("region", { name: "Today accounting" })).getByText(
+      "$5.00",
+    ),
+  ).toBeVisible();
+});
+it("ignores an older date response after a newer selection", async () => {
+  let resolve!: (value: unknown) => void;
+  vi.mocked(api).mockImplementation((path) =>
+    path.includes("current")
+      ? Promise.resolve(current)
+      : path.includes("date=2026-09-17")
+        ? new Promise((r) => (resolve = r))
+        : Promise.resolve({
+            ...daily,
+            business_date: path.includes("2026-09-16")
+              ? "2026-09-16"
+              : "2026-09-18",
+          }),
+  );
+  render(<Accounting technicianId="a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Daily report" }));
+  const input = await screen.findByLabelText("Business date");
+  fireEvent.change(input, { target: { value: "2026-09-17" } });
+  await waitFor(() => expect(resolve).toBeDefined());
+  fireEvent.change(input, { target: { value: "2026-09-16" } });
+  await screen.findByText("Daily · 2026-09-16");
+  await act(async () => resolve({ ...daily, business_date: "2026-09-17" }));
+  expect(screen.queryByText("Daily · 2026-09-17")).not.toBeInTheDocument();
+});

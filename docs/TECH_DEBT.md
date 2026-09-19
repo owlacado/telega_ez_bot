@@ -606,3 +606,30 @@ remain 0 CRITICAL, 2 HIGH, 16 MEDIUM, 3 LOW. See [the audit](AUDIT_STAGE6_EXPENS
 
 The audit fixes expense integrity defects; it does not approve pilot/production,
 execute provider acceptance, or introduce Stage 7 accounting, Contracts or GPS.
+
+## Stage 7 accounting disposition
+
+No new IDs or closures: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
+2 HIGH, 16 MEDIUM, 3 LOW). Accounting parity is bounded to the documented fixed
+categories and explicit operational-date normalization; see ACCOUNTING_PARITY.md.
+Unproven net/payout/fee formulas remain excluded, not silently guessed.
+
+- **TD-015 remains OPEN, partial remediation.** Canonical daily/weekly reads use
+  four fixed service statements and indexed current-revision lookups; synthetic
+  10/100/1,000 report-plus-expense histories are benchmarked. Parent lookup cost
+  still grows with a technician's lifetime canonical record count. Much larger
+  histories/fleet concurrency require deployment capacity/EXPLAIN evidence before
+  adding indexes or admission controls. No all-tech query loop was introduced.
+- **TD-013 remains OPEN.** A response captures one profile/revision snapshot, but
+  profile optimistic editing remains unresolved. Historical accounting dates do
+  not move after zone changes.
+- **TD-030/031 remain OPEN.** Accounting manager reads do not change transferable
+  form capabilities, dedicated TEST acceptance or immutable financial/customer
+  history retention/anonymization/archive/backup obligations.
+- All sixteen pilot blockers remain **TD-010/011/012/013/014/017/018/022/023/025/026/
+  027/028/029/030/031**. Production additionally requires **TD-016/019/020**.
+  TD-024 remains later scale. No provider acceptance or deployment approval is claimed.
+
+Future XLSX/Sheets renderer work is planned Stage 8 scope, not a newly invented
+"exports missing" debt. No financial configuration versioning obligation was added
+because no mutable monetary formula/configuration was proven necessary.

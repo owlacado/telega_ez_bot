@@ -30,3 +30,8 @@ export type ExpenseReceipt = components["schemas"]["ExpenseReceipt"];
 export type ExpenseInput = components["schemas"]["ExpenseInput"];
 export type ExpenseRead = components["schemas"]["ExpenseRead"];
 export type ExpenseList = components["schemas"]["ExpenseList"];
+
+export type DailyAccounting = components["schemas"]["DailyAccounting"];
+export type WeeklyAccounting = components["schemas"]["WeeklyAccounting"];
+export type CurrentAccounting = components["schemas"]["CurrentAccounting"];
+export type AccountingTotals = components["schemas"]["AccountingTotals"];

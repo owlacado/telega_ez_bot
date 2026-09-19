@@ -1,0 +1,404 @@
+{
+  "provenance": "Executed authoritative legacy _build_technician AST with synthetic objects; additive daily/closer metrics from expenses/daily_report.py. Submission dates aligned to operational dates for arithmetic parity; date divergence tested separately.",
+  "week_start": "2026-09-14",
+  "timezone": "America/Los_Angeles",
+  "reports": [
+    {
+      "day": 0,
+      "payment_method": "CASH",
+      "legacy_payment": "CASH",
+      "amount": "100.01",
+      "google": 3,
+      "groupon": 1,
+      "facebook": 2,
+      "maintenance": true,
+      "closed_by": "MYSELF",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 0,
+      "payment_method": "CREDIT_CARD",
+      "legacy_payment": "CREDIT_CARD",
+      "amount": "93.00",
+      "google": 0,
+      "groupon": 0,
+      "facebook": 0,
+      "maintenance": false,
+      "closed_by": "CALL_CENTER",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 1,
+      "payment_method": "ZELLE",
+      "legacy_payment": "ZELLE",
+      "amount": "200.02",
+      "google": 1,
+      "groupon": 0,
+      "facebook": 0,
+      "maintenance": false,
+      "closed_by": "MYSELF",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 1,
+      "payment_method": "CHECK",
+      "legacy_payment": "CHECK",
+      "amount": "300.03",
+      "google": 0,
+      "groupon": 2,
+      "facebook": 0,
+      "maintenance": true,
+      "closed_by": "CALL_CENTER",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 3,
+      "payment_method": "SUPER",
+      "legacy_payment": "SUPER",
+      "amount": "400.04",
+      "google": 0,
+      "groupon": 0,
+      "facebook": 3,
+      "maintenance": false,
+      "closed_by": "MYSELF",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 3,
+      "payment_method": "VENMO",
+      "legacy_payment": "VENMO",
+      "amount": "500.05",
+      "google": 0,
+      "groupon": 0,
+      "facebook": 0,
+      "maintenance": false,
+      "closed_by": "CALL_CENTER",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 4,
+      "payment_method": "ESTIMATE",
+      "legacy_payment": "ESTIMATE",
+      "amount": "0.00",
+      "google": 1,
+      "groupon": 0,
+      "facebook": 0,
+      "maintenance": false,
+      "closed_by": "MYSELF",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 4,
+      "payment_method": "CANCEL",
+      "legacy_payment": "CANCEL",
+      "amount": "0.00",
+      "google": 0,
+      "groupon": 0,
+      "facebook": 1,
+      "maintenance": false,
+      "closed_by": "CALL_CENTER",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 6,
+      "payment_method": "CASH",
+      "legacy_payment": "CASH",
+      "amount": "0.01",
+      "google": 0,
+      "groupon": 0,
+      "facebook": 0,
+      "maintenance": false,
+      "closed_by": "MYSELF",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 6,
+      "payment_method": "CREDIT_CARD",
+      "legacy_payment": "CASH_APP",
+      "amount": "50.00",
+      "google": 0,
+      "groupon": 0,
+      "facebook": 0,
+      "maintenance": false,
+      "closed_by": "MYSELF",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 6,
+      "payment_method": "CASH",
+      "legacy_payment": "CASH",
+      "amount": "150.00",
+      "google": 2,
+      "groupon": 0,
+      "facebook": 1,
+      "maintenance": true,
+      "closed_by": "CALL_CENTER",
+      "revision_number": 2,
+      "previous_amount": "100.00"
+    }
+  ],
+  "expenses": [
+    {
+      "day": 0,
+      "amount": "47.23",
+      "expense_type": "Synthetic supplies",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 0,
+      "amount": "38.59",
+      "expense_type": "Synthetic supplies",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 5,
+      "amount": "20.00",
+      "expense_type": "Synthetic supplies",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 5,
+      "amount": "20.00",
+      "expense_type": "Synthetic supplies",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 5,
+      "amount": "0.00",
+      "expense_type": "Synthetic supplies",
+      "revision_number": 1,
+      "previous_amount": null
+    },
+    {
+      "day": 6,
+      "amount": "25.00",
+      "expense_type": "Synthetic supplies",
+      "revision_number": 2,
+      "previous_amount": "40.00"
+    }
+  ],
+  "weekly": {
+    "gross_total": "1793.16",
+    "expense_total": "150.82",
+    "report_count": 11,
+    "expense_count": 6,
+    "maintenance_count": 3,
+    "reviews": {
+      "GOOGLE": 7,
+      "GROUPON": 3,
+      "FACEBOOK": 7
+    },
+    "payments": {
+      "ZELLE": "200.02",
+      "CHECK": "300.03",
+      "CREDIT_CARD": "143.00",
+      "VENMO": "500.05",
+      "SUPER": "400.04",
+      "CASH": "250.02",
+      "ESTIMATE": "0.00",
+      "CANCEL": "0.00"
+    },
+    "closed_by": {
+      "MYSELF": 6,
+      "CALL_CENTER": 5
+    }
+  },
+  "days": [
+    {
+      "gross_total": "193.01",
+      "expense_total": "85.82",
+      "report_count": 2,
+      "expense_count": 2,
+      "maintenance_count": 1,
+      "reviews": {
+        "GOOGLE": 3,
+        "GROUPON": 1,
+        "FACEBOOK": 2
+      },
+      "payments": {
+        "ZELLE": "0.00",
+        "CHECK": "0.00",
+        "CREDIT_CARD": "93.00",
+        "VENMO": "0.00",
+        "SUPER": "0.00",
+        "CASH": "100.01",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 1,
+        "CALL_CENTER": 1
+      }
+    },
+    {
+      "gross_total": "500.05",
+      "expense_total": "0.00",
+      "report_count": 2,
+      "expense_count": 0,
+      "maintenance_count": 1,
+      "reviews": {
+        "GOOGLE": 1,
+        "GROUPON": 2,
+        "FACEBOOK": 0
+      },
+      "payments": {
+        "ZELLE": "200.02",
+        "CHECK": "300.03",
+        "CREDIT_CARD": "0.00",
+        "VENMO": "0.00",
+        "SUPER": "0.00",
+        "CASH": "0.00",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 1,
+        "CALL_CENTER": 1
+      }
+    },
+    {
+      "gross_total": "0.00",
+      "expense_total": "0.00",
+      "report_count": 0,
+      "expense_count": 0,
+      "maintenance_count": 0,
+      "reviews": {
+        "GOOGLE": 0,
+        "GROUPON": 0,
+        "FACEBOOK": 0
+      },
+      "payments": {
+        "ZELLE": "0.00",
+        "CHECK": "0.00",
+        "CREDIT_CARD": "0.00",
+        "VENMO": "0.00",
+        "SUPER": "0.00",
+        "CASH": "0.00",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 0,
+        "CALL_CENTER": 0
+      }
+    },
+    {
+      "gross_total": "900.09",
+      "expense_total": "0.00",
+      "report_count": 2,
+      "expense_count": 0,
+      "maintenance_count": 0,
+      "reviews": {
+        "GOOGLE": 0,
+        "GROUPON": 0,
+        "FACEBOOK": 3
+      },
+      "payments": {
+        "ZELLE": "0.00",
+        "CHECK": "0.00",
+        "CREDIT_CARD": "0.00",
+        "VENMO": "500.05",
+        "SUPER": "400.04",
+        "CASH": "0.00",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 1,
+        "CALL_CENTER": 1
+      }
+    },
+    {
+      "gross_total": "0.00",
+      "expense_total": "0.00",
+      "report_count": 2,
+      "expense_count": 0,
+      "maintenance_count": 0,
+      "reviews": {
+        "GOOGLE": 1,
+        "GROUPON": 0,
+        "FACEBOOK": 1
+      },
+      "payments": {
+        "ZELLE": "0.00",
+        "CHECK": "0.00",
+        "CREDIT_CARD": "0.00",
+        "VENMO": "0.00",
+        "SUPER": "0.00",
+        "CASH": "0.00",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 1,
+        "CALL_CENTER": 1
+      }
+    },
+    {
+      "gross_total": "0.00",
+      "expense_total": "40.00",
+      "report_count": 0,
+      "expense_count": 3,
+      "maintenance_count": 0,
+      "reviews": {
+        "GOOGLE": 0,
+        "GROUPON": 0,
+        "FACEBOOK": 0
+      },
+      "payments": {
+        "ZELLE": "0.00",
+        "CHECK": "0.00",
+        "CREDIT_CARD": "0.00",
+        "VENMO": "0.00",
+        "SUPER": "0.00",
+        "CASH": "0.00",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 0,
+        "CALL_CENTER": 0
+      }
+    },
+    {
+      "gross_total": "200.01",
+      "expense_total": "25.00",
+      "report_count": 3,
+      "expense_count": 1,
+      "maintenance_count": 1,
+      "reviews": {
+        "GOOGLE": 2,
+        "GROUPON": 0,
+        "FACEBOOK": 1
+      },
+      "payments": {
+        "ZELLE": "0.00",
+        "CHECK": "0.00",
+        "CREDIT_CARD": "50.00",
+        "VENMO": "0.00",
+        "SUPER": "0.00",
+        "CASH": "150.01",
+        "ESTIMATE": "0.00",
+        "CANCEL": "0.00"
+      },
+      "closed_by": {
+        "MYSELF": 2,
+        "CALL_CENTER": 1
+      }
+    }
+  ]
+}

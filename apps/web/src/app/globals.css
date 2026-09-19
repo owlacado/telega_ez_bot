@@ -673,7 +673,7 @@ a:focus-visible,
   justify-content: center;
   background: #f1eff9;
   border: 1px solid #e9e5f5;
-  color: #897ab8;
+  color: #6554a0;
   border-radius: 5px;
   padding: 2px 7px;
   font-size: 10px;
@@ -1905,4 +1905,112 @@ td > small {
 
 .expense-receipt {
   overflow-wrap: anywhere;
+}
+
+.accounting {
+  min-width: 0;
+}
+.accounting-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+  align-items: center;
+}
+.accounting-navigation label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.accounting-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.accounting-metrics div {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.accounting-metrics dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.accounting-metrics dd {
+  margin: 6px 0 0;
+  font-size: 22px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.accounting-reviews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+}
+.accounting-buckets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.accounting-buckets div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.accounting-buckets dd {
+  margin: 0;
+}
+.accounting-fact {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.accounting-fact > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.accounting-fact p {
+  margin: 6px 0;
+}
+.accounting-fact small {
+  color: var(--muted);
+}
+.accounting-date {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+.accounting-date summary {
+  cursor: pointer;
+  line-height: 1.7;
+}
+.accounting-day {
+  padding: 8px 0;
+}
+
+.accounting .panel-heading {
+  flex-wrap: wrap;
+}
+.accounting-body {
+  padding: 20px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.accounting-body section + section {
+  margin-top: 24px;
+}
+.accounting-navigation label,
+.accounting-navigation input {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 700px) {
+  .accounting-body {
+    padding: 16px;
+  }
 }

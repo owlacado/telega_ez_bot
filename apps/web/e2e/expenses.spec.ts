@@ -121,16 +121,14 @@ test("mobile expenses: lost response, new identical expense, manager facts", asy
     );
     await page.setViewportSize({ width: 1365, height: 1000 });
     await page.goto(`/technicians/${tech.id}`);
-    await expect(page.getByText(/Today.*40.02/)).toBeVisible();
-    await page
-      .getByRole("button", { name: /Parking.*20.01/ })
-      .first()
-      .click();
-    const detail = page.getByRole("dialog", { name: "Expense · read only" });
     await expect(
-      detail.getByText("<script>literal expense</script>"),
+      page.getByRole("region", { name: "Today accounting" }),
+    ).toContainText("$40.02");
+    await page.getByRole("button", { name: "Daily report" }).click();
+    await expect(
+      page.getByText("<script>literal expense</script>").first(),
     ).toBeVisible();
-    expect(await detail.locator("script").count()).toBe(0);
+    expect(await page.locator(".accounting script").count()).toBe(0);
     await page.screenshot({
       path: testInfo.outputPath("stage6-manager-expense.png"),
       fullPage: true,

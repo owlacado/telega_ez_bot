@@ -178,3 +178,13 @@ timezone** in their profile first; existing profiles have no default. No receipt
 upload, Google Form/Sheet mapping, corrections, payout or full accounting is added.
 See [Expenses](docs/EXPENSES.md), [legacy evidence](docs/LEGACY_EXPENSE_INVENTORY.md),
 and [verification](docs/STAGE6_EXPENSES_VERIFICATION.md).
+
+## Stage 7: canonical accounting
+
+The technician profile now offers Today / This Week accounting plus Daily and
+Weekly views, calculated from current PostgreSQL report and expense revisions.
+Money remains exact decimal strings; historical business dates are preserved.
+
+See [Accounting](docs/ACCOUNTING.md), [legacy formula inventory](docs/LEGACY_ACCOUNTING_INVENTORY.md),
+[parity decisions](docs/ACCOUNTING_PARITY.md) and [verification](docs/STAGE7_ACCOUNTING_VERIFICATION.md).
+XLSX/Sheets mirrors and Stage 8 are not implemented.

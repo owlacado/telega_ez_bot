@@ -89,6 +89,66 @@ async def main():
                         "work_reports, expense_revisions, technician_expenses"
                     )
                 )
+        elif action == "accounting_setup":
+            from datetime import datetime, timedelta
+            from uuid import UUID
+            from zoneinfo import ZoneInfo
+
+            from tests.accounting_data import seed
+
+            today = datetime.now(ZoneInfo("America/Los_Angeles")).date()
+            tid = UUID(payload["technician_id"])
+            await seed(
+                factory,
+                today,
+                technician_id=tid,
+                reports=[
+                    dict(day=0, amount="100.01", payment_method="CASH", google=3, facebook=2),
+                    dict(
+                        day=0,
+                        amount="93.00",
+                        payment_method="CREDIT_CARD",
+                        groupon=1,
+                        closed_by="CALL_CENTER",
+                        maintenance=True,
+                    ),
+                ],
+                expenses=[dict(day=0, amount="20.00"), dict(day=0, amount="20.00")],
+            )
+            await seed(
+                factory,
+                today - timedelta(days=today.weekday() + 7),
+                technician_id=tid,
+                reports=[dict(day=0, amount="55.00", payment_method="SUPER")],
+                expenses=[],
+            )
+            print(json.dumps({"today": str(today)}))
+        elif action == "accounting_correct":
+            from uuid import UUID
+
+            from sqlalchemy import text
+
+            async with factory() as db, db.begin():
+                await db.execute(text("SET LOCAL session_replication_role = replica"))
+                identifier = await db.scalar(
+                    text("""SELECT w.id FROM work_reports w
+                    JOIN work_report_revisions r ON r.report_id=w.id AND
+                    r.revision_number=w.current_revision_number
+                    WHERE technician_id=:tid AND payment_method='CASH'"""),
+                    {"tid": UUID(payload["technician_id"])},
+                )
+                await db.execute(
+                    text("""INSERT INTO work_report_revisions SELECT
+                    (jsonb_populate_record(NULL::work_report_revisions, to_jsonb(r) ||
+                    jsonb_build_object('id',gen_random_uuid(),'revision_number',2,
+                    'amount_closed',175.01))).* FROM work_report_revisions r
+                    WHERE report_id=:id AND revision_number=1"""),
+                    {"id": identifier},
+                )
+                await db.execute(
+                    text("UPDATE work_reports SET current_revision_number=2 WHERE id=:id"),
+                    {"id": identifier},
+                )
         elif action == "expense_setup":
             from uuid import UUID
 

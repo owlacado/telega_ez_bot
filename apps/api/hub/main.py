@@ -9,6 +9,7 @@ from sqlalchemy.pool import NullPool
 from starlette.concurrency import run_in_threadpool
 
 import hub.models  # noqa: F401
+from hub.accounting.router import router as accounting_router
 from hub.auth.middleware import install_auth
 from hub.auth.router import router as auth_router
 from hub.auth.security import password_hasher, random_token
@@ -72,6 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(schedule_router)
     app.include_router(reports_router)
     app.include_router(expenses_router)
+    app.include_router(accounting_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):
@@ -84,14 +86,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response = await call_next(request)
         except Exception:
             tags = getattr(request.scope.get("route"), "tags", ())
-            if not {"calendar-events", "work-reports", "expenses"}.intersection(tags):
+            if not {"calendar-events", "work-reports", "expenses", "accounting"}.intersection(tags):
                 raise
             # Unexpected schedule failures must retain privacy headers too. Never
             # serialize/log the exception, whose arguments can contain provider PII.
             from starlette.responses import JSONResponse
 
             module = (
-                "expenses"
+                "accounting"
+                if "accounting" in tags
+                else "expenses"
                 if "expenses" in tags
                 else "work_reports"
                 if "work-reports" in tags
