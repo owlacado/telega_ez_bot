@@ -397,3 +397,30 @@ it("shows a safe workbook authorization or server error", async () => {
     screen.queryByText(/stack|filesystem|traceback/i),
   ).not.toBeInTheDocument();
 });
+it("keeps a pending technician download bound to its request across navigation", async () => {
+  let resolveFirst!: (value: string) => void;
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.includes("current") ? current : weekly,
+  );
+  vi.mocked(download)
+    .mockImplementationOnce(
+      () => new Promise((completion) => (resolveFirst = completion)),
+    )
+    .mockResolvedValueOnce("technician-b.xlsx");
+  const view = render(<Accounting technicianId="technician-a" />);
+  await userEvent.click(screen.getByRole("button", { name: "Weekly report" }));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Download XLSX" }),
+  );
+  expect(download).toHaveBeenCalledWith(
+    "/technicians/technician-a/accounting/weekly.xlsx?week_start=2026-09-14",
+  );
+  view.rerender(<Accounting technicianId="technician-b" />);
+  await act(async () => resolveFirst("technician-a.xlsx"));
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Download XLSX" }),
+  );
+  expect(download).toHaveBeenLastCalledWith(
+    "/technicians/technician-b/accounting/weekly.xlsx?week_start=2026-09-14",
+  );
+});

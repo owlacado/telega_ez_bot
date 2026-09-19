@@ -150,6 +150,7 @@ async def main():
                     {"id": identifier},
                 )
         elif action == "xlsx_inspect":
+            from datetime import datetime
             from decimal import Decimal
 
             from openpyxl import load_workbook
@@ -159,30 +160,70 @@ async def main():
             if workbook_path.suffix.lower() != ".xlsx" or root not in workbook_path.parents:
                 raise RuntimeError("Workbook inspection is limited to local test artifacts")
             book = load_workbook(workbook_path, data_only=False, keep_links=False)
-            values = [
-                cell.value
+            cells = [
+                cell
                 for worksheet in book.worksheets
                 for row in worksheet.iter_rows()
                 for cell in row
                 if cell.value is not None
             ]
+            values = [cell.value for cell in cells]
             expected_total = Decimal(payload["expected_total"])
+            expected_names = payload.get("expected_names", [payload["expected_name"]])
+            expected_week_start = payload.get("expected_week_start")
+            week_token = (
+                datetime.fromisoformat(expected_week_start).strftime("%m/%d/%Y")
+                if expected_week_start
+                else None
+            )
+            first = book.active
+            band_titles = [
+                first.cell(1, column).value
+                for column in range(1, first.max_column + 1, 13)
+                if first.cell(1, column).value
+            ]
+            style_columns = [1 + index * 13 for index in range(len(expected_names))]
             print(
                 json.dumps(
                     {
                         "sheet": book.active.title,
                         "name_found": payload["expected_name"] in values,
+                        "expected_names_found": all(name in values for name in expected_names),
+                        "band_titles": band_titles,
+                        "expected_band_titles": [
+                            name for name in band_titles if name in expected_names
+                        ],
+                        "week_found": week_token is None
+                        or any(week_token in value for value in values if isinstance(value, str)),
                         "total_found": any(
                             isinstance(value, (int, float))
                             and Decimal(str(value)).quantize(Decimal("0.01")) == expected_total
                             for value in values
                         ),
-                        "formula_count": sum(
-                            cell.data_type == "f"
-                            for worksheet in book.worksheets
-                            for row in worksheet.iter_rows()
-                            for cell in row
+                        "total_match_count": sum(
+                            isinstance(value, (int, float))
+                            and Decimal(str(value)).quantize(Decimal("0.01")) == expected_total
+                            for value in values
                         ),
+                        "expense_total_found": payload.get("expected_expense") is None
+                        or Decimal(str(first["L38"].value)).quantize(Decimal("0.01"))
+                        == Decimal(payload["expected_expense"]),
+                        "cash_found": payload.get("expected_cash") is None
+                        or Decimal(str(first["L44"].value)).quantize(Decimal("0.01"))
+                        == Decimal(payload["expected_cash"]),
+                        "google_reviews_found": payload.get("expected_google") is None
+                        or first["L40"].value == payload["expected_google"],
+                        "representative_styles": first["A2"].fill.fgColor.rgb == "FF7D98D3"
+                        and first["A3"].fill.fgColor.rgb == "FFFFFF00"
+                        and first["C4"].number_format == "$#,##0.00"
+                        and first["L58"].number_format == "$#,##0.00",
+                        "block_style_parity": all(
+                            first.cell(2, column)._style == first["A2"]._style
+                            and first.cell(3, column)._style == first["A3"]._style
+                            for column in style_columns
+                        ),
+                        "formula_count": sum(cell.data_type == "f" for cell in cells),
+                        "hyperlink_count": sum(cell.hyperlink is not None for cell in cells),
                         "external_links": len(book._external_links),
                         "size": workbook_path.stat().st_size,
                     }

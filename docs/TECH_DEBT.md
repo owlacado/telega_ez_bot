@@ -1,7 +1,7 @@
 # Technical debt register
 
-Current Stage 6 disposition: **31 entries, 10 RESOLVED, 21 OPEN** (0 CRITICAL,
-2 HIGH, 16 MEDIUM, 3 LOW). Historical counts below describe earlier stages.
+Current Stage 8 audit disposition: **32 entries, 10 RESOLVED, 22 OPEN** (0 CRITICAL,
+2 HIGH, 16 MEDIUM, 4 LOW). Historical counts below describe earlier stages.
 No existing debt is closed by Work Reports or Expenses.
 
 Manager CLI blocker follow-up: the user confirmed a password shorter than 14
@@ -677,3 +677,39 @@ artifact. Stage 8 documents this visual-evidence limit without inventing a separ
 debt item because the current renderer is the latest available reference and all
 semantically material styles are preserved. Google Sheets remains planned future
 scope, not technical debt.
+
+## TD-032: Extremely long XLSX cell display remains approximate
+
+- **Severity:** LOW
+- **Area:** Weekly XLSX layout / long text
+- **Description:** The workbook preserves the full canonical job location and Expense
+  note, wraps it, and caps calculated row height at 180 points. A maximum 4,000-character
+  Expense note cannot be fully visible at once within that bounded legacy row geometry.
+- **Why it matters:** Accountants can inspect or expand the cell and no data is lost, but
+  the initial Excel view can clip unusually long text. OpenPyXL cannot request Excel
+  AutoFit, and Excel itself caps row height.
+- **Evidence:** The independent Stage 8 audit reopens 2,000-character locations and
+  4,000-character notes without truncation, proves adjacent blocks and later day rows do
+  not overlap, and records the bounded 180-point height.
+- **Recommended remediation:** Before much larger free-text use, approve a presentation
+  policy such as a separate detail sheet, continuation rows, or an explicitly marked
+  display excerpt while preserving the full canonical value. Verify the chosen design in
+  supported desktop Excel versions.
+- **Required before milestone:** LATER SCALE
+- **Status:** OPEN
+
+## Independent Stage 8 weekly XLSX audit disposition
+
+The audit adds **TD-032** and closes no existing item: **32 entries, 10 RESOLVED,
+22 OPEN** (0 CRITICAL, 2 HIGH, 16 MEDIUM, 4 LOW). One localized Medium reliability
+defect was fixed: U+FFFE, U+FFFF, or lone UTF-16 surrogate code points could be written
+into worksheet XML that OpenPyXL saved but could not reopen. Central safe-text
+normalization now removes those XML-prohibited code points, with full regression
+coverage across every text surface.
+
+TD-015 remains the fleet-size and response-memory obligation. Local 31/50/100-tech
+probes are approximately linear and the renderer remains in-memory; they are useful
+bounded evidence rather than production capacity approval. TD-032 records only the
+long-cell display approximation. The existing pilot blockers and the additional
+TD-016/019/020 production blockers remain unchanged. Google Sheets is future scope,
+not debt.

@@ -13,6 +13,7 @@ test("canonical accounting daily weekly and current revision", async ({
       },
     })
   ).json();
+  const extraTechs: { id: string }[] = [];
   await request.patch(`/api/technicians/${tech.id}`, {
     data: { accounting_timezone: "America/Los_Angeles" },
   });
@@ -21,6 +22,21 @@ test("canonical accounting daily weekly and current revision", async ({
       action: "accounting_setup",
       technician_id: tech.id,
     });
+    for (const [first_name, last_name] of [
+      ["Bravo", "Fictional"],
+      ["Zulu", "Fictional"],
+    ]) {
+      const extra = await (
+        await request.post("/api/technicians", {
+          data: { first_name, last_name },
+        })
+      ).json();
+      extraTechs.push(extra);
+      await request.patch(`/api/technicians/${extra.id}`, {
+        data: { accounting_timezone: "America/Los_Angeles" },
+      });
+      harness({ action: "accounting_setup", technician_id: extra.id });
+    }
     await page.goto(`/technicians/${tech.id}`);
     const region = page.getByRole("region", { name: "Today accounting" });
     await expect(region).toContainText(today);
@@ -51,10 +67,39 @@ test("canonical accounting daily weekly and current revision", async ({
     await expect(page.locator(".accounting-metrics").first()).toContainText(
       "$55.00",
     );
+    const historicalHeading = await page
+      .locator(".accounting h3")
+      .textContent();
+    const historicalWeek = historicalHeading?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+    expect(historicalWeek).toBeTruthy();
+    const historicalDownload = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download XLSX" }).click();
+    const historical = await historicalDownload;
+    const historicalPath = testInfo.outputPath("historical-weekly.xlsx");
+    await historical.saveAs(historicalPath);
+    expect(
+      harness({
+        action: "xlsx_inspect",
+        path: historicalPath,
+        expected_name: "Accounting Fictional",
+        expected_total: "55.00",
+        expected_week_start: historicalWeek,
+      }),
+    ).toMatchObject({
+      name_found: true,
+      week_found: true,
+      total_found: true,
+      formula_count: 0,
+      hyperlink_count: 0,
+      external_links: 0,
+    });
     await page.getByRole("button", { name: "Current week" }).click();
     await expect(page.locator(".accounting-metrics").first()).toContainText(
       "$193.01",
     );
+    const currentHeading = await page.locator(".accounting h3").textContent();
+    const currentWeek = currentHeading?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+    expect(currentWeek).toBeTruthy();
     const individualDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download XLSX" }).click();
     const individual = await individualDownload;
@@ -69,12 +114,22 @@ test("canonical accounting daily weekly and current revision", async ({
         path: individualPath,
         expected_name: "Accounting Fictional",
         expected_total: "193.01",
+        expected_week_start: currentWeek,
+        expected_expense: "40.00",
+        expected_cash: "100.01",
+        expected_google: 3,
       }),
     ).toMatchObject({
       sheet: "Weekly Report",
       name_found: true,
       total_found: true,
+      week_found: true,
+      expense_total_found: true,
+      cash_found: true,
+      google_reviews_found: true,
+      representative_styles: true,
       formula_count: 0,
+      hyperlink_count: 0,
       external_links: 0,
     });
     const allTechDownload = page.waitForEvent("download");
@@ -90,13 +145,36 @@ test("canonical accounting daily weekly and current revision", async ({
         action: "xlsx_inspect",
         path: allTechPath,
         expected_name: "Accounting Fictional",
+        expected_names: [
+          "Accounting Fictional",
+          "Bravo Fictional",
+          "Zulu Fictional",
+        ],
         expected_total: "193.01",
+        expected_week_start: currentWeek,
+        expected_expense: "40.00",
+        expected_cash: "100.01",
+        expected_google: 3,
       }),
     ).toMatchObject({
       sheet: "All Tech Weekly Report",
       name_found: true,
+      expected_names_found: true,
+      expected_band_titles: [
+        "Accounting Fictional",
+        "Bravo Fictional",
+        "Zulu Fictional",
+      ],
       total_found: true,
+      total_match_count: 3,
+      week_found: true,
+      expense_total_found: true,
+      cash_found: true,
+      google_reviews_found: true,
+      representative_styles: true,
+      block_style_parity: true,
       formula_count: 0,
+      hyperlink_count: 0,
       external_links: 0,
     });
     harness({ action: "accounting_correct", technician_id: tech.id });
@@ -124,11 +202,19 @@ test("canonical accounting daily weekly and current revision", async ({
     });
   } finally {
     harness({ action: "expense_cleanup" });
-    const current = await (
-      await request.get(`/api/technicians/${tech.id}`)
-    ).json();
-    await request.delete(`/api/technicians/${tech.id}`, {
-      data: { confirmation: "DELETE", expected_updated_at: current.updated_at },
-    });
+    for (const currentTech of [tech, ...extraTechs]) {
+      const currentResponse = await request.get(
+        `/api/technicians/${currentTech.id}`,
+      );
+      if (currentResponse.ok()) {
+        const current = await currentResponse.json();
+        await request.delete(`/api/technicians/${currentTech.id}`, {
+          data: {
+            confirmation: "DELETE",
+            expected_updated_at: current.updated_at,
+          },
+        });
+      }
+    }
   }
 });

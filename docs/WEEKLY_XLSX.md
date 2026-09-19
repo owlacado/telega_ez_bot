@@ -65,6 +65,12 @@ Inactive empty technicians and active technicians created after the historical w
 are excluded. Ordering is display-name `casefold()` followed by UUID, which remains
 stable even for duplicate names.
 
+Technician names are current profile values because Technician Hub does not store a
+historical display-name snapshot. An inactive technician with week facts therefore
+appears under the current name. A technician now inactive with no facts is excluded
+even if they may have been active during that historical week; status history is not
+available to infer otherwise.
+
 The All Tech service uses four statements regardless of technician count: read-only
 repeatable-read setup, technician context plus the database clock, all current report
 revisions, and all current expense revisions. Every technician's canonical
@@ -72,10 +78,12 @@ revisions, and all current expense revisions. Every technician's canonical
 
 ## Safety
 
-All strings pass through one spreadsheet-safe writer. It removes only XML-invalid
-control characters, preserves Unicode, punctuation, emoji, and line breaks, and
-forces the OOXML string data type. Text beginning with `=`, `+`, `-`, or `@` therefore
-remains literal after workbook reload. Arbitrary text is not converted to hyperlinks.
+All strings pass through one spreadsheet-safe writer. It removes XML-invalid control
+characters, lone UTF-16 surrogates, and U+FFFE/U+FFFF; preserves legitimate Unicode,
+combining characters, RTL text, zero-width characters, punctuation, emoji, tabs, and
+line breaks; and forces the OOXML string data type. Text beginning with `=`, `+`, `-`,
+or `@` therefore remains literal after workbook reload. Arbitrary URLs, file/UNC
+paths, and mail or script-like URI text are not converted to hyperlinks.
 
 Worksheet names are fixed safe product names. Filename components are Unicode-
 normalized to bounded ASCII letters, numbers, underscores, and hyphens. Slashes,
@@ -98,6 +106,11 @@ large totals without a narrow-column `######` condition.
 Job title/location and expense type/note cells wrap. Row height grows to a bounded
 readable height, while the full text remains in the cell. A 100-report/100-expense
 workbook reopens with every row present and with canonical totals unchanged.
+
+The row-height estimate is deliberately capped at 180 points. It prevents one
+maliciously long value from creating pathological geometry, but a 4,000-character
+note is not fully visible in the initial Excel view even though the complete value is
+retained. This later-scale presentation limitation is tracked as TD-032.
 
 ## Current limitations and future renderer contract
 

@@ -69,7 +69,7 @@ TECHNICIAN_COLUMN_STRIDE = 13
 MIN_JOB_ROWS = 15
 MIN_BLOCK_ROWS = 119
 BAND_GAP_ROWS = 3
-_INVALID_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+_INVALID_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\ud800-\udfff\ufffe\uffff]")
 _FILENAME_UNSAFE = re.compile(r"[^A-Za-z0-9_-]+")
 _THIN = Side(style="thin", color=BLACK)
 _GRID = Border(left=_THIN, right=_THIN, top=_THIN, bottom=_THIN)
