@@ -139,6 +139,17 @@ async def configure(
     if not connection or connection.status == "DISCONNECTED":
         raise HTTPException(409, "Connect Google before configuring a mirror.")
     target = await get_target(db, kind, technician_id, lock=True)
+    conflict_query = select(AccountingMirrorTarget.id).where(
+        AccountingMirrorTarget.spreadsheet_id == identifier
+    )
+    if target:
+        conflict_query = conflict_query.where(AccountingMirrorTarget.id != target.id)
+    conflict = await db.scalar(conflict_query)
+    if conflict:
+        raise HTTPException(
+            409,
+            "This Spreadsheet is already assigned to another accounting mirror.",
+        )
     if target is None:
         target = AccountingMirrorTarget(
             kind=kind,
@@ -222,8 +233,16 @@ async def worker_state(db) -> str:
     )
     if running:
         return "RUNNING"
-    count = await db.scalar(select(func.count()).select_from(AccountingMirrorWorkerState))
-    return "STALE" if count else "MISSING"
+    latest = await db.scalar(
+        select(AccountingMirrorWorkerState).order_by(
+            AccountingMirrorWorkerState.heartbeat_at.desc()
+        )
+    )
+    if latest is None:
+        return "MISSING"
+    if latest.status in {"STOPPED", "ERROR"}:
+        return latest.status
+    return "STALE"
 
 
 async def status(

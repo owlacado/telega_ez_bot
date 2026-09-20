@@ -1,7 +1,7 @@
 "use client";
 
 import type { AccountingMirrorStatus, GoogleConnection } from "@hub/contracts";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ApiError, api, errorMessage, json } from "@/lib/api";
 import { useResource } from "@/lib/use-resource";
 import { ErrorNotice } from "./ui";
@@ -31,12 +31,27 @@ export function AccountingMirror({
     ? "/accounting/weekly/all/mirror"
     : `/technicians/${technicianId}/accounting/mirror`;
   const path = `${base}?week_start=${weekStart}`;
+  const identity = path;
   const { data, error, reload, setData } =
     useResource<AccountingMirrorStatus>(path);
-  const [spreadsheet, setSpreadsheet] = useState("");
-  const [busy, setBusy] = useState("");
-  const [failure, setFailure] = useState("");
-  const pending = useRef(false);
+  const currentIdentity = useRef(identity);
+  useLayoutEffect(() => {
+    currentIdentity.current = identity;
+  }, [identity]);
+  const [spreadsheetState, setSpreadsheetState] = useState({
+    identity,
+    value: "",
+  });
+  const [busyState, setBusyState] = useState({ identity: "", value: "" });
+  const [failureState, setFailureState] = useState({
+    identity: "",
+    value: "",
+  });
+  const pending = useRef<string | null>(null);
+  const spreadsheet =
+    spreadsheetState.identity === identity ? spreadsheetState.value : "";
+  const busy = busyState.identity === identity ? busyState.value : "";
+  const failure = failureState.identity === identity ? failureState.value : "";
 
   useEffect(() => {
     if (!data || !["PENDING", "SYNCING"].includes(data.state)) return;
@@ -45,9 +60,11 @@ export function AccountingMirror({
   }, [data, reload]);
 
   async function configure() {
-    if (pending.current || !spreadsheet.trim()) return;
+    if (pending.current === identity || !spreadsheet.trim()) return;
+    const requestIdentity = identity;
+    const requestedSpreadsheet = spreadsheet.trim();
     const replacing = Boolean(
-      data?.configured && data.spreadsheet_id !== spreadsheet.trim(),
+      data?.configured && data.spreadsheet_id !== requestedSpreadsheet,
     );
     if (
       replacing &&
@@ -56,26 +73,34 @@ export function AccountingMirror({
       )
     )
       return;
-    pending.current = true;
-    setBusy("CONFIGURE");
-    setFailure("");
+    pending.current = requestIdentity;
+    setBusyState({ identity: requestIdentity, value: "CONFIGURE" });
+    setFailureState({ identity: requestIdentity, value: "" });
     try {
       const next = await api<AccountingMirrorStatus>(path, {
         method: "PUT",
-        body: json({ spreadsheet: spreadsheet.trim(), replace: replacing }),
+        body: json({ spreadsheet: requestedSpreadsheet, replace: replacing }),
       });
-      setData(next);
-      setSpreadsheet("");
+      if (currentIdentity.current === requestIdentity) {
+        setData(next);
+        setSpreadsheetState({ identity: requestIdentity, value: "" });
+      }
     } catch (reason) {
-      setFailure(errorMessage(reason));
+      if (currentIdentity.current === requestIdentity)
+        setFailureState({
+          identity: requestIdentity,
+          value: errorMessage(reason),
+        });
     } finally {
-      pending.current = false;
-      setBusy("");
+      if (pending.current === requestIdentity) pending.current = null;
+      if (currentIdentity.current === requestIdentity)
+        setBusyState({ identity: requestIdentity, value: "" });
     }
   }
 
   async function action(value: "ENABLE" | "DISABLE" | "REMOVE" | "SYNC") {
-    if (!data?.target_generation || pending.current) return;
+    if (!data?.target_generation || pending.current === identity) return;
+    const requestIdentity = identity;
     if (
       value === "REMOVE" &&
       !window.confirm(
@@ -83,9 +108,9 @@ export function AccountingMirror({
       )
     )
       return;
-    pending.current = true;
-    setBusy(value);
-    setFailure("");
+    pending.current = requestIdentity;
+    setBusyState({ identity: requestIdentity, value });
+    setFailureState({ identity: requestIdentity, value: "" });
     try {
       const next = await api<AccountingMirrorStatus>(
         `${base}/action?week_start=${weekStart}`,
@@ -97,21 +122,28 @@ export function AccountingMirror({
           }),
         },
       );
-      setData(next);
+      if (currentIdentity.current === requestIdentity) setData(next);
     } catch (reason) {
-      setFailure(errorMessage(reason));
-      if (reason instanceof ApiError && reason.status === 409) reload();
+      if (currentIdentity.current === requestIdentity) {
+        setFailureState({
+          identity: requestIdentity,
+          value: errorMessage(reason),
+        });
+        if (reason instanceof ApiError && reason.status === 409) reload();
+      }
     } finally {
-      pending.current = false;
-      setBusy("");
+      if (pending.current === requestIdentity) pending.current = null;
+      if (currentIdentity.current === requestIdentity)
+        setBusyState({ identity: requestIdentity, value: "" });
     }
   }
 
   async function grantPermission() {
-    if (pending.current) return;
-    pending.current = true;
-    setBusy("PERMISSION");
-    setFailure("");
+    if (pending.current === identity) return;
+    const requestIdentity = identity;
+    pending.current = requestIdentity;
+    setBusyState({ identity: requestIdentity, value: "PERMISSION" });
+    setFailureState({ identity: requestIdentity, value: "" });
     try {
       const connection = await api<GoogleConnection>(
         "/calendar-connections/google",
@@ -133,11 +165,17 @@ export function AccountingMirror({
           }),
         },
       );
-      window.location.assign(result.authorization_url);
+      if (currentIdentity.current === requestIdentity)
+        window.location.assign(result.authorization_url);
     } catch (reason) {
-      pending.current = false;
-      setBusy("");
-      setFailure(errorMessage(reason));
+      if (pending.current === requestIdentity) pending.current = null;
+      if (currentIdentity.current === requestIdentity) {
+        setBusyState({ identity: requestIdentity, value: "" });
+        setFailureState({
+          identity: requestIdentity,
+          value: errorMessage(reason),
+        });
+      }
     }
   }
 
@@ -188,7 +226,9 @@ export function AccountingMirror({
           Existing Spreadsheet ID or URL
           <input
             value={spreadsheet}
-            onChange={(event) => setSpreadsheet(event.target.value)}
+            onChange={(event) =>
+              setSpreadsheetState({ identity, value: event.target.value })
+            }
             placeholder={data?.spreadsheet_id || "Google Sheets URL or ID"}
           />
         </label>

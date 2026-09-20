@@ -4847,6 +4847,8 @@
             "type": "string",
             "enum": [
               "RUNNING",
+              "STOPPED",
+              "ERROR",
               "STALE",
               "MISSING"
             ],
@@ -4870,6 +4872,8 @@
             "type": "string",
             "enum": [
               "RUNNING",
+              "STOPPED",
+              "ERROR",
               "STALE",
               "MISSING"
             ],

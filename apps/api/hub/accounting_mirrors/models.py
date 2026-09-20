@@ -39,6 +39,7 @@ class AccountingMirrorTarget(Timestamps, Base):
             unique=True,
             postgresql_where=text("kind = 'ALL_TECH'"),
         ),
+        Index("uq_accounting_mirror_spreadsheet_target", "spreadsheet_id", unique=True),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     kind: Mapped[str] = mapped_column(String(20))
@@ -68,6 +69,28 @@ class AccountingMirrorRefresh(Timestamps, Base):
             "AND lease_until IS NOT NULL) OR (status != 'PROCESSING' AND claim_token IS NULL "
             "AND claimed_at IS NULL AND lease_until IS NULL)",
             name="claim_metadata",
+        ),
+        CheckConstraint(
+            "claimed_at IS NULL OR lease_until > claimed_at",
+            name="lease_order",
+        ),
+        CheckConstraint(
+            "google_sheet_id IS NULL OR google_sheet_id >= 0",
+            name="google_sheet_id_nonnegative",
+        ),
+        CheckConstraint(
+            "(last_success_at IS NULL AND last_successful_fingerprint IS NULL "
+            "AND successful_target_generation IS NULL "
+            "AND successful_connection_generation IS NULL) OR "
+            "(last_success_at IS NOT NULL AND last_successful_fingerprint IS NOT NULL "
+            "AND successful_target_generation > 0 "
+            "AND successful_connection_generation > 0 AND completed_generation > 0)",
+            name="success_metadata",
+        ),
+        CheckConstraint(
+            "status != 'SUCCEEDED' OR "
+            "(completed_generation = requested_generation AND last_success_at IS NOT NULL)",
+            name="succeeded_current",
         ),
         Index("uq_accounting_mirror_target_week", "target_id", "week_start", unique=True),
         Index("ix_accounting_mirror_refresh_claim", "status", "retry_at", "lease_until"),

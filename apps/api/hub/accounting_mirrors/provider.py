@@ -33,6 +33,9 @@ from hub.accounting_mirrors.presentation import SheetsPayload
 SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
 SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets"
 TIMEOUT = (5, 20)
+VALUE_ROW_CHUNK = 500
+VALUE_BODY_BYTES = 4_000_000
+FORMAT_REQUEST_CHUNK = 400
 
 
 @dataclass(frozen=True)
@@ -218,6 +221,28 @@ def _retry_after(response: requests.Response) -> int:
             return 60
 
 
+def value_chunks(values: tuple[tuple[object, ...], ...]):
+    """Yield bounded request bodies with their zero-based starting row."""
+    start = 0
+    while start < len(values):
+        end = min(start + VALUE_ROW_CHUNK, len(values))
+        while True:
+            body = {
+                "majorDimension": "ROWS",
+                "values": [list(row) for row in values[start:end]],
+            }
+            # Match requests' JSON encoding defaults so the bound covers the actual body,
+            # including escaped non-ASCII text and separator whitespace.
+            encoded = json.dumps(body, ensure_ascii=True).encode()
+            if len(encoded) <= VALUE_BODY_BYTES:
+                break
+            if end - start == 1:
+                raise SheetsProviderError("CONFIGURATION_ERROR")
+            end = start + max(1, (end - start) // 2)
+        yield start, body
+        start = end
+
+
 class GoogleSheetsHttpMixin:
     async def _sheets_request(self, method: str, path: str, access_token: str, body=None):
         def call():
@@ -368,33 +393,24 @@ class GoogleSheetsHttpMixin:
 
     async def write_values(self, access_token, spreadsheet_id, sheet_title, values):
         # Bound request bodies while preserving one RAW operation per row chunk.
-        start = 0
-        while start < len(values):
-            end = min(start + 500, len(values))
-            chunk = values[start:end]
-            encoded = json.dumps(chunk, ensure_ascii=False, separators=(",", ":"))
-            while len(encoded.encode()) > 4_000_000 and end - start > 1:
-                end = start + max(1, (end - start) // 2)
-                chunk = values[start:end]
-                encoded = json.dumps(chunk, ensure_ascii=False, separators=(",", ":"))
+        for start, body in value_chunks(values):
             quoted_title = sheet_title.replace("'", "''")
             a1 = quote(f"'{quoted_title}'!A{start + 1}", safe="")
             await self._sheets_request(
                 "PUT",
                 f"{quote(spreadsheet_id, safe='')}/values/{a1}?valueInputOption=RAW",
                 access_token,
-                {"majorDimension": "ROWS", "values": [list(row) for row in chunk]},
+                body,
             )
-            start = end
 
     async def batch_update_formatting(
         self, access_token, spreadsheet_id, sheet_id, payload, current_rows, current_columns
     ):
         requests_ = formatting_requests(sheet_id, payload, current_rows, current_columns)
-        for start in range(0, len(requests_), 400):
+        for start in range(0, len(requests_), FORMAT_REQUEST_CHUNK):
             await self._sheets_request(
                 "POST",
                 f"{quote(spreadsheet_id, safe='')}:batchUpdate",
                 access_token,
-                {"requests": requests_[start : start + 400]},
+                {"requests": requests_[start : start + FORMAT_REQUEST_CHUNK]},
             )

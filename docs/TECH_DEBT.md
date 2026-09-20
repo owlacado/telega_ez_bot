@@ -745,3 +745,23 @@ remain open. TD-032 stays specific to XLSX display.
   font metrics can clip unusually long wrapped text.
 - **Required before milestone:** LATER SCALE
 - **Status:** OPEN
+
+## Independent Stage 9 Google Sheets audit disposition
+
+The independent audit adds no debt item and closes none. TD-033, TD-034, and TD-035
+remain open because the audit deliberately used only fake Google providers and local
+payload measurements.
+
+The audit fixed localized reliability defects rather than deferring them: two mirror
+targets could previously share one Spreadsheet and overwrite the same deterministic
+week tab; an operation exceeding the fixed lease could be reclaimed while its first
+owner still wrote; a retry from FAILED could trust a previous fingerprint; worker
+health conflated a clean stop with staleness; JSON-body chunk estimates undercounted
+escaped non-ASCII text; database lifecycle invariants were weaker than the worker
+contract; and slow frontend actions could leave state associated with a superseded
+technician or week. Migration `faa609190001` adds the database invariants without
+altering Stage 5-8 business semantics.
+
+TD-033 remains a pre-pilot live TEST-provider obligation. TD-034 remains a production
+capacity obligation, and TD-035 remains later-scale presentation debt. Existing pilot
+and production blockers remain unchanged.

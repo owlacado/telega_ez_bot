@@ -1764,7 +1764,7 @@ export interface components {
              * Worker State
              * @enum {string}
              */
-            worker_state: "RUNNING" | "STALE" | "MISSING";
+            worker_state: "RUNNING" | "STOPPED" | "ERROR" | "STALE" | "MISSING";
         };
         /** MirrorWorkerHealthRead */
         MirrorWorkerHealthRead: {
@@ -1772,7 +1772,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "RUNNING" | "STALE" | "MISSING";
+            state: "RUNNING" | "STOPPED" | "ERROR" | "STALE" | "MISSING";
             /** Running Instances */
             running_instances: number;
         };

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import and_, func, or_, select
@@ -29,6 +29,7 @@ from hub.google_calendar.types import ProviderError
 
 logger = logging.getLogger(__name__)
 LEASE = timedelta(minutes=15)
+LEASE_RENEW_INTERVAL_SECONDS = 60
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ class Claim:
     refresh_id: UUID
     claim_token: UUID
     requested_generation: int
+    claimed_from_status: str
     attempt_count: int
     kind: str
     technician_id: UUID | None
@@ -51,6 +53,7 @@ class Claim:
     owned_rows: int
     owned_columns: int
     last_fingerprint: str | None
+    last_success_at: datetime | None
     successful_target_generation: int | None
     successful_connection_generation: int | None
 
@@ -92,6 +95,7 @@ async def claim(factory) -> Claim | None:
         if not row:
             return None
         refresh, target, connection = row
+        claimed_from_status = refresh.status
         token = uuid4()
         refresh.status = "PROCESSING"
         refresh.claim_token = token
@@ -105,6 +109,7 @@ async def claim(factory) -> Claim | None:
             refresh_id=refresh.id,
             claim_token=token,
             requested_generation=refresh.requested_generation,
+            claimed_from_status=claimed_from_status,
             attempt_count=refresh.attempt_count,
             kind=target.kind,
             technician_id=target.technician_id,
@@ -120,6 +125,7 @@ async def claim(factory) -> Claim | None:
             owned_rows=refresh.owned_rows,
             owned_columns=refresh.owned_columns,
             last_fingerprint=refresh.last_successful_fingerprint,
+            last_success_at=refresh.last_success_at,
             successful_target_generation=refresh.successful_target_generation,
             successful_connection_generation=refresh.successful_connection_generation,
         )
@@ -146,6 +152,39 @@ async def mark_provider_attempt(factory, current: Claim) -> bool:
             return False
         refresh.provider_attempted_at = await db.scalar(select(func.clock_timestamp()))
         return True
+
+
+async def renew_claim_lease(factory, current: Claim) -> bool:
+    """Extend only the active owner's lease using the database clock."""
+    async with factory() as db, db.begin():
+        refresh = await db.get(AccountingMirrorRefresh, current.refresh_id, with_for_update=True)
+        if (
+            not refresh
+            or refresh.status != "PROCESSING"
+            or refresh.claim_token != current.claim_token
+        ):
+            return False
+        stamp = await db.scalar(select(func.clock_timestamp()))
+        refresh.lease_until = stamp + LEASE
+        return True
+
+
+async def maintain_claim_lease(factory, current: Claim, stop: asyncio.Event) -> None:
+    while not stop.is_set():
+        try:
+            await asyncio.wait_for(stop.wait(), LEASE_RENEW_INTERVAL_SECONDS)
+            break
+        except TimeoutError:
+            pass
+        try:
+            if not await renew_claim_lease(factory, current):
+                return
+        except Exception:
+            logger.warning(
+                "accounting_mirror target_id=%s week_start=%s lease=RENEWAL_UNAVAILABLE",
+                current.target_id,
+                current.week_start,
+            )
 
 
 def choose_sheet(metadata: tuple[SheetMetadata, ...], current: Claim, title: str):
@@ -233,6 +272,8 @@ async def finalize_failure(
 
 
 async def process_claim(factory, settings, google_provider, current: Claim) -> bool:
+    lease_stop = asyncio.Event()
+    lease_task = asyncio.create_task(maintain_claim_lease(factory, current, lease_stop))
     try:
         if (
             not current.encrypted_refresh_token
@@ -264,7 +305,9 @@ async def process_claim(factory, settings, google_provider, current: Claim) -> b
                 payload.column_count,
             )
         known_current = (
-            current.last_fingerprint == payload.fingerprint
+            current.claimed_from_status != "FAILED"
+            and current.last_success_at is not None
+            and current.last_fingerprint == payload.fingerprint
             and current.successful_target_generation == current.target_generation
             and current.successful_connection_generation == current.connection_generation
             and current.google_sheet_id == sheet.sheet_id
@@ -319,6 +362,13 @@ async def process_claim(factory, settings, google_provider, current: Claim) -> b
         )
     except Exception:
         await finalize_failure(factory, current, "PROVIDER_TEMPORARY_ERROR", retryable=True)
+    finally:
+        lease_stop.set()
+        lease_task.cancel()
+        try:
+            await lease_task
+        except asyncio.CancelledError:
+            pass
     logger.warning(
         "accounting_mirror target_id=%s week_start=%s generation=%d result=FAILED",
         current.target_id,

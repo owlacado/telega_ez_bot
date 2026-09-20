@@ -47,9 +47,9 @@ class MirrorStatusRead(BaseModel):
     last_attempt_at: datetime | None = None
     last_error_code: str | None = None
     google_sheet_id: int | None = None
-    worker_state: Literal["RUNNING", "STALE", "MISSING"]
+    worker_state: Literal["RUNNING", "STOPPED", "ERROR", "STALE", "MISSING"]
 
 
 class MirrorWorkerHealthRead(BaseModel):
-    state: Literal["RUNNING", "STALE", "MISSING"]
+    state: Literal["RUNNING", "STOPPED", "ERROR", "STALE", "MISSING"]
     running_instances: int

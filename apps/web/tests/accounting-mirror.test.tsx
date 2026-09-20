@@ -106,3 +106,41 @@ it("uses explicit same-account OAuth upgrade for missing Sheets consent", async 
     ),
   );
 });
+
+it("discards slow technician and week action state after identity changes", async () => {
+  let rejectOld!: (reason: unknown) => void;
+  vi.mocked(api)
+    .mockResolvedValueOnce(status)
+    .mockImplementationOnce(
+      () => new Promise((_resolve, reject) => (rejectOld = reject)),
+    )
+    .mockResolvedValueOnce({
+      ...status,
+      spreadsheet_id: "secondSheet_12345",
+      open_url: "https://docs.google.com/spreadsheets/d/secondSheet_12345",
+      week_start: "2026-09-21",
+      week_end: "2026-09-27",
+    });
+  const view = render(
+    <AccountingMirror technicianId="tech-a" weekStart="2026-09-14" />,
+  );
+  await screen.findByText("stage9Sheet_12345");
+  const input = screen.getByLabelText("Existing Spreadsheet ID or URL");
+  await userEvent.type(input, "oldDestination_12345");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Replace destination" }),
+  );
+
+  view.rerender(
+    <AccountingMirror technicianId="tech-b" weekStart="2026-09-21" />,
+  );
+  expect(await screen.findByText("secondSheet_12345")).toBeVisible();
+  expect(screen.getByLabelText("Existing Spreadsheet ID or URL")).toHaveValue(
+    "",
+  );
+  rejectOld(new Error("OLD TECHNICIAN CANARY"));
+  await waitFor(() =>
+    expect(screen.queryByText("OLD TECHNICIAN CANARY")).not.toBeInTheDocument(),
+  );
+  expect(screen.getByText("secondSheet_12345")).toBeVisible();
+});

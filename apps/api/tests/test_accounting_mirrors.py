@@ -257,7 +257,8 @@ async def test_coalescing_claims_and_stale_lease_recovery(app, client):
     async with app.state.session_factory() as db, db.begin():
         await db.execute(
             update(AccountingMirrorRefresh).values(
-                lease_until=datetime.now(UTC) - timedelta(seconds=1)
+                claimed_at=datetime.now(UTC) - timedelta(minutes=16),
+                lease_until=datetime.now(UTC) - timedelta(minutes=1),
             )
         )
     recovered = await claim(app.state.session_factory)
@@ -430,6 +431,8 @@ async def test_google_presentation_uses_canonical_totals_and_buckets(app):
     assert "$777.77" in flattened
     assert "Facebook" in flattened
     assert "Zelle" in flattened and "Venmo" in flattened
+    assert flattened.count("Zelle") == 2
+    assert flattened.count("Venmo") == 2
 
 
 async def test_http_provider_uses_raw_and_shared_style_roles(monkeypatch):
@@ -524,6 +527,7 @@ async def test_long_text_and_all_tech_semantic_parity(app):
         ("1793.16", "$1,793.16"),
         ("9999999999.99", "$9,999,999,999.99"),
         ("99999999999900.00", "$99,999,999,999,900.00"),
+        ("99999999999999.99", "$99,999,999,999,999.99"),
     ],
 )
 def test_exact_money_never_uses_binary_float(value, expected):
