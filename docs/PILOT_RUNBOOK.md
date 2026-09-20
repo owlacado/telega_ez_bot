@@ -6,19 +6,40 @@ policies for sensitive fields, audit/retention, abuse budgets, images, credentia
 
 ## Before the pilot
 
-1. Use a reviewed release commit and clean build. Store the commit in `RELEASE_COMMIT`.
-2. Provision unique database credentials, external Google and schedule encryption keys, and a bot
-   token in the deployment secret store. Keep keys separate from database backups.
-3. Put the Web behind the approved HTTPS proxy. Set secure cookies and exact HTTPS origins.
-4. Run `python -m hub.ops.cli preflight`; do not continue on any `BLOCK`.
-5. Run `python -m hub.ops.cli queues` and confirm required workers are `RUNNING`, not merely present.
-6. Run `python -m hub.ops.cli fingerprint` and store the opaque output in the private change record.
-7. Create a private backup with `powershell -File scripts/backup-postgres.ps1 -OutputDirectory <private-path>`;
+1. Record approvals in `PILOT_POLICY_DECISIONS.md`; unresolved choices remain blockers.
+2. Use a reviewed release commit and clean build. Store the commit in `RELEASE_COMMIT`.
+3. Instantiate and record the remote TEST deployment contract from `PILOT_ARCHITECTURE.md`: one
+   HTTPS proxy, private application network, replaced forwarding headers, exact trusted proxy IP,
+   request limits, exact HTTPS origin, secure cookie, and direct-API firewall.
+4. Provision unique database credentials, Google client secret, Google credential key, schedule
+   payload key, and Telegram token in the deployment secret store. Mount the Telegram token as a
+   read-only file. Grant only the service identity and named recovery custodians access. Keep the
+   two encryption keys and recovery copies outside the database backup system.
+5. Run `python scripts/verify_pilot_key_recovery.py`. It must report PASS and must never receive or
+   print deployed keys. Rehearse the deployed secret-store recovery procedure with newly generated
+   synthetic values: stop dependent workers, back up the synthetic DB, remove runtime access,
+   restore the same value, verify recovery, replace it, and verify the old value fails closed.
+6. Run `python -m hub.ops.cli preflight`; do not continue on any `BLOCK`.
+7. Schedule `python -m hub.ops.cli queues --require-pass` at least once per minute and route nonzero
+   exit to the named pilot operator. Confirm required workers are `RUNNING`, not merely present. The
+   strict exit covers aggregate WARN/BLOCK; the scheduler must also evaluate the JSON counts and
+   compare consecutive samples for the numeric thresholds below.
+8. Run `python -m hub.ops.cli fingerprint` and store the opaque output in the private change record.
+9. Create a private backup with `powershell -File scripts/backup-postgres.ps1 -OutputDirectory <private-path>`;
    use a directory whose ACL is limited to the backup operators, then verify its SHA-256 manifest
    and latest isolated restore-drill evidence. The script publishes a unique dump/manifest pair and
    refuses to overwrite an artifact. The dump still contains business data and encrypted
    credentials, so ciphertext does not make it safe to distribute.
-8. Complete the dedicated TEST provider runbook and link sanitized acceptance records.
+10. Complete `PILOT_LIVE_ACCEPTANCE_PLAN.md` in order and link sanitized acceptance records.
+
+The pilot alert route pages immediately for preflight/health BLOCK, two consecutive API health
+failures 30 seconds apart, migration mismatch, any enabled worker MISSING/STALE/STOPPED/ERROR, any
+FAILED or AMBIGUOUS queue row, backup/manifest/restore failure, PostgreSQL connection use at or above
+80, disk free below 20%, or credential recovery failure. Warn for more than 5 pending rows, any
+processing row present across two five-minute checks, provider retry delayed more than 15 minutes,
+or mirror lag over 15 minutes. From ten minutes before through ten minutes after the schedule window,
+an enabled schedule worker that is not RUNNING is an immediate page. These are one-technician TEST
+thresholds; record any approved change before applying it.
 
 ## Technician onboarding
 
@@ -49,6 +70,21 @@ quota issues. Compare canonical accounting before treating a projection as curre
 At end of day, inspect failed/ambiguous queues, the technician's daily/weekly accounting, audit
 events, and provider status. Run the cleanup command first without `--apply`, then apply only the
 reviewed bounded cleanup. Create and verify the scheduled private backup.
+
+## Secret recovery and rotation
+
+Never replace an encryption key merely to clear a preflight error. First stop every dependent
+worker, capture queue state, make a private database backup, and verify the current recovery copy.
+With the correct restored key, existing ciphertext must decrypt; with a wrong key it must remain
+unreadable without mutation.
+
+There is no unattended in-place credential rotation. For Google, while the old key is available,
+disconnect the TEST account through the supported flow, preserve incident evidence for any failed
+remote revocation, install the new key, restart, and deliberately reconnect/regrant. For schedule
+payloads, stop delivery, require zero PENDING/PROCESSING rows, review every AMBIGUOUS row, retain the
+old key for its approved recovery window, install the new key, and then restart. Never bulk-edit,
+blank, or silently re-encrypt database ciphertext. A live Google revocation/reconnect still belongs
+to TD-025 acceptance; the local synthetic rehearsal does not close it.
 
 ## Immediate stop conditions
 

@@ -480,6 +480,31 @@ async def test_optional_mirror_lag_is_operational_warning_not_financial_corrupti
     assert result.status == "WARN"
 
 
+async def test_queue_cli_can_fail_for_automated_monitoring(monkeypatch, capsys):
+    class WarningHealth:
+        status = "WARN"
+
+        @staticmethod
+        def model_dump_json():
+            return '{"status":"WARN","queues":{}}'
+
+    async def warning_health(_db, _settings):
+        return WarningHealth()
+
+    monkeypatch.setattr(ops_cli, "operations_health", warning_health)
+    settings = Settings(
+        _env_file=None,
+        database_url=TEST_URL,
+        app_env="test",
+        allowed_origins=["http://127.0.0.1:3000"],
+    )
+    assert await ops_cli.queues(settings) == 0
+    assert await ops_cli.queues(settings, require_pass=True) == 2
+    output = capsys.readouterr().out
+    assert "WARN" in output
+    assert "hub_test_only" not in output
+
+
 async def test_cleanup_is_bounded_idempotent_and_preserves_business(app, client):
     start = date(2026, 9, 14)
     technician_id = await seed(app.state.session_factory, start)

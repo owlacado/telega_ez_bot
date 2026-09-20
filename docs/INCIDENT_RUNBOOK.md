@@ -9,7 +9,7 @@ fingerprint and private backup before state-changing recovery when the database 
 
 ```powershell
 python -m hub.ops.cli preflight
-python -m hub.ops.cli queues
+python -m hub.ops.cli queues --require-pass
 python -m hub.ops.cli fingerprint
 docker compose ps
 docker compose logs --tail 200 api web telegram-worker schedule-worker accounting-mirror-worker
@@ -18,6 +18,24 @@ docker compose logs --tail 200 api web telegram-worker schedule-worker accountin
 The queue command reports pending, processing, failed, and ambiguous counts without payloads. The
 manager Operations Health page reports DB/schema/provider configuration and persisted heartbeat
 states. A container shown as running is not evidence that its worker heartbeat is current.
+`--require-pass` exits nonzero for WARN or BLOCK so a scheduler can route the check to the pilot
+operator; the JSON remains payload-free. The scheduler must separately evaluate numeric queue
+thresholds and compare consecutive samples because a transient PENDING/PROCESSING count does not by
+itself make aggregate health WARN.
+
+## Pilot alert thresholds
+
+Page immediately for a preflight or health BLOCK, two API health failures 30 seconds apart,
+migration mismatch, enabled worker MISSING/STALE/STOPPED/ERROR, any FAILED or AMBIGUOUS queue row,
+backup/manifest/restore failure, PostgreSQL connections at or above 80, disk free below 20%, or key
+recovery failure. Page when the schedule worker is not RUNNING from ten minutes before until ten
+minutes after its configured delivery window.
+
+Warn for more than 5 PENDING rows, any PROCESSING row present in two checks five minutes apart,
+provider retry delayed more than 15 minutes, or mirror lag over 15 minutes. A single transient
+PROCESSING row is normal; persistence across the two checks is the stuck-claim signal. Record the
+first and second UTC observations and safe row counts, never payloads. These thresholds assume one
+technician and one replica of each worker.
 
 ## Component incidents
 
@@ -49,6 +67,14 @@ run `alembic upgrade head`, compare the stored opaque fingerprint, test manager 
 durable queues, then point a staged application at it. A database restored without the original
 Google or schedule key retains ciphertext but cannot use it; stop affected workers and restore the
 key or deliberately reconnect. Never silently replace, blank, or re-encrypt unknown ciphertext.
+
+For a suspected key loss or rotation error, stop the Google, schedule, and mirror workers before
+changing configuration. Run `python scripts/verify_pilot_key_recovery.py` only as a synthetic
+primitive check; it accepts no deployed key. Restore the protected original key, prove existing
+ciphertext works, and restart one dependent component at a time. If the original Google key cannot
+be recovered, preserve ciphertext and reconnect deliberately. If the schedule key cannot be
+recovered, keep delivery stopped and review all active/ambiguous rows; do not reinterpret them as
+safe retries. Follow the rotation order in `PILOT_RUNBOOK.md` after recovery.
 
 ## Deployment and migration recovery
 

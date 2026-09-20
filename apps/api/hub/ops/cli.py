@@ -49,9 +49,7 @@ def _settings() -> Settings | None:
 
 
 async def preflight(settings: Settings) -> int:
-    checks: list[tuple[str, str, str]] = [
-        ("PASS", "configuration", "static validation passed")
-    ]
+    checks: list[tuple[str, str, str]] = [("PASS", "configuration", "static validation passed")]
     production = settings.app_env not in {"development", "test"}
     commit = settings.release_commit.lower()
     if production and (
@@ -174,13 +172,13 @@ async def fingerprint(settings: Settings) -> int:
         await engine.dispose()
 
 
-async def queues(settings: Settings) -> int:
+async def queues(settings: Settings, *, require_pass: bool = False) -> int:
     engine = create_async_engine(settings.database_url, hide_parameters=True)
     try:
         async with async_sessionmaker(engine)() as db:
             health = await operations_health(db, settings)
         print(health.model_dump_json())
-        return 0
+        return 2 if require_pass and health.status != "PASS" else 0
     except Exception:
         print('{"error":"OPERATIONS_HEALTH_UNAVAILABLE"}')
         return 2
@@ -210,7 +208,12 @@ def main() -> None:
     subcommands = parser.add_subparsers(dest="command", required=True)
     subcommands.add_parser("preflight")
     subcommands.add_parser("fingerprint")
-    subcommands.add_parser("queues")
+    queues_parser = subcommands.add_parser("queues")
+    queues_parser.add_argument(
+        "--require-pass",
+        action="store_true",
+        help="exit nonzero when aggregate operations health is WARN or BLOCK",
+    )
     cleanup_parser = subcommands.add_parser("cleanup-expired-data")
     cleanup_parser.add_argument("--apply", action="store_true")
     cleanup_parser.add_argument("--batch-size", type=int, default=100)
@@ -223,7 +226,7 @@ def main() -> None:
     elif args.command == "fingerprint":
         code = asyncio.run(fingerprint(settings))
     elif args.command == "queues":
-        code = asyncio.run(queues(settings))
+        code = asyncio.run(queues(settings, require_pass=args.require_pass))
     else:
         code = asyncio.run(cleanup(settings, apply=args.apply, batch_size=args.batch_size))
     raise SystemExit(code)

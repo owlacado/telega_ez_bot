@@ -828,3 +828,38 @@ setup; it does not claim that the release-level live/provider/policy blockers ar
 - **TD-015/024/032/035 remain LATER SCALE. TD-019/020/034 remain additional production gates.**
 
 Pilot blockers after Stage 10 are TD-010/011/012/013/017/018/022/023/025/026/027/028/029/030/031/033. **PILOT READY: NO.** Contracts and GPS remain outside implemented pilot scope.
+
+## Controlled TEST pilot blocker-resolution disposition
+
+This pass closes no debt item: **35 entries, 11 RESOLVED, 24 OPEN** (0 CRITICAL, 2 HIGH,
+17 MEDIUM, 5 LOW). It contacted no Google or Telegram provider and did not modify the normal
+database. See `PILOT_POLICY_DECISIONS.md` and `PILOT_LIVE_ACCEPTANCE_PLAN.md`.
+
+- **TD-010/011/018/023/026/031 remain OPEN.** Each now has an exact approval question, bounded
+  options and consequences, a recommended one-technician TEST default, and the implementation that
+  would follow approval. Recommendations are not approvals, so no product/security status changed.
+- **TD-012 remains OPEN (PARTIAL).** The remote TEST proxy contract now fixes the candidate exposure,
+  forwarding-header, TLS, origin, request-size, timeout, and concurrency boundary. Existing
+  application budgets are inventoried. Closure still requires the selected deployment to install
+  and evidence that boundary, managed credentials, and the approved global admission policy.
+- **TD-017 remains OPEN (PARTIAL).** `ops queues --require-pass` now gives schedulers a nonzero WARN or
+  BLOCK signal. The pilot and incident runbooks define worker, queue, claim, database, disk, backup,
+  and schedule-window thresholds. Closure still requires deployed alert routing, correlation,
+  centralized telemetry, and measured global database/request deadlines.
+- **TD-025 remains OPEN (PARTIAL).** A no-network synthetic rehearsal proves correct-key recovery,
+  wrong-key failure, and envelope rotation without exposing key material. The documented deployed
+  procedure stops workers and uses deliberate disconnect/reconnect rather than silent ciphertext
+  rewriting. Managed custody and real Google revoke/reconnect evidence remain required.
+- **TD-029 remains OPEN (PARTIAL).** Schedule monitoring and key recovery/rotation now have concrete
+  thresholds and an operator order. Deployed alert routing, capacity ownership, and provider-side
+  ambiguity/recovery acceptance remain required.
+- **TD-013 remains OPEN (DESIGN READY).** The approval record proposes one PostgreSQL-owned monotonic
+  technician version covering protected profile columns plus effective calendar assignment, Google
+  identity/scope/status, Telegram destinations/generations/availability, and schedule enablement.
+  Queue/history progress is excluded. No migration or API change occurs before approval.
+- **TD-022/027/028/030/033 remain OPEN (LIVE TEST REQUIRED).** The exact minimal resource list,
+  dependency order, stop conditions, and evidence template are consolidated, but no provider was
+  contacted and every live matrix row remains incomplete.
+
+The 16 pilot blockers are unchanged. **PILOT READY: NO.** Contracts, GPS, Moto Watchdog,
+dispatcher automation, manager corrections, and later-stage features were not started.

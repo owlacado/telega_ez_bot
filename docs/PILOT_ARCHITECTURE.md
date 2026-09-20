@@ -97,3 +97,36 @@ not loopback, configure Uvicorn's trusted proxy IPs narrowly and firewall direct
 The Web `/login` Docker probe establishes that the Next process can serve its shell. It can remain
 healthy while the API or database is down, so it must never be used as aggregate application
 readiness. The public API DB probe and authenticated Operations Health supply that separate signal.
+
+### Remote TEST deployment contract
+
+The deployment owner must instantiate this boundary before live acceptance:
+
+- Publish only TCP 443 from one controlled reverse proxy. Keep PostgreSQL, API, Web, and worker
+  ports on a private network or loopback; firewall direct API access.
+- Terminate TLS with a currently trusted certificate. Redirect port 80 to 443 without serving the
+  application over plaintext. Set `APP_ENV=pilot`, `COOKIE_SECURE=true`, and one exact HTTPS
+  `ALLOWED_ORIGINS` value matching the browser and Google callback host.
+- Discard client-supplied `Forwarded` and `X-Forwarded-*` headers, then set new values at the proxy.
+  Trust only the proxy's fixed source IP in the ASGI server. Never use a forwarded header for
+  application authorization.
+- Apply a 1 MiB request-body limit, 15-second header/body receive timeout, 60-second ordinary API
+  response timeout, and at most 20 concurrent requests for the one-technician TEST pilot. Google
+  event and export responses already have application/provider bounds; the proxy timeout is an
+  outer admission limit, not permission to retry a mutation.
+- Preserve `/api/health` as a database-aware probe. Restrict manager operations health through the
+  normal manager session; do not expose a proxy-generated copy of its response.
+
+These are conservative candidate pilot settings. The deployment owner must record the actual proxy,
+version, IP trust, certificate owner, and verification evidence. Documentation does not prove the
+boundary has been installed, so TD-012 remains open until that record exists.
+
+## Existing application admission budgets
+
+The reviewed local budgets are: login 30 attempts per peer and 8 per normalized username per 15
+minutes; Telegram invitation creation 12 per manager/technician per 15 minutes; TEST message 1 per
+technician/destination per minute; and invitation verification 3 per invitation per minute. Telegram
+polling processes at most 50 updates per request. Google scans serialize per technician and bounded
+provider pagination/retry rules remain in force. Global Google OAuth/scan and public-bot response
+budgets require the choices in `PILOT_POLICY_DECISIONS.md`; they must not be inferred from these
+existing endpoint limits.

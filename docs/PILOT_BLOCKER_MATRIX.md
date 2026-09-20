@@ -58,3 +58,18 @@ items. The remaining 16 items continue to block an actual pilot until their comp
 conditions are met.
 
 **PILOT READY: NO.** The live-provider and product-policy gates above remain open.
+
+## Pilot blocker resolution pass
+
+The post-audit resolution pass adds decision-ready and operator-ready evidence without recording an
+approval or contacting a provider:
+
+| Group                      | IDs                                            | Local result                                                                                                                                                                                              | What still blocks closure                                                                                                                                                     |
+| -------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product/security decisions | TD-010, TD-011, TD-018, TD-023, TD-026, TD-031 | Exact questions, options, consequences, recommended one-technician defaults, and approval-dependent changes are recorded in `PILOT_POLICY_DECISIONS.md`.                                                  | Named product/security/records owners must approve an option; approved code and policy work must then be implemented and verified.                                            |
+| Operational setup          | TD-012, TD-017, TD-025, TD-029                 | Concrete proxy boundary, existing admission budgets, monitoring exit status, alert thresholds, managed-secret recovery order, and no-network synthetic key rehearsal are documented and locally verified. | The selected environment must install and record TLS/proxy, secret store, alert routing/scheduling, deployed synthetic recovery, and provider-dependent revocation/reconnect. |
+| Version boundary           | TD-013                                         | A narrow database-owned `record_version` and dependent-state trigger boundary is ready for approval.                                                                                                      | Approval, additive migration, API/client change, and direct-database concurrency evidence remain.                                                                             |
+| Live TEST acceptance       | TD-022, TD-027, TD-028, TD-030, TD-033         | `PILOT_LIVE_ACCEPTANCE_PLAN.md` consolidates exact resources, order, stop criteria, and evidence.                                                                                                         | Every row still requires real dedicated TEST Telegram/Google execution and reviewed sanitized evidence.                                                                       |
+
+No TECH_DEBT item changes status in this pass. The matrix remains 11 RESOLVED and 24 OPEN, with
+the same 16 pilot blockers. **PILOT READY: NO.**
