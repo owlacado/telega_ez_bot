@@ -10,7 +10,7 @@ from sqlalchemy import select, text, update
 
 from hub.audit.service import audit
 from hub.auth.models import Manager, ManagerSession
-from hub.auth.security import digest, now
+from hub.auth.security import digest, now, rate_limit
 from hub.calendars.models import Calendar, CalendarAssignment
 from hub.core.secrets import SecretCipher
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
@@ -123,6 +123,21 @@ async def start(request, db, payload):
     impact = await impact_version(db, connection) if payload.mode == "SWITCH" else None
     if payload.mode == "SWITCH" and payload.expected_impact_version != impact:
         raise HTTPException(409, "Calendar impact changed. Refresh and confirm again.")
+    settings = request.app.state.settings
+    await rate_limit(
+        db,
+        f"google:oauth:manager:{request.state.manager_id}",
+        limit=settings.google_oauth_manager_limit,
+        seconds=settings.google_oauth_manager_window_seconds,
+    )
+    await rate_limit(
+        db,
+        "google:oauth:global",
+        limit=settings.google_oauth_global_limit,
+        seconds=settings.google_oauth_global_window_seconds,
+    )
+    if payload.mode == "RECONNECT":
+        await _manual_admission(db, request)
     state = secrets.token_urlsafe(32)
     if (
         payload.request_event_access or payload.request_sheets_access
@@ -398,6 +413,8 @@ async def scan(request):
             request.app.state.google_lock_engine, "google-scan", 0, wait=False
         ):
             async with factory() as db:
+                await _manual_admission(db, request)
+                await db.commit()
                 connection = await current(db)
                 if not connection or connection.status not in {"CONNECTED", "ERROR"}:
                     raise HTTPException(409, "Reconnect Google Calendar before scanning.")
@@ -494,6 +511,22 @@ async def scan(request):
         if str(exc) == "POLLER_ALREADY_RUNNING":
             raise HTTPException(409, "A calendar scan is already running.") from None
         raise
+
+
+async def _manual_admission(db, request):
+    settings = request.app.state.settings
+    await rate_limit(
+        db,
+        f"google:manual:manager:{request.state.manager_id}",
+        limit=settings.google_manual_manager_limit,
+        seconds=settings.google_manual_manager_window_seconds,
+    )
+    await rate_limit(
+        db,
+        "google:manual:global",
+        limit=settings.google_manual_global_limit,
+        seconds=settings.google_manual_global_window_seconds,
+    )
 
 
 async def disconnect(request, payload):

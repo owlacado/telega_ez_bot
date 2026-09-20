@@ -191,7 +191,9 @@ async def cleanup(settings: Settings, *, apply: bool, batch_size: int) -> int:
     try:
         async with async_sessionmaker(engine)() as db:
             async with db.begin():
-                result = await cleanup_expired(db, apply=apply, batch_size=batch_size)
+                result = await cleanup_expired(
+                    db, apply=apply, batch_size=batch_size, settings=settings
+                )
                 if not apply:
                     await db.rollback()
         print(result.model_dump_json())

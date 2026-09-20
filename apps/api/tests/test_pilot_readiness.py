@@ -93,12 +93,12 @@ async def test_profile_update_rejects_stale_version(client):
     profile = await create_technician(client)
     first = await client.patch(
         f"/api/technicians/{profile['id']}",
-        json={"expected_updated_at": profile["updated_at"], "first_name": "First"},
+        json={"expected_record_version": profile["record_version"], "first_name": "First"},
     )
     assert first.status_code == 200
     stale = await client.patch(
         f"/api/technicians/{profile['id']}",
-        json={"expected_updated_at": profile["updated_at"], "last_name": "Lost"},
+        json={"expected_record_version": profile["record_version"], "last_name": "Lost"},
     )
     assert stale.status_code == 409
     current = (await client.get(f"/api/technicians/{profile['id']}")).json()
@@ -364,6 +364,10 @@ def test_backup_publishes_only_complete_unique_dump_manifest_pairs():
     assert "if (-not $published)" in script
     assert "$published = $false" in script
     assert "Remove-Item -LiteralPath $manifestPath" in script
+    assert "[int]$RetentionDays = 30" in script
+    assert "Get-ChildItem -LiteralPath $destination -File" in script
+    assert "-notmatch" not in script
+    assert "script-owned artifact(s)" in script
 
 
 def test_restore_drill_covers_all_durable_queues_audit_and_wrong_key():

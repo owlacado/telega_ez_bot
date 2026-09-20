@@ -12,6 +12,7 @@ from telegram.error import BadRequest, Conflict, Forbidden, InvalidToken, RetryA
 from hub.audit.models import AuditEvent
 from hub.auth.security import now
 from hub.core.config import Settings
+from hub.technicians.models import Technician
 from hub.telegram.adapter import safe_error
 from hub.telegram.delivery import claim_job, deliver_one, recover_processing
 from hub.telegram.locks import advisory_guard
@@ -123,6 +124,63 @@ async def test_offset_processing_failure_restart_and_dedup(
         assert len((await db.scalars(select(TelegramProcessedUpdate))).all()) == 3
 
 
+async def test_application_admission_limits_sender_burst_without_counting_duplicates(
+    app, provider, factory
+):
+    settings = app.state.settings.model_copy(
+        update={
+            "telegram_sender_minute_limit": 30,
+            "telegram_sender_burst_limit": 2,
+            "telegram_sender_burst_seconds": 10,
+            "telegram_global_minute_limit": 300,
+        }
+    )
+    first = TrustedEvent(
+        101, "COMMAND", chat_id=771001, chat_type="private", user_id=771001, command="/help"
+    )
+    second = replace(first, update_id=102)
+    third = replace(first, update_id=103)
+    assert (
+        await process_update(factory, provider, first, BOT_ID, settings=settings)
+    ).outcome == "HELP"
+    assert (
+        await process_update(factory, provider, first, BOT_ID, settings=settings)
+    ).outcome == "DUPLICATE"
+    assert (
+        await process_update(factory, provider, second, BOT_ID, settings=settings)
+    ).outcome == "HELP"
+    limited = await process_update(factory, provider, third, BOT_ID, settings=settings)
+    assert limited.outcome == "RATE_LIMITED" and limited.reply is None
+    async with factory() as db:
+        assert (await db.get(TelegramProcessedUpdate, (BOT_ID, 103))).outcome == "RATE_LIMITED"
+
+
+async def test_application_admission_global_limit_spans_senders(app, provider, factory):
+    settings = app.state.settings.model_copy(
+        update={
+            "telegram_sender_minute_limit": 30,
+            "telegram_sender_burst_limit": 10,
+            "telegram_global_minute_limit": 2,
+        }
+    )
+    events = [
+        TrustedEvent(
+            200 + value,
+            "COMMAND",
+            chat_id=770000 + value,
+            chat_type="private",
+            user_id=770000 + value,
+            command="/help",
+        )
+        for value in range(3)
+    ]
+    outcomes = [
+        (await process_update(factory, provider, event, BOT_ID, settings=settings)).outcome
+        for event in events
+    ]
+    assert outcomes == ["HELP", "HELP", "RATE_LIMITED"]
+
+
 async def test_poll_timeout_retries_with_bounded_backoff(app, engine, provider, monkeypatch):
     import hub.telegram.worker as worker_module
 
@@ -199,7 +257,9 @@ async def test_test_message_destination_confirmation_and_rate_limit(
     assert (await state(client, identifier))["deliveries"][0]["state"] == "SENT"
 
 
-async def test_disconnect_and_deletion_cancel_undelivered_work(client, engine, provider, factory):
+async def test_disconnect_cancels_work_and_permanent_delete_stays_disabled(
+    client, engine, provider, factory
+):
     identifier = await connected_private(client, engine, provider)
     await issue(client, identifier, replace=True)
     current = await state(client, identifier)
@@ -221,19 +281,22 @@ async def test_disconnect_and_deletion_cancel_undelivered_work(client, engine, p
             f"/api/technicians/{identifier}",
             json={
                 "confirmation": "DELETE",
-                "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
-                    "updated_at"
-                ],
+                "expected_record_version": (
+                    await client.get(f"/api/technicians/{identifier}")
+                ).json()["record_version"],
             },
         )
-    ).status_code == 204
+    ).status_code == 409
     async with factory() as db:
-        assert not (await db.scalars(select(TelegramInvitation))).all()
-        assert not (await db.scalars(select(TelegramOutbox))).all()
+        invitations = (await db.scalars(select(TelegramInvitation))).all()
+        outbox = (await db.scalars(select(TelegramOutbox))).all()
+        assert invitations and all(item.closed_at is not None for item in invitations)
+        assert outbox and all(item.state not in {"QUEUED", "PROCESSING"} for item in outbox)
+        assert await db.get(Technician, UUID(identifier)) is not None
         audits = (
             await db.scalars(select(AuditEvent).where(AuditEvent.target_id == UUID(identifier)))
         ).all()
-        assert any(item.action == "technician.deleted" for item in audits)
+        assert not any(item.action == "technician.deleted" for item in audits)
 
 
 async def test_delete_waits_for_inflight_send_and_no_transaction_over_network(
@@ -266,9 +329,9 @@ async def test_delete_waits_for_inflight_send_and_no_transaction_over_network(
             f"/api/technicians/{identifier}",
             json={
                 "confirmation": "DELETE",
-                "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
-                    "updated_at"
-                ],
+                "expected_record_version": (
+                    await client.get(f"/api/technicians/{identifier}")
+                ).json()["record_version"],
             },
         )
     )
@@ -276,7 +339,7 @@ async def test_delete_waits_for_inflight_send_and_no_transaction_over_network(
     assert not delete_task.done()
     release.set()
     await send_task
-    assert (await delete_task).status_code == 204
+    assert (await delete_task).status_code == 409
     assert not await deliver_one(factory, engine, provider, BOT_ID)
 
 

@@ -49,30 +49,31 @@ async def test_create_list_get_update(client, engine):
     updated = await client.patch(
         f"/api/technicians/{identifier}",
         json={
-            "expected_updated_at": person["updated_at"],
+            "expected_record_version": person["record_version"],
             "first_name": "Updated",
             "status": "INACTIVE",
-            "ssn_last4": "0123",
-            "driver_license_id": "DEMO-ONLY",
         },
     )
     assert updated.status_code == 200
     assert updated.json()["id"] == str(identifier)
-    assert updated.json()["ssn_last4"] == "0123"
+    assert "ssn_last4" not in updated.json()
+    assert "driver_license_id" not in updated.json()
+    assert "photo_url" not in updated.json()
+    assert updated.json()["record_version"] == person["record_version"] + 1
     assert updated.json()["updated_at"] >= person["updated_at"]
     assert (await client.get("/api/technicians?q=updated%20tech")).json()[0]["id"] == str(
         identifier
     )
     assert (await client.get("/api/technicians?q=%25")).json() == []
-    cleared = await client.patch(
+    rejected = await client.patch(
         f"/api/technicians/{identifier}",
         json={
-            "expected_updated_at": updated.json()["updated_at"],
-            "ssn_last4": None,
-            "driver_license_id": None,
+            "expected_record_version": updated.json()["record_version"],
+            "ssn_last4": "0123",
+            "driver_license_id": "DEMO-ONLY",
         },
     )
-    assert cleared.json()["ssn_last4"] is None
+    assert rejected.status_code == 422
     async with engine.connect() as db:
         assert await db.scalar(select(func.count()).select_from(Technician)) == 1
         assert await db.scalar(select(func.count()).select_from(TelegramBinding)) == 0
@@ -194,7 +195,7 @@ async def test_calendar_conflict_preserves_old_assignment(client):
 async def test_delete_confirmation_required(client, body):
     person = await create(client)
     if body is not None:
-        body = {**body, "expected_updated_at": person["updated_at"]}
+        body = {**body, "expected_record_version": person["record_version"]}
     response = await client.request(
         "DELETE", f"/api/technicians/{person['id']}", **({"json": body} if body is not None else {})
     )
@@ -202,7 +203,7 @@ async def test_delete_confirmation_required(client, body):
     assert (await client.get(f"/api/technicians/{person['id']}")).status_code == 200
 
 
-async def test_permanent_delete_removes_database_row_and_bindings(client, engine):
+async def test_permanent_delete_is_disabled_and_preserves_relationships(client, engine):
     local = await calendar(client)
     person = await create(client, calendar_id=local["id"])
     identifier = UUID(person["id"])
@@ -214,17 +215,17 @@ async def test_permanent_delete_removes_database_row_and_bindings(client, engine
         f"/api/technicians/{identifier}",
         json={
             "confirmation": "DELETE",
-            "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
-                "updated_at"
+            "expected_record_version": (await client.get(f"/api/technicians/{identifier}")).json()[
+                "record_version"
             ],
         },
     )
-    assert response.status_code == 204
-    assert (await client.get(f"/api/technicians/{identifier}")).status_code == 404
-    assert (await client.get("/api/calendars")).json()[0]["assigned_technician"] is None
+    assert response.status_code == 409
+    assert (await client.get(f"/api/technicians/{identifier}")).status_code == 200
+    assert (await client.get("/api/calendars")).json()[0]["assigned_technician"] is not None
     async with engine.connect() as db:
         for model in [Technician, CalendarAssignment, TelegramBinding, GpsBinding]:
-            assert await db.scalar(select(func.count()).select_from(model)) == 0
+            assert await db.scalar(select(func.count()).select_from(model)) == 1
 
 
 async def test_calendar_crud_and_assigned_removal_confirmation(client):

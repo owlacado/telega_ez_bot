@@ -110,7 +110,7 @@ async def test_private_atomic_connection_metadata_hash_audit_and_home(
     assert (await claim(engine, provider, invitation)).outcome == "DUPLICATE"
 
 
-@pytest.mark.parametrize("reason", ["expired", "revoked", "replaced", "deleted", "inactive"])
+@pytest.mark.parametrize("reason", ["expired", "revoked", "replaced", "inactive"])
 async def test_unusable_invitation_never_creates_binding(client, engine, provider, reason):
     identifier = await technician(client)
     invitation = await issue(client, identifier)
@@ -129,15 +129,6 @@ async def test_unusable_invitation_never_creates_binding(client, engine, provide
         await issue(client, identifier)
     elif reason == "inactive":
         await patch_technician(client, identifier, status="INACTIVE")
-    else:
-        profile = (await client.get(f"/api/technicians/{identifier}")).json()
-        assert (
-            await client.request(
-                "DELETE",
-                f"/api/technicians/{identifier}",
-                json={"confirmation": "DELETE", "expected_updated_at": profile["updated_at"]},
-            )
-        ).status_code == 204
     assert (await claim(engine, provider, invitation)).outcome == "INVALID_INVITATION"
     async with engine.connect() as db:
         assert (

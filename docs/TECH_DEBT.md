@@ -1,7 +1,7 @@
 # Technical debt register
 
-Current Stage 10 disposition: **35 entries, 11 RESOLVED, 24 OPEN** (0 CRITICAL,
-2 HIGH, 17 MEDIUM, 5 LOW). Historical counts below describe earlier stages.
+Current approved-policy disposition: **35 entries, 15 RESOLVED, 20 OPEN** (0 CRITICAL,
+2 HIGH, 13 MEDIUM, 5 LOW). Historical counts below describe earlier stages.
 No existing debt is closed by Work Reports or Expenses.
 
 Manager CLI blocker follow-up: the user confirmed a password shorter than 14
@@ -67,20 +67,20 @@ Future stages must update this register when debt is discovered, resolved, or a 
 | TD-010 | HIGH     | Deletion audit / accountability            | BEFORE INTERNAL PILOT | OPEN     |
 | TD-011 | HIGH     | Sensitive data protection                  | BEFORE INTERNAL PILOT | OPEN     |
 | TD-012 | MEDIUM   | Deployment / credentials / origins         | BEFORE INTERNAL PILOT | OPEN     |
-| TD-013 | MEDIUM   | Concurrent profile editing                 | BEFORE INTERNAL PILOT | OPEN     |
+| TD-013 | MEDIUM   | Concurrent profile editing                 | BEFORE INTERNAL PILOT | RESOLVED |
 | TD-014 | MEDIUM   | Provider state invariants                  | BEFORE NEXT STAGE     | RESOLVED |
 | TD-015 | MEDIUM   | Scaling / response size                    | LATER SCALE           | OPEN     |
 | TD-016 | MEDIUM   | Durability / operations                    | BEFORE PRODUCTION     | OPEN     |
 | TD-017 | MEDIUM   | Observability / timeouts                   | BEFORE INTERNAL PILOT | OPEN     |
-| TD-018 | MEDIUM   | External profile images                    | BEFORE INTERNAL PILOT | OPEN     |
+| TD-018 | MEDIUM   | External profile images                    | BEFORE INTERNAL PILOT | RESOLVED |
 | TD-019 | LOW      | Runtime contracts                          | BEFORE PRODUCTION     | OPEN     |
 | TD-020 | LOW      | Accessibility coverage                     | BEFORE PRODUCTION     | OPEN     |
 | TD-021 | MEDIUM   | Search consistency                         | BEFORE STAGE 1        | RESOLVED |
 | TD-022 | MEDIUM   | Telegram membership / live acceptance      | BEFORE INTERNAL PILOT | OPEN     |
-| TD-023 | MEDIUM   | Telegram abuse / retention                 | BEFORE INTERNAL PILOT | OPEN     |
+| TD-023 | MEDIUM   | Telegram abuse / retention                 | BEFORE INTERNAL PILOT | RESOLVED |
 | TD-024 | LOW      | Telegram metadata freshness                | LATER SCALE           | OPEN     |
 | TD-025 | MEDIUM   | Google credential operations               | BEFORE INTERNAL PILOT | OPEN     |
-| TD-026 | MEDIUM   | Google request budgets / attempt retention | BEFORE INTERNAL PILOT | OPEN     |
+| TD-026 | MEDIUM   | Google request budgets / attempt retention | BEFORE INTERNAL PILOT | RESOLVED |
 | TD-027 | MEDIUM   | Google live sandbox acceptance             | BEFORE INTERNAL PILOT | OPEN     |
 
 ## TD-001: Identity / navigation
@@ -194,7 +194,10 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Audit evidence:** Telegram events and `technician.deleted` survive deletion because target_id has no cascade FK; actor_id becomes null if the manager is deleted. Existing regression confirms this. Retention, append-only enforcement and durable actor attribution still lack a policy.
 - **Stage 2 evidence:** Google connection, scan, assignment, exclusion, restore, and revocation outcomes now use the same safe transactional audit boundary. No token, authorization code, or state is included. Retention, append-only enforcement, and durable attribution remain OPEN.
 - **Independent Stage 2 audit evidence:** Independent Google audit: assignment/exclusion/restore no-ops no longer create misleading history. Actor/target/time and failed-callback attribution tests pass. Technician deletion still cascades assignment history; manager deletion can null audit actor IDs. An approved retention/append-only policy remains required.
-- **Status:** OPEN
+- **Approved pilot evidence:** Permanent deletion is absent from the manager UI, rejected by the
+  API, and prohibited by a PostgreSQL trigger. The pilot uses deactivation and retains history.
+- **Status:** OPEN FOR PRODUCTION POLICY; NOT A CONTROLLED TEST-PILOT BLOCKER while deletion stays
+  disabled. Reopen before any release that restores permanent deletion.
 
 ## TD-011: Sensitive data protection
 
@@ -207,7 +210,11 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Stage 2 evidence:** Provider refresh tokens and pending PKCE verifiers now use authenticated Fernet encryption with an external key and versioned envelope. Ciphertext corruption/wrong-key/plaintext-mutation tests pass. DL/SSN columns and access policy are unchanged; this HIGH item remains OPEN.
 - **Independent Stage 2 audit evidence:** Independent Google audit: actual PostgreSQL ciphertext, wrong-key/corruption, secret-bearing provider errors, SDK logger namespaces, public schemas and browser storage are tested. Calendar lists now select only assignee UUID/name, avoiding unnecessary sensitive profile hydration. Existing plaintext DL/SSN and profile authorization policy are unchanged.
-- **Status:** OPEN
+- **Approved pilot evidence:** Create/update/detail contracts and the manager UI omit both fields;
+  manager APIs reject them and PostgreSQL rejects new non-null values. Existing values are not
+  automatically erased or exposed by the API.
+- **Status:** OPEN BEFORE ANY PRODUCTION COLLECTION; NOT A CONTROLLED TEST-PILOT BLOCKER while
+  collection remains disabled.
 
 ## TD-012: Deployment / credentials / origins
 
@@ -241,6 +248,17 @@ technician serialization guard and row lock, and returns 409 without overwriting
 Regression coverage proves the first writer remains canonical. The broader item remains **OPEN
 (PARTIAL)** because `updated_at` is still ORM-owned, raw SQL writers do not advance a database
 version, and dependent binding/assignment changes remain outside the deletion/profile version.
+
+### Approved pilot-policy evidence
+
+Migration `fca609190001` adds database-owned `record_version`, direct-write protection, and narrow
+triggers for protected profile, active assignment/calendar source, current Google connection,
+Telegram routing/readiness, and schedule-enabled state. A transaction-local distinct-ID helper
+increments once per affected technician. PATCH now requires `expected_record_version`, locks and
+compares it, and preserves 409 stale-write behavior. Direct SQL and dependent-state regressions
+cover the boundary; `updated_at` remains display/audit time.
+
+- **Status:** RESOLVED
 
 ## TD-014: Provider state invariants
 
@@ -310,7 +328,10 @@ version, and dependent binding/assignment changes remain outside the deletion/pr
 - **Evidence:** HttpUrl schema and Avatar img with no-referrer; unsafe schemes rejected by regression tests.
 - **Recommended remediation:** Adopt an HTTPS-only/approved-host or managed-upload policy and CSP appropriate to deployment, balancing privacy and image compatibility.
 - **Required before milestone:** BEFORE INTERNAL PILOT
-- **Status:** OPEN
+- **Approved pilot evidence:** Manager/API photo input and output are removed, PostgreSQL rejects
+  new non-null URLs, Avatar renders initials only, no upload exists, and Web CSP uses
+  `img-src 'self'`.
+- **Status:** RESOLVED
 
 ## TD-019: Runtime contracts
 
@@ -368,7 +389,10 @@ version, and dependent binding/assignment changes remain outside the deletion/pr
 - **Evidence:** worker.cycle processes up to 50 updates sequentially and emits best-effort replies; process_update persists each update; TelegramProcessedUpdate has no cleanup job. Safe generic errors and bounded polling do not prevent sender spam.
 - **Recommended remediation:** Before exposing a pilot bot publicly, define per-sender/global response budgets, rate-limit observations and a safe deduplication retention window coordinated with Telegram update retention and offset recovery. Do not treat token entropy as denial-of-service protection.
 - **Required before milestone:** BEFORE INTERNAL PILOT
-- **Status:** OPEN
+- **Approved pilot evidence:** Database-backed configurable admission enforces 30 actions/minute
+  per sender, 10/10 seconds burst, and 300/minute global. Rejected actions emit no reply and retain
+  a dedupe outcome. Seven-day cleanup deletes only updates below the durable worker offset.
+- **Status:** RESOLVED
 
 ## TD-024: Telegram profile and group-title metadata freshness
 
@@ -403,7 +427,11 @@ version, and dependent binding/assignment changes remain outside the deletion/pr
 - **Recommended remediation:** Before shared pilot use, establish per-manager/global OAuth and scan budgets and a safe attempt-retention policy. Keep single-use state and replay protection intact; use sanitized quota observations.
 - **Required before milestone:** BEFORE INTERNAL PILOT
 - **Independent Stage 2 audit evidence:** Independent Google audit: same/different snapshot scans, page-three failure, looping/malformed continuation, conflicting duplicate IDs and the 1000-page cap are exercised. Quota 403 and token-endpoint 429 now preserve retry semantics across provider recreation. Successful scans/OAuth starts still lack per-manager/global quotas; lifecycle waiters may open transient dedicated connections, so DB connection and request admission limits remain necessary. Expired verifier pruning remains absent.
-- **Status:** OPEN
+- **Approved pilot evidence:** Database-backed admission enforces 5 OAuth starts/15 minutes per
+  manager and 20/hour global, plus 6 manual scan/reconnect actions/10 minutes per manager and
+  30/hour global. Seven-day cleanup deletes only attempt metadata whose verifier was already
+  cleared. PKCE TTL/single-use and provider/worker retry behavior are unchanged.
+- **Status:** RESOLVED
 
 ## TD-027: Google OAuth and CalendarList live sandbox acceptance
 
@@ -863,3 +891,36 @@ database. See `PILOT_POLICY_DECISIONS.md` and `PILOT_LIVE_ACCEPTANCE_PLAN.md`.
 
 The 16 pilot blockers are unchanged. **PILOT READY: NO.** Contracts, GPS, Moto Watchdog,
 dispatcher automation, manager corrections, and later-stage features were not started.
+
+## Approved pilot-policy implementation disposition
+
+This pass resolves TD-013, TD-018, TD-023, and TD-026 and adds no debt ID: **35 entries,
+15 RESOLVED, 20 OPEN** (0 CRITICAL, 2 HIGH, 13 MEDIUM, 5 LOW). It contacted no Google or
+Telegram provider and made no Contracts or GPS product change.
+
+- **TD-010 remains OPEN for production and is no longer a controlled TEST-pilot blocker.** The
+  approved pilot disables permanent deletion in the UI, API, and PostgreSQL. Deactivation preserves
+  the fictional technician and all history. Any future deletion capability must first approve and
+  implement the durable audit/access/retention policy.
+- **TD-011 remains OPEN before any production collection and is no longer a controlled TEST-pilot
+  blocker.** License ID and SSN last four are omitted from manager API/UI contracts and new non-null
+  database writes are rejected. The migration does not erase unrelated legacy data.
+- **TD-013 is RESOLVED.** Migration `fca609190001` implements the approved narrow database-owned
+  version and once-per-transaction dependent-state boundary; stale API and direct SQL tests pass.
+- **TD-018 is RESOLVED.** The product renders initials only, exposes no image URL/upload input, rejects
+  new URLs in PostgreSQL, and uses a self-only image CSP.
+- **TD-023 is RESOLVED.** Configurable database-backed Telegram admission implements 30/minute per
+  sender, 10/10-second burst, and 300/minute global limits. Processed-update metadata is retained
+  seven days and removed only below the durable offset.
+- **TD-026 is RESOLVED.** Configurable OAuth and manual scan/reconnect manager/global limits match the
+  approval. Seven-day metadata cleanup preserves existing PKCE TTL/single-use and provider retries.
+- **TD-031 remains OPEN for final production legal/business policy and is no longer a controlled
+  TEST-pilot blocker.** The TEST policy retains Work Reports, Expenses, revisions, and audit rows,
+  performs no automatic anonymization, keeps bounded transient cleanup, and applies a rolling
+  30-day policy only to exact script-owned backup artifacts.
+- **TD-012/017/025/029 remain OPEN operational blockers.** The selected deployment must install and
+  evidence TLS/proxy, managed secrets, alert routing/scheduling, and deployed synthetic recovery.
+- **TD-022/027/028/030/033 remain OPEN live TEST blockers.** No live acceptance was attempted.
+
+The nine remaining controlled TEST-pilot blockers are TD-012/017/022/025/027/028/029/030/033.
+**PILOT READY: NO.**

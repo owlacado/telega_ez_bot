@@ -37,7 +37,7 @@ async def test_two_distinct_sessions_race(app, client, ready):
     assert await counts(app) == (1, 1)
 
 
-@pytest.mark.parametrize("change", ["inactive", "rebind", "delete"])
+@pytest.mark.parametrize("change", ["inactive", "rebind"])
 async def test_lifecycle_wins_lock_then_submit_rejected(app, client, ready, change):
     token, _, _ = await selected(app, client)
     async with app.state.session_factory() as db, db.begin():
@@ -47,9 +47,7 @@ async def test_lifecycle_wins_lock_then_submit_rejected(app, client, ready, chan
         )
         await asyncio.sleep(0.05)
         assert not submission.done()
-        if change == "delete":
-            await db.delete(tech)
-        elif change == "inactive":
+        if change == "inactive":
             tech.status = "INACTIVE"
         else:
             await db.execute(
@@ -108,7 +106,7 @@ async def test_submission_wins_lock_then_delete_cannot_remove_history(
         client.request(
             "DELETE",
             f"/api/technicians/{ready}",
-            json={"confirmation": "DELETE", "expected_updated_at": profile["updated_at"]},
+            json={"confirmation": "DELETE", "expected_record_version": profile["record_version"]},
         )
     )
     await asyncio.sleep(0.05)
@@ -116,7 +114,7 @@ async def test_submission_wins_lock_then_delete_cannot_remove_history(
     release.set()
     await submission
     response = await deletion
-    assert response.status_code == 409 and "business records" in response.text
+    assert response.status_code == 409 and "deactivate" in response.text.lower()
     assert await counts(app) == (1, 1)
 
 

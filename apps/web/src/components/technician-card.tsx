@@ -34,12 +34,7 @@ export function TechnicianCard({ technician: t }: { technician: Technician }) {
         </div>
       </div>
       <div className="card-identity">
-        <Avatar
-          firstName={t.first_name}
-          lastName={t.last_name}
-          url={t.photo_url}
-          large
-        />
+        <Avatar firstName={t.first_name} lastName={t.last_name} large />
         <div>
           <h2>
             <span>{t.first_name}</span>

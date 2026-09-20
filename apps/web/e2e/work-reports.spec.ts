@@ -251,7 +251,10 @@ test("mobile Work Report and manager immutable receipt", async ({
       await request.get(`/api/technicians/${tech.id}`)
     ).json();
     await request.delete(`/api/technicians/${tech.id}`, {
-      data: { confirmation: "DELETE", expected_updated_at: latest.updated_at },
+      data: {
+        confirmation: "DELETE",
+        expected_record_version: latest.record_version,
+      },
     });
   }
 });

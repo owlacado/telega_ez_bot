@@ -1,10 +1,12 @@
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from hub.auth.security import rate_limit
 from hub.integrations.models import TelegramBinding
 from hub.integrations.ports import TelegramProvider
 from hub.technicians.models import Technician
@@ -70,6 +72,59 @@ async def process_update(
     *,
     settings=None,
 ) -> UpdateResult:
+    config = settings
+    if config is None:
+        from hub.core.config import Settings
+
+        config = Settings()
+    if event.kind != "CALLBACK":
+        async with factory() as db:
+            if await db.get(TelegramProcessedUpdate, (bot_id, event.update_id)):
+                return UpdateResult("DUPLICATE")
+    async with factory() as db, db.begin():
+        admitted = True
+        budgets = []
+        if event.user_id is not None:
+            budgets.extend(
+                [
+                    (
+                        f"telegram:admission:sender-minute:{bot_id}:{event.user_id}",
+                        config.telegram_sender_minute_limit,
+                        60,
+                    ),
+                    (
+                        f"telegram:admission:sender-burst:{bot_id}:{event.user_id}",
+                        config.telegram_sender_burst_limit,
+                        config.telegram_sender_burst_seconds,
+                    ),
+                ]
+            )
+        budgets.append(
+            (
+                f"telegram:admission:global:{bot_id}",
+                config.telegram_global_minute_limit,
+                60,
+            )
+        )
+        for key, limit, seconds in budgets:
+            try:
+                await rate_limit(
+                    db,
+                    key,
+                    limit=limit,
+                    seconds=seconds,
+                )
+            except HTTPException as exc:
+                if exc.status_code != 429:
+                    raise
+                admitted = False
+        if not admitted:
+            await db.execute(
+                insert(TelegramProcessedUpdate)
+                .values(bot_id=bot_id, update_id=event.update_id, outcome="RATE_LIMITED")
+                .on_conflict_do_nothing()
+            )
+            return UpdateResult("RATE_LIMITED")
     if event.kind == "CALLBACK":
         # Clear Telegram's progress indicator promptly, before database work. A failure
         # to answer is cosmetic and must not prevent the authoritative acknowledgement.
@@ -90,9 +145,6 @@ async def process_update(
         except Exception:
             pass
         return UpdateResult(outcome)
-    async with factory() as db:
-        if await db.get(TelegramProcessedUpdate, (bot_id, event.update_id)):
-            return UpdateResult("DUPLICATE")
     proof = await prepare_claim(factory, event, provider, bot_id)
     async with AsyncExitStack() as locks:
         if proof:
@@ -124,10 +176,8 @@ async def process_update(
                     if event.command == "/help":
                         result = "HELP"
                     elif event.command == "/expenses":
-                        from hub.core.config import Settings
                         from hub.expenses.service import issue
 
-                        config = settings or Settings()
                         token = await issue(db, event, bot_id, config)
                         result = "EXPENSE_FORM" if token else "UNAVAILABLE"
                         reply = (
@@ -145,10 +195,8 @@ async def process_update(
                             )
                         )
                     elif event.command == "/report":
-                        from hub.core.config import Settings
                         from hub.work_reports.service import issue
 
-                        config = settings or Settings()
                         token = await issue(db, event, bot_id, config)
                         result = "WORK_REPORT_FORM" if token else "INVITATION_REQUIRED"
                         if token:

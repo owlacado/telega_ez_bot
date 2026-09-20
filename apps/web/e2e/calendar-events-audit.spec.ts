@@ -1,4 +1,4 @@
-﻿import path from "node:path";
+import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { test, expect } from "./fixtures";
 
@@ -76,7 +76,7 @@ for (const [zone, browserZone, offset] of [
         await request.delete(`/api/technicians/${tech.id}`, {
           data: {
             confirmation: "DELETE",
-            expected_updated_at: (await current.json()).updated_at,
+            expected_record_version: (await current.json()).record_version,
           },
         });
       }
@@ -130,7 +130,7 @@ test("large bounded schedule renders literal text without horizontal overflow", 
     await request.delete(`/api/technicians/${tech.id}`, {
       data: {
         confirmation: "DELETE",
-        expected_updated_at: (await current.json()).updated_at,
+        expected_record_version: (await current.json()).record_version,
       },
     });
   }

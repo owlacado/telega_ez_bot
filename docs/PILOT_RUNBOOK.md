@@ -1,12 +1,12 @@
 # One-technician pilot runbook
 
-**Current release status: PILOT READY — NO.** Do not start the real pilot until the open items in
-`PILOT_BLOCKER_MATRIX.md` are satisfied, including dedicated TEST provider acceptance and approved
-policies for sensitive fields, audit/retention, abuse budgets, images, credentials, and deployment.
+**Current release status: PILOT READY — NO.** Approved application policies are implemented. Do not
+start the pilot until the nine remaining items in `PILOT_BLOCKER_MATRIX.md` are satisfied: four
+selected-deployment operational controls and five dedicated live TEST-provider acceptances.
 
 ## Before the pilot
 
-1. Record approvals in `PILOT_POLICY_DECISIONS.md`; unresolved choices remain blockers.
+1. Verify the approved choices and implementation evidence in `PILOT_POLICY_DECISIONS.md`.
 2. Use a reviewed release commit and clean build. Store the commit in `RELEASE_COMMIT`.
 3. Instantiate and record the remote TEST deployment contract from `PILOT_ARCHITECTURE.md`: one
    HTTPS proxy, private application network, replaced forwarding headers, exact trusted proxy IP,
@@ -29,7 +29,8 @@ policies for sensitive fields, audit/retention, abuse budgets, images, credentia
    use a directory whose ACL is limited to the backup operators, then verify its SHA-256 manifest
    and latest isolated restore-drill evidence. The script publishes a unique dump/manifest pair and
    refuses to overwrite an artifact. The dump still contains business data and encrypted
-   credentials, so ciphertext does not make it safe to distribute.
+   credentials, so ciphertext does not make it safe to distribute. The default rolling retention
+   is 30 days; `-RetentionDays` may change it only through a recorded operational policy change.
 10. Complete `PILOT_LIVE_ACCEPTANCE_PLAN.md` in order and link sanitized acceptance records.
 
 The pilot alert route pages immediately for preflight/health BLOCK, two consecutive API health
@@ -44,7 +45,8 @@ thresholds; record any approved change before applying it.
 ## Technician onboarding
 
 Create one fictional/test-approved technician first. Set the active status and explicit IANA
-accounting timezone. Do not enter a real driver license or SSN last four while TD-011 is open.
+accounting timezone. The pilot UI/API do not accept driver license ID, SSN last four, or an external
+profile image; generated initials are the only technician image representation.
 Assign exactly one available calendar. Complete private Telegram onboarding and, only when schedule
 delivery is enabled, the work group. For a Google calendar, confirm current connection and event-read
 scope. The API checklist must show `Ready for Pilot`; an optional mirror may remain `OPTIONAL`.
@@ -70,6 +72,13 @@ quota issues. Compare canonical accounting before treating a projection as curre
 At end of day, inspect failed/ambiguous queues, the technician's daily/weekly accounting, audit
 events, and provider status. Run the cleanup command first without `--apply`, then apply only the
 reviewed bounded cleanup. Create and verify the scheduled private backup.
+
+Application admission is independent of provider retry/send limits. Telegram allows 30 actions per
+minute per sender, a 10-action/10-second sender burst, and 300 actions per minute globally. Google
+allows 5 OAuth starts per 15 minutes per manager and 20 per hour globally; manual Calendar
+scan/reconnect allows 6 per 10 minutes per manager and 30 per hour globally. Treat 429 responses as
+an operational signal; do not increase a limit during an incident without recording the change.
+Processed Telegram updates and cleared OAuth-attempt metadata have a seven-day bounded cleanup.
 
 ## Secret recovery and rotation
 
@@ -111,8 +120,9 @@ business-record deletion constraints.
 - Google and Telegram are eventually consistent and cannot provide local database atomicity.
 - Ambiguous Telegram sends require human review; blind retry can duplicate a message.
 - Automatic schedule decisions can be missed across the whole decision window during long downtime.
-- DL/SSN fields are plaintext and must remain empty for the pilot while TD-011 is open.
-- External profile images need an approved privacy/CSP policy.
+- Production collection of DL/SSN remains prohibited until encryption/access policy is approved;
+  the pilot API/UI and database guard reject new values.
+- Production deletion, anonymization, and retention still require final legal/business policy.
 - The Web `/login` probe checks only the Web process and static shell; use API and Operations Health
   to decide whether the application is usable.
 - Run only one API and one replica of each enabled worker under the pilot connection budget.

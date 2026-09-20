@@ -27,7 +27,6 @@ export function AddTechnician({ onClose }: { onClose: () => void }) {
     const payload: TechnicianCreate = {
       first_name: String(form.get("first_name")).trim(),
       last_name: String(form.get("last_name")).trim(),
-      photo_url: String(form.get("photo_url")).trim() || null,
       calendar_id: String(form.get("calendar_id")) || null,
     };
     try {
@@ -77,15 +76,6 @@ export function AddTechnician({ onClose }: { onClose: () => void }) {
               />
             </label>
           </div>
-          <label>
-            Photo URL <span className="optional">Optional</span>
-            <input
-              name="photo_url"
-              type="url"
-              maxLength={2048}
-              placeholder="https://…"
-            />
-          </label>
           <label>
             Calendar <span className="optional">Optional</span>
             <select

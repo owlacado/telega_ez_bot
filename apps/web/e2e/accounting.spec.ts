@@ -17,7 +17,7 @@ test("canonical accounting daily weekly and current revision", async ({
   const extraTechs: { id: string }[] = [];
   await request.patch(`/api/technicians/${tech.id}`, {
     data: {
-      expected_updated_at: tech.updated_at,
+      expected_record_version: tech.record_version,
       accounting_timezone: "America/Los_Angeles",
     },
   });
@@ -38,7 +38,7 @@ test("canonical accounting daily weekly and current revision", async ({
       extraTechs.push(extra);
       await request.patch(`/api/technicians/${extra.id}`, {
         data: {
-          expected_updated_at: extra.updated_at,
+          expected_record_version: extra.record_version,
           accounting_timezone: "America/Los_Angeles",
         },
       });
@@ -261,7 +261,7 @@ test("canonical accounting daily weekly and current revision", async ({
         await request.delete(`/api/technicians/${currentTech.id}`, {
           data: {
             confirmation: "DELETE",
-            expected_updated_at: current.updated_at,
+            expected_record_version: current.record_version,
           },
         });
       }

@@ -128,7 +128,7 @@ test("durable schedule send, acknowledgement, explicit resend, and auto setting"
       await request.delete(`/api/technicians/${tech.id}`, {
         data: {
           confirmation: "DELETE",
-          expected_updated_at: (await current.json()).updated_at,
+          expected_record_version: (await current.json()).record_version,
         },
       });
     harness({ action: "google_reset" });

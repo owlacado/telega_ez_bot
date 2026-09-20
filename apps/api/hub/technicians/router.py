@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from hub.audit.service import audit
 from hub.calendars.models import CalendarAssignment
 from hub.calendars.schemas import AssignmentInput, AssignmentRead
 from hub.calendars.service import assign_calendar, unassign_calendar
@@ -59,7 +58,6 @@ async def create_technician(
     technician = Technician(
         first_name=payload.first_name,
         last_name=payload.last_name,
-        photo_url=str(payload.photo_url) if payload.photo_url else None,
     )
     db.add(technician)
     await db.flush()
@@ -101,9 +99,9 @@ async def update_technician(
     async with advisory_guard(request.app.state.engine, "technician", technician_id):
         technician = await require_technician(db, technician_id, lock=True)
         values = payload.model_dump(
-            mode="json", exclude_unset=True, exclude={"expected_updated_at"}
+            mode="json", exclude_unset=True, exclude={"expected_record_version"}
         )
-        if technician.updated_at != payload.expected_updated_at:
+        if technician.record_version != payload.expected_record_version:
             raise HTTPException(409, "Profile changed. Reload and apply the edit again.")
         zone = values.get("accounting_timezone")
         if zone and not await db.scalar(
@@ -133,28 +131,12 @@ async def delete_technician(
     db: AsyncSession = Depends(session),
 ) -> Response:
     async with advisory_guard(request.app.state.engine, "technician", technician_id):
-        technician = await require_technician(db, technician_id, lock=True)
-        if technician.updated_at != payload.expected_updated_at:
-            raise HTTPException(409, "Profile changed. Reload the page and confirm deletion again.")
-        from hub.expenses.models import TechnicianExpense
-        from hub.work_reports.models import WorkReport
-
-        if await db.scalar(
-            select(WorkReport.id).where(WorkReport.technician_id == technician_id).limit(1)
-        ) or await db.scalar(
-            select(TechnicianExpense.id)
-            .where(TechnicianExpense.technician_id == technician_id)
-            .limit(1)
-        ):
-            raise HTTPException(
-                409,
-                "Technician has business records and cannot be permanently deleted. "
-                "Deactivate the technician instead.",
-            )
-        audit(db, "technician.deleted", technician_id, actor_id=request.state.manager_id)
-        await db.delete(technician)
-        await db.commit()
-        return Response(status_code=204)
+        await require_technician(db, technician_id, lock=True)
+        raise HTTPException(
+            409,
+            "Permanent technician deletion is disabled for the pilot. "
+            "Deactivate the technician instead.",
+        )
 
 
 @router.get("/{technician_id}/calendar-assignments", response_model=list[AssignmentRead])

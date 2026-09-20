@@ -50,7 +50,7 @@ function DeleteConfirmation({
         method: "DELETE",
         body: json({
           confirmation: "DELETE",
-          expected_updated_at: technician.updated_at,
+          expected_record_version: technician.record_version,
         }),
       });
       router.push("/technicians");

@@ -1,7 +1,9 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$OutputDirectory,
-    [string]$ComposeFile = "compose.yaml"
+    [string]$ComposeFile = "compose.yaml",
+    [ValidateRange(1, 3650)]
+    [int]$RetentionDays = 30
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,6 +50,19 @@ try {
     Write-Output "Backup created: $target"
     Write-Output "Manifest created: $manifestPath"
     Write-Output "Store the database dump and provider encryption keys separately."
+    $cutoff = (Get-Date).ToUniversalTime().AddDays(-$RetentionDays)
+    $ownedName = '^technician-hub-\d{8}T\d{6}Z-[0-9a-f]{8}\.dump(?:\.json)?$'
+    $expired = @(
+        Get-ChildItem -LiteralPath $destination -File |
+            Where-Object { $_.Name -match $ownedName -and $_.LastWriteTimeUtc -lt $cutoff }
+    )
+    foreach ($artifact in $expired) {
+        if ([IO.Path]::GetFullPath($artifact.DirectoryName) -ne $destination) {
+            throw "Refusing to remove an artifact outside the backup directory."
+        }
+        Remove-Item -LiteralPath $artifact.FullName -Force
+    }
+    Write-Output "Retention: removed $($expired.Count) script-owned artifact(s) older than $RetentionDays days."
 }
 finally {
     if ($container) {

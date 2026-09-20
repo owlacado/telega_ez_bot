@@ -208,7 +208,7 @@ describe("Stage 0 components", () => {
       method: "DELETE",
       body: JSON.stringify({
         confirmation: "DELETE",
-        expected_updated_at: technician.updated_at,
+        expected_record_version: technician.record_version,
       }),
     });
     expect(push).toHaveBeenCalledWith("/technicians");
@@ -311,15 +311,8 @@ it("finds reversed name terms separated by extra spaces", async () => {
     screen.getByRole("link", { name: "Open Demo Technician" }),
   ).toBeInTheDocument();
 });
-it("falls back to initials when a profile photo fails", () => {
-  render(
-    <Avatar
-      firstName="Demo"
-      lastName="Technician"
-      url="https://example.invalid/photo.png"
-    />,
-  );
-  fireEvent.error(screen.getByRole("img"));
+it("renders generated initials without an external image", () => {
+  render(<Avatar firstName="Demo" lastName="Technician" />);
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
   expect(screen.getByText("DT")).toBeInTheDocument();
 });

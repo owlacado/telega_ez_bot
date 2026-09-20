@@ -38,6 +38,6 @@ async def test_retention_combinations(app, client, report_ready, report, expense
     response = await client.request(
         "DELETE",
         f"/api/technicians/{tid}",
-        json={"confirmation": "DELETE", "expected_updated_at": profile["updated_at"]},
+        json={"confirmation": "DELETE", "expected_record_version": profile["record_version"]},
     )
-    assert response.status_code == (409 if report or expense else 204)
+    assert response.status_code == 409

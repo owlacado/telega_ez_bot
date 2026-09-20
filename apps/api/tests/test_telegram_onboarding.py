@@ -293,7 +293,7 @@ async def test_group_checks_must_be_fresh_at_approval(client, engine, provider):
     assert (await review(client, identifier, invitation)).status_code == 409
 
 
-async def test_inactive_and_deleted_identity_cannot_claim_or_reappear(client, engine, provider):
+async def test_inactive_identity_cannot_claim_and_delete_remains_disabled(client, engine, provider):
     identifier = await technician(client)
     invitation = await issue(client, identifier)
     assert (await patch_technician(client, identifier, status="INACTIVE")).status_code == 200
@@ -304,16 +304,16 @@ async def test_inactive_and_deleted_identity_cannot_claim_or_reappear(client, en
             f"/api/technicians/{identifier}",
             json={
                 "confirmation": "DELETE",
-                "expected_updated_at": (await client.get(f"/api/technicians/{identifier}")).json()[
-                    "updated_at"
-                ],
+                "expected_record_version": (
+                    await client.get(f"/api/technicians/{identifier}")
+                ).json()["record_version"],
             },
         )
-    ).status_code == 204
+    ).status_code == 409
     assert (await claim(engine, provider, invitation, update_id=2)).outcome == "INVALID_INVITATION"
-    assert (await review(client, identifier, invitation)).status_code == 404
+    assert (await review(client, identifier, invitation)).status_code == 409
     async with engine.connect() as db:
-        assert await db.scalar(select(func.count()).select_from(TelegramInvitation)) == 0
+        assert await db.scalar(select(func.count()).select_from(TelegramInvitation)) == 1
 
 
 async def test_disconnect_independent_stale_tab_and_private_suspension(client, engine, provider):

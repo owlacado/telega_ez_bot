@@ -139,7 +139,10 @@ test("mobile expenses: lost response, new identical expense, manager facts", asy
       await request.get(`/api/technicians/${tech.id}`)
     ).json();
     await request.delete(`/api/technicians/${tech.id}`, {
-      data: { confirmation: "DELETE", expected_updated_at: current.updated_at },
+      data: {
+        confirmation: "DELETE",
+        expected_record_version: current.record_version,
+      },
     });
   }
 });

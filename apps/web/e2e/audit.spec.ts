@@ -15,17 +15,19 @@ async function person(
 }
 async function removePerson(request: APIRequestContext, id: string) {
   const response = await request.get(`/api/technicians/${id}`);
-  if (response.ok())
+  if (response.ok()) {
+    const current = await response.json();
     expect(
       (
-        await request.delete(`/api/technicians/${id}`, {
+        await request.patch(`/api/technicians/${id}`, {
           data: {
-            confirmation: "DELETE",
-            expected_updated_at: (await response.json()).updated_at,
+            expected_record_version: current.record_version,
+            status: "INACTIVE",
           },
         })
       ).status(),
-    ).toBe(204);
+    ).toBe(200);
+  }
 }
 async function noOverflow(page: Page) {
   expect
@@ -128,39 +130,12 @@ for (const [width, height] of [
           fullPage: true,
         });
       }
-      const opener = page.getByRole("button", {
-        name: "Delete Technician",
-        exact: true,
-      });
-      await opener.click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog).toBeVisible();
-      await accessible(page);
-      await dialog.getByRole("button", { name: "Cancel" }).focus();
-      await page.keyboard.press("Tab");
-      expect(
-        await page.evaluate(() =>
-          Boolean(document.activeElement?.closest("dialog")),
-        ),
-      ).toBe(true);
-      await page.keyboard.press("Escape");
-      await expect(dialog).toHaveCount(0);
-      await expect(opener).toBeFocused();
-      await opener.click();
-      await dialog
-        .getByLabel("Deletion confirmation")
-        .fill(`DELETE ${t.first_name} ${t.last_name}`);
-      const action = dialog.getByRole("button", {
-        name: /Delete permanently/i,
-      });
-      await action.scrollIntoViewIfNeeded();
-      await expect(action).toBeInViewport({ ratio: 1 });
-      await noOverflow(page);
-      await page.screenshot({
-        path: info.outputPath(`${width}-delete.png`),
-        fullPage: true,
-      });
-      await page.keyboard.press("Escape");
+      await expect(
+        page.getByRole("button", {
+          name: "Delete Technician",
+          exact: true,
+        }),
+      ).toHaveCount(0);
     } finally {
       await removePerson(request, t.id);
       expect(
@@ -222,38 +197,17 @@ test("unexpected JSON shape reaches a usable error boundary", async ({
     page.getByRole("heading", { name: "Technicians", exact: true }),
   ).toBeVisible();
 });
-test("stale delete conflicts, failed delete can retry, and slow save locks inputs", async ({
+test("pilot deletion is absent and slow save locks inputs", async ({
   page,
   request,
 }) => {
   const t = await person(request);
   try {
     await page.goto(`/technicians/${t.id}`);
-    await page
-      .getByRole("button", { name: "Delete Technician", exact: true })
-      .click();
-    await page
-      .getByLabel("Deletion confirmation")
-      .fill(`DELETE ${t.first_name} ${t.last_name}`);
-    expect(
-      (
-        await request.patch(`/api/technicians/${t.id}`, {
-          data: { expected_updated_at: t.updated_at, first_name: "Changed" },
-        })
-      ).status(),
-    ).toBe(200);
-    const action = page.getByRole("button", {
-      name: "DELETE PERMANENTLY",
-      exact: true,
-    });
-    await expect(action).toBeEnabled({ timeout: 12000 });
-    await action.click();
-    await expect(page.locator("main").getByRole("alert")).toContainText(
-      "Profile changed",
-    );
+    await expect(
+      page.getByRole("button", { name: "Delete Technician", exact: true }),
+    ).toHaveCount(0);
     expect((await request.get(`/api/technicians/${t.id}`)).status()).toBe(200);
-    await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    await page.reload();
     await page.route(`**/api/technicians/${t.id}`, async (route) => {
       if (route.request().method() === "PATCH") {
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -274,33 +228,7 @@ test("stale delete conflicts, failed delete can retry, and slow save locks input
     );
     await expect(page.getByLabel("First name", { exact: true })).toBeEnabled();
     await page.unroute(`**/api/technicians/${t.id}`);
-    await page.reload();
-    await page
-      .getByRole("button", { name: "Delete Technician", exact: true })
-      .click();
-    await page
-      .getByLabel("Deletion confirmation")
-      .fill(`DELETE Changed ${t.last_name}`);
-    await page.route(`**/api/technicians/${t.id}`, (route) =>
-      route.request().method() === "DELETE"
-        ? route.fulfill({
-            status: 503,
-            contentType: "application/json",
-            body: JSON.stringify({
-              error: { message: "Simulated delete failure" },
-            }),
-          })
-        : route.continue(),
-    );
-    await expect(action).toBeEnabled({ timeout: 12000 });
-    await action.click();
-    await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
-      "Simulated delete failure",
-    );
-    await page.unroute(`**/api/technicians/${t.id}`);
-    await action.click();
-    await expect(page).toHaveURL(/\/technicians$/);
-    expect((await request.get(`/api/technicians/${t.id}`)).status()).toBe(404);
+    expect((await request.get(`/api/technicians/${t.id}`)).status()).toBe(200);
   } finally {
     await removePerson(request, t.id);
   }
@@ -312,7 +240,7 @@ test("renders 10, 50 and 250 cards with bounded list fetching", async ({
 }, info) => {
   test.setTimeout(120000);
   const prefix = `Scale${Date.now()}`;
-  const records: { id: string; updated_at: string }[] = [];
+  const records: { id: string }[] = [];
   const measurements: {
     records: number;
     elapsedMs: number;
@@ -353,21 +281,6 @@ test("renders 10, 50 and 250 cards with bounded list fetching", async ({
     });
     console.log("Card rendering profile:", JSON.stringify(measurements));
   } finally {
-    for (let i = 0; i < records.length; i += 10) {
-      await Promise.all(
-        records.slice(i, i + 10).map(async (t) =>
-          expect(
-            (
-              await request.delete(`/api/technicians/${t.id}`, {
-                data: {
-                  confirmation: "DELETE",
-                  expected_updated_at: t.updated_at,
-                },
-              })
-            ).status(),
-          ).toBe(204),
-        ),
-      );
-    }
+    // The isolated E2E fixture truncates the disposable test database after this test.
   }
 });

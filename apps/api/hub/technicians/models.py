@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import CheckConstraint, String
+from sqlalchemy import BigInteger, CheckConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from hub.core.database import Base, Timestamps
@@ -23,6 +23,7 @@ class Technician(Timestamps, Base):
     accounting_timezone: Mapped[str | None] = mapped_column(String(64))
     driver_license_id: Mapped[str | None] = mapped_column(String(100))
     ssn_last4: Mapped[str | None] = mapped_column(String(4))
+    record_version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
     assignments = relationship(
         "CalendarAssignment", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True
     )

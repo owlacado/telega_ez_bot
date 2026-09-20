@@ -2196,8 +2196,6 @@ export interface components {
             first_name: string;
             /** Last Name */
             last_name: string;
-            /** Photo Url */
-            photo_url?: string | null;
             /** Calendar Id */
             calendar_id?: string | null;
         };
@@ -2208,11 +2206,8 @@ export interface components {
              * @constant
              */
             confirmation: "DELETE";
-            /**
-             * Expected Updated At
-             * Format: date-time
-             */
-            expected_updated_at: string;
+            /** Expected Record Version */
+            expected_record_version: number;
         };
         /** TechnicianDetail */
         TechnicianDetail: {
@@ -2225,13 +2220,13 @@ export interface components {
             first_name: string;
             /** Last Name */
             last_name: string;
-            /** Photo Url */
-            photo_url: string | null;
             /**
              * Status
              * @enum {string}
              */
             status: "ACTIVE" | "INACTIVE";
+            /** Record Version */
+            record_version: number;
             /** Accounting Timezone */
             accounting_timezone?: string | null;
             calendar: components["schemas"]["CalendarSummary"] | null;
@@ -2247,10 +2242,6 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /** Driver License Id */
-            driver_license_id: string | null;
-            /** Ssn Last4 */
-            ssn_last4: string | null;
         };
         /** TechnicianPilotReadiness */
         TechnicianPilotReadiness: {
@@ -2272,13 +2263,13 @@ export interface components {
             first_name: string;
             /** Last Name */
             last_name: string;
-            /** Photo Url */
-            photo_url: string | null;
             /**
              * Status
              * @enum {string}
              */
             status: "ACTIVE" | "INACTIVE";
+            /** Record Version */
+            record_version: number;
             /** Accounting Timezone */
             accounting_timezone?: string | null;
             calendar: components["schemas"]["CalendarSummary"] | null;
@@ -2297,23 +2288,14 @@ export interface components {
         };
         /** TechnicianUpdate */
         TechnicianUpdate: {
-            /**
-             * Expected Updated At
-             * Format: date-time
-             */
-            expected_updated_at: string;
+            /** Expected Record Version */
+            expected_record_version: number;
             /** First Name */
             first_name?: string | null;
             /** Last Name */
             last_name?: string | null;
-            /** Photo Url */
-            photo_url?: string | null;
             /** Status */
             status?: ("ACTIVE" | "INACTIVE") | null;
-            /** Driver License Id */
-            driver_license_id?: string | null;
-            /** Ssn Last4 */
-            ssn_last4?: string | null;
             /** Accounting Timezone */
             accounting_timezone?: string | null;
         };

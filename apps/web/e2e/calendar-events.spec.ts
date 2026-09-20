@@ -91,7 +91,7 @@ test("event scope upgrade, jobs, filtering, preview, refresh and technician isol
         await request.delete(`/api/technicians/${tech.id}`, {
           data: {
             confirmation: "DELETE",
-            expected_updated_at: (await current.json()).updated_at,
+            expected_record_version: (await current.json()).record_version,
           },
         });
     }
@@ -142,7 +142,7 @@ for (const day of ["2026-09-19", "2026-09-20"]) {
       await request.delete(`/api/technicians/${tech.id}`, {
         data: {
           confirmation: "DELETE",
-          expected_updated_at: (await current.json()).updated_at,
+          expected_record_version: (await current.json()).record_version,
         },
       });
     }

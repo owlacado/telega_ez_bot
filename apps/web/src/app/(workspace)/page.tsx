@@ -109,11 +109,7 @@ export default function Dashboard() {
                     key={t.id}
                     className="attention-row"
                   >
-                    <Avatar
-                      firstName={t.first_name}
-                      lastName={t.last_name}
-                      url={t.photo_url}
-                    />
+                    <Avatar firstName={t.first_name} lastName={t.last_name} />
                     <div className="attention-person">
                       <strong>
                         {t.first_name} {t.last_name}

@@ -123,25 +123,12 @@ test("authenticated private and group onboarding with an isolated fake transport
         .getByText("Not connected", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Close dialog" }).click();
-    await page
-      .getByRole("button", { name: "Delete Technician", exact: true })
-      .click();
-    const deletion = page.getByRole("dialog", {
-      name: "Permanently delete technician?",
-    });
-    await deletion
-      .getByLabel("Deletion confirmation")
-      .fill(`DELETE E2E Onboarding${stamp}`);
     await expect(
-      deletion.getByRole("button", { name: "DELETE PERMANENTLY", exact: true }),
-    ).toBeEnabled({ timeout: 12000 });
-    await deletion
-      .getByRole("button", { name: "DELETE PERMANENTLY", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/technicians$/);
+      page.getByRole("button", { name: "Delete Technician", exact: true }),
+    ).toHaveCount(0);
     expect(
       (await request.get(`/api/technicians/${technicianId}`)).status(),
-    ).toBe(404);
+    ).toBe(200);
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/login$/);
     expect((await request.get("/api/technicians")).status()).toBe(401);
@@ -152,7 +139,7 @@ test("authenticated private and group onboarding with an isolated fake transport
         await request.delete(`/api/technicians/${technicianId}`, {
           data: {
             confirmation: "DELETE",
-            expected_updated_at: (await current.json()).updated_at,
+            expected_record_version: (await current.json()).record_version,
           },
         });
     }

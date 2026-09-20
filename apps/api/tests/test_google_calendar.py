@@ -169,6 +169,42 @@ async def test_start_encryption_binding_and_single_use(client, app, google):
     )
 
 
+async def test_oauth_start_admission_is_per_manager_and_database_backed(client, app, google):
+    app.state.settings.google_oauth_manager_limit = 1
+    assert (await client.post(
+        BASE + "/start",
+        json={
+            "mode": "CONNECT",
+            "expected_connection_id": None,
+            "expected_generation": None,
+            "confirm_replace": False,
+        },
+    )).status_code == 200
+    limited = await client.post(
+        BASE + "/start",
+        json={
+            "mode": "CONNECT",
+            "expected_connection_id": None,
+            "expected_generation": None,
+            "confirm_replace": False,
+        },
+    )
+    assert limited.status_code == 429
+    async with app.state.session_factory() as db:
+        assert len((await db.scalars(select(GoogleOAuthAttempt))).all()) == 1
+
+
+async def test_manual_scan_admission_does_not_change_provider_retry_policy(client, app, google):
+    await connect(client)
+    app.state.settings.google_manual_manager_limit = 1
+    first = await client.post(BASE + "/scan")
+    assert first.status_code == 200
+    calls = list(google.calls)
+    second = await client.post(BASE + "/scan")
+    assert second.status_code == 429
+    assert google.calls == calls
+
+
 @pytest.mark.parametrize(
     "mutation", ["expired", "random", "missing", "error", "duplicate", "no_state"]
 )
@@ -612,7 +648,7 @@ async def test_malformed_or_timeout_provider_safe(monkeypatch, pages):
     assert "secret" not in str(failure.value)
 
 
-async def test_deleted_technician_during_transfer_rolls_back(client, google):
+async def test_disabled_technician_delete_does_not_block_transfer(client, google):
     await connect(client)
     calendar = (await catalog(client))[0]
     source, target = await technician(client, "Source"), await technician(client, "Target")
@@ -623,15 +659,16 @@ async def test_deleted_technician_during_transfer_rolls_back(client, google):
         await client.request(
             "DELETE",
             f"/api/technicians/{target['id']}",
-            json={"confirmation": "DELETE", "expected_updated_at": target["updated_at"]},
+            json={"confirmation": "DELETE", "expected_record_version": target["record_version"]},
         )
-    ).status_code == 204
+    ).status_code == 409
     response = await client.put(
         f"/api/calendars/{calendar['id']}/assignment",
         json={"technician_id": target["id"], "expected_assigned_technician_id": source["id"]},
     )
-    assert response.status_code == 404
-    assert (await client.get(f"/api/technicians/{source['id']}")).json()["calendar"][
+    assert response.status_code == 204
+    assert (await client.get(f"/api/technicians/{source['id']}")).json()["calendar"] is None
+    assert (await client.get(f"/api/technicians/{target['id']}")).json()["calendar"][
         "id"
     ] == calendar["id"]
 

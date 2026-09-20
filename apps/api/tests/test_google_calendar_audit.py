@@ -373,7 +373,7 @@ async def test_assignment_concurrent_removal_final_db_invariants(client, app, go
         other = client.request(
             "DELETE",
             f"/api/technicians/{tech['id']}",
-            json={"confirmation": "DELETE", "expected_updated_at": tech["updated_at"]},
+            json={"confirmation": "DELETE", "expected_record_version": tech["record_version"]},
         )
     else:
         google.calendars = []
@@ -394,8 +394,8 @@ async def test_assignment_concurrent_removal_final_db_invariants(client, app, go
             calendar = await db.get(Calendar, assignment.calendar_id)
             assert calendar.excluded_at is None
         if operation == "delete":
-            assert not active
-            assert await db.scalar(select(func.count()).select_from(CalendarAssignment)) == 0
+            assert responses[1].status_code == 409
+            assert len(active) == 1
 
 
 async def test_reappearing_renamed_exclusion_survives_reconnect(client, app, google):

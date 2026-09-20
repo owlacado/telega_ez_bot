@@ -44,7 +44,7 @@ async def patch_technician(client, identifier, **values):
     current = (await client.get(f"/api/technicians/{identifier}")).json()
     return await client.patch(
         f"/api/technicians/{identifier}",
-        json={"expected_updated_at": current["updated_at"], **values},
+        json={"expected_record_version": current["record_version"], **values},
     )
 
 
@@ -154,9 +154,9 @@ async def test_full_flow_snapshot_privacy_receipt_manager_retention(
     deleted = await client.request(
         "DELETE",
         f"/api/technicians/{ready}",
-        json={"confirmation": "DELETE", "expected_updated_at": profile["updated_at"]},
+        json={"confirmation": "DELETE", "expected_record_version": profile["record_version"]},
     )
-    assert deleted.status_code == 409 and "business records" in deleted.text
+    assert deleted.status_code == 409 and "deactivate" in deleted.text.lower()
     assert (
         await patch_technician(client, ready, status="INACTIVE")
     ).status_code == 200

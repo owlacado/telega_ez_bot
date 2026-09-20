@@ -42,13 +42,10 @@ export function ProfilePanel({
     setSaved(false);
     const form = new FormData(event.currentTarget);
     const payload: TechnicianUpdate = {
-      expected_updated_at: t.updated_at,
+      expected_record_version: t.record_version,
       first_name: String(form.get("first_name")).trim(),
       last_name: String(form.get("last_name")).trim(),
-      photo_url: String(form.get("photo_url")).trim() || null,
       status: form.get("status") as "ACTIVE" | "INACTIVE",
-      driver_license_id: String(form.get("driver_license_id")).trim() || null,
-      ssn_last4: String(form.get("ssn_last4")).trim() || null,
       accounting_timezone:
         String(form.get("accounting_timezone") ?? "").trim() || null,
     };
@@ -132,42 +129,6 @@ export function ProfilePanel({
                 />
               </label>
             </div>
-            <label>
-              Photo URL
-              <input
-                name="photo_url"
-                type="url"
-                maxLength={2048}
-                defaultValue={t.photo_url ?? ""}
-                placeholder="https://…"
-              />
-            </label>
-            <div className="form-grid">
-              <label>
-                Driver License ID
-                <input
-                  name="driver_license_id"
-                  maxLength={100}
-                  defaultValue={t.driver_license_id ?? ""}
-                  autoComplete="off"
-                  placeholder="Optional"
-                />
-              </label>
-              <label>
-                SSN last 4
-                <input
-                  name="ssn_last4"
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]{4}"
-                  minLength={4}
-                  maxLength={4}
-                  defaultValue={t.ssn_last4 ?? ""}
-                  autoComplete="new-password"
-                  placeholder="Optional"
-                />
-              </label>
-            </div>
             <AccountingTimezone
               key={`${t.id}:${t.accounting_timezone}`}
               value={t.accounting_timezone}
@@ -175,10 +136,6 @@ export function ProfilePanel({
             <p className="field-hint">
               Set the technician’s IANA timezone to enable expenses. No calendar
               or browser timezone is assumed.
-            </p>
-            <p className="field-hint sensitive-hint">
-              Do not enter real DL or SSN values while field encryption is
-              deferred.
             </p>
             <div className="profile-form-footer">
               <label>

@@ -4,11 +4,9 @@ from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
 from pydantic import (
-    AwareDatetime,
     BaseModel,
     ConfigDict,
     Field,
-    HttpUrl,
     StringConstraints,
     field_validator,
 )
@@ -34,25 +32,14 @@ class InputModel(BaseModel):
 class TechnicianCreate(InputModel):
     first_name: Name
     last_name: Name
-    photo_url: HttpUrl | None = None
     calendar_id: UUID | None = None
-
-    @field_validator("photo_url")
-    @classmethod
-    def photo_length(cls, value: HttpUrl | None) -> HttpUrl | None:
-        if value and len(str(value)) > 2048:
-            raise ValueError("Photo URL must be at most 2048 characters")
-        return value
 
 
 class TechnicianUpdate(InputModel):
-    expected_updated_at: AwareDatetime
+    expected_record_version: int = Field(ge=1)
     first_name: Name | None = None
     last_name: Name | None = None
-    photo_url: HttpUrl | None = None
     status: Status | None = None
-    driver_license_id: Annotated[str, Field(max_length=100)] | None = None
-    ssn_last4: Last4 | None = None
     accounting_timezone: str | None = Field(default=None, max_length=64)
 
     @field_validator("accounting_timezone")
@@ -76,23 +63,12 @@ class TechnicianUpdate(InputModel):
             raise ValueError("This field cannot be null")
         return value
 
-    @field_validator("photo_url")
-    @classmethod
-    def photo_length(cls, value: HttpUrl | None) -> HttpUrl | None:
-        return TechnicianCreate.photo_length(value)
-
-    @field_validator("driver_license_id")
-    @classmethod
-    def blank_license(cls, value: str | None) -> str | None:
-        return value or None
-
-
 class DeleteConfirmation(InputModel):
     confirmation: Literal["DELETE"]
 
 
 class TechnicianDelete(DeleteConfirmation):
-    expected_updated_at: AwareDatetime
+    expected_record_version: int = Field(ge=1)
 
 
 class CalendarSummary(BaseModel):
@@ -128,8 +104,8 @@ class TechnicianSummary(BaseModel):
     id: UUID
     first_name: str
     last_name: str
-    photo_url: str | None
     status: Status
+    record_version: int
     accounting_timezone: str | None = None
     calendar: CalendarSummary | None
     integrations: IntegrationSummary
@@ -139,5 +115,4 @@ class TechnicianSummary(BaseModel):
 
 
 class TechnicianDetail(TechnicianSummary):
-    driver_license_id: str | None
-    ssn_last4: str | None
+    pass

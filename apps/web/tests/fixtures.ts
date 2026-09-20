@@ -7,8 +7,8 @@ export const technician: TechnicianDetail = {
   id: "11111111-1111-4111-8111-111111111111",
   first_name: "Demo",
   last_name: "Technician",
-  photo_url: null,
   status: "ACTIVE",
+  record_version: 1,
   calendar: null,
   integrations: {
     telegram_private: "NOT_CONNECTED",
@@ -38,8 +38,6 @@ export const technician: TechnicianDetail = {
       },
     ],
   },
-  driver_license_id: null,
-  ssn_last4: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };

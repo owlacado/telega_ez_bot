@@ -103,7 +103,7 @@ test("fake Google connection, scan, assignment, exclusion, restore and disconnec
       await request.delete(`/api/technicians/${technician.id}`, {
         data: {
           confirmation: "DELETE",
-          expected_updated_at: (await current.json()).updated_at,
+          expected_record_version: (await current.json()).record_version,
         },
       });
     harness({ action: "google_reset" });

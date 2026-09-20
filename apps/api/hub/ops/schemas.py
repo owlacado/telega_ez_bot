@@ -35,3 +35,6 @@ class CleanupResult(BaseModel):
     expired_form_snapshots: int
     expired_oauth_verifiers: int
     expired_schedule_payloads: int
+    expired_oauth_attempt_metadata: int
+    expired_telegram_processed_updates: int
+    expired_rate_buckets: int

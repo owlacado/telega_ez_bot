@@ -1,7 +1,7 @@
 "use client";
-import { use, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { TechnicianDetail } from "@hub/contracts";
 import { useResource } from "@/lib/use-resource";
 import { Avatar, ErrorNotice, Loading, Status } from "@/components/ui";
@@ -10,7 +10,6 @@ import { useSchedule } from "@/lib/use-schedule";
 import { ProfilePanel } from "@/components/profile-panel";
 import { GpsPanel } from "@/components/detail-placeholders";
 import { Accounting } from "@/components/accounting";
-import { DeleteTechnician } from "@/components/delete-technician";
 import { PilotReadiness } from "@/components/pilot-readiness";
 export default function TechnicianDetailPage({
   params,
@@ -28,7 +27,6 @@ export default function TechnicianDetailPage({
     technician ? `/technicians/${id}/calendar/today` : null,
     technician?.calendar?.id ?? "",
   );
-  const [deleting, setDeleting] = useState(false);
   return (
     <>
       <Link href="/technicians" className="back-link">
@@ -44,7 +42,6 @@ export default function TechnicianDetailPage({
             <Avatar
               firstName={technician.first_name}
               lastName={technician.last_name}
-              url={technician.photo_url}
               large
             />
             <div className="detail-title">
@@ -83,30 +80,6 @@ export default function TechnicianDetailPage({
             <TodayJobs resource={jobs} />
             <GpsPanel />
           </div>
-          <section className="danger-zone">
-            <div>
-              <span className="eyebrow">DANGER ZONE</span>
-              <h2>Delete Technician</h2>
-              <p>
-                Permanently remove this profile and its integration
-                relationships. This cannot be undone. Technicians with work
-                reports or expenses cannot be deleted; deactivate them instead.
-              </p>
-            </div>
-            <button
-              className="button danger-outline"
-              onClick={() => setDeleting(true)}
-            >
-              <Trash2 size={16} />
-              Delete Technician
-            </button>
-          </section>
-          {deleting && (
-            <DeleteTechnician
-              technician={technician}
-              onClose={() => setDeleting(false)}
-            />
-          )}
         </>
       )}
     </>

@@ -1,21 +1,21 @@
 # Controlled TEST pilot policy decisions
 
-This record presents the unresolved choices for a one-technician internal TEST pilot. It does not
-approve any choice. The product owner and named security/operations owner must record the selected
-option, approver, UTC date, and any exception before the corresponding debt can close. Until then,
-the current safe behavior and the restrictions in `PILOT_RUNBOOK.md` remain mandatory.
+This record now contains the product owner's approved choices for the one-technician internal TEST
+pilot. Approval was supplied on 2026-09-19 for every row below. Production retention, collection,
+deletion, image, and capacity policy remains a separate legal/business/security decision wherever
+the sections below say so.
 
 ## Approval summary
 
 | Debt   | Decision owner                 | Recommended TEST-pilot default                  | Approval recorded |
 | ------ | ------------------------------ | ----------------------------------------------- | ----------------- |
-| TD-010 | Product owner + security owner | Disable permanent technician deletion           | No                |
-| TD-011 | Product owner + security owner | Collect no license ID or SSN last four          | No                |
-| TD-018 | Product owner + security owner | Use initials; permit no external profile image  | No                |
-| TD-023 | Product owner + operations     | Restrict the bot and adopt conservative limits  | No                |
-| TD-026 | Product owner + operations     | One manager with conservative Google budgets    | No                |
-| TD-031 | Product owner + records owner  | Retain business evidence; purge only transients | No                |
-| TD-013 | Product owner + engineering    | Approve the narrow database version boundary    | No                |
+| TD-010 | Product owner + security owner | Disable permanent technician deletion           | Yes — 2026-09-19 |
+| TD-011 | Product owner + security owner | Collect no license ID or SSN last four          | Yes — 2026-09-19 |
+| TD-018 | Product owner + security owner | Use initials; permit no external profile image  | Yes — 2026-09-19 |
+| TD-023 | Product owner + operations     | Adopt the specified application admission limits | Yes — 2026-09-19 |
+| TD-026 | Product owner + operations     | Adopt the specified manager admission limits    | Yes — 2026-09-19 |
+| TD-031 | Product owner + records owner  | Retain business evidence; purge only transients | Yes — 2026-09-19 |
+| TD-013 | Product owner + engineering    | Approve the narrow database version boundary    | Yes — 2026-09-19 |
 
 ## TD-010 — deletion audit and accountability
 
@@ -29,14 +29,18 @@ version, append-only, durable-actor, and retention gaps. Enabling deletion only 
 append-only enforcement and an approved retention/access policy provides the complete control but
 requires schema, API, UI, migration, and recovery work.
 
-**Recommendation.** Disable permanent deletion for this internal TEST pilot; deactivate and retain
-the fictional record. This is a recommendation awaiting approval, not a change already made.
+**Approved decision.** Disable permanent deletion for this internal TEST pilot; deactivate and
+retain the fictional record.
 
 **Changes after approval.** For the recommended option, add a production/pilot configuration gate
 that rejects permanent deletion while retaining the current development/test regression path. If
 deletion is approved instead, require a bounded reason and expected database version, preserve a
 non-sensitive actor tombstone, enforce append-only audit rows in PostgreSQL, authorize audit reads,
 and implement the approved retention rule.
+
+**Implemented pilot control.** The manager UI exposes deactivation only, the API always rejects
+technician DELETE with 409, and PostgreSQL rejects direct technician DELETE. Historical and business
+rows are retained. A future production decision to restore deletion must first reopen TD-010.
 
 ## TD-011 — license ID and SSN last-four protection
 
@@ -49,12 +53,17 @@ database preserves the capability but requires masking, migration, rotation, rec
 access testing. Retaining plaintext with role restrictions leaves database and backup exposure and
 is not recommended.
 
-**Recommendation.** Collect neither value; leave both columns null for the TEST pilot.
+**Approved decision.** Collect neither value; leave both columns null for the TEST pilot.
 
 **Changes after approval.** Hide or disable those inputs in pilot mode, reject non-null writes at
 the API boundary, and add a preflight/data check. If collection is approved, implement versioned
 field encryption and the approved authorization, rotation, recovery, export, and backup rules
 before accepting real values.
+
+**Implemented pilot control.** Create/update/detail contracts and the manager UI omit both fields;
+extra manager-API input is rejected and PostgreSQL rejects new non-null values. Existing legacy
+values are not erased by the migration and remain outside public response schemas. Production
+collection remains prohibited until encryption and access policy are approved.
 
 ## TD-018 — external profile images
 
@@ -67,12 +76,16 @@ maintenance. Managed upload/proxying gives stronger control but creates a new st
 handling surface outside this pilot's scope. Arbitrary URLs retain the known privacy and intranet
 request risk.
 
-**Recommendation.** Use initials only and leave `photo_url` empty for the TEST pilot.
+**Approved decision.** Use initials only and leave `photo_url` empty for the TEST pilot.
 
 **Changes after approval.** For initials-only, reject or ignore non-null photo URLs in pilot mode
 and set `img-src 'self'` (plus required framework assets) in the deployed CSP. An allowlist choice
 requires HTTPS-only validation, exact hosts, matching CSP, and browser privacy tests. Managed upload
 requires separate design approval and is not part of this pass.
+
+**Implemented pilot control.** The API and manager UI omit `photo_url`, PostgreSQL rejects new
+non-null values, Avatar always renders generated initials, and Web responses set `img-src 'self'`.
+No binary upload surface exists.
 
 ## TD-023 — Telegram response budgets and processed-update retention
 
@@ -86,13 +99,19 @@ identity configuration and support handling. General public replies require high
 capacity and abuse monitoring. Short dedupe retention reduces storage but narrows forensic history;
 indefinite retention is simplest but grows without bound.
 
-**Recommendation.** Restrict use to the one TEST user/group; emit no useful response to unknown
-senders; cap known-sender replies at 5 per minute and all unsolicited/error replies at 30 per minute;
-retain processed-update metadata for 30 days and delete only rows below the durable worker offset.
+**Approved decision.** Apply application admission at 30 actions per minute per sender, a burst of
+10 actions per 10 seconds per sender, and 300 actions per minute globally. Retain processed-update
+metadata for 7 days and delete only rows below the durable worker offset. These limits do not alter
+Telegram provider send/retry handling.
 
 **Changes after approval.** Add configured identity admission, database-backed per-sender/global
-response buckets, sanitized rejection metrics, and bounded cleanup that proves the retained offset
+admission buckets, sanitized rejection outcomes, and bounded cleanup that proves the retained offset
 cannot replay deleted updates. The existing invitation, verification, and test-send budgets remain.
+
+**Implemented pilot control.** Configurable database-backed buckets run before application action
+processing. Rejected updates receive no reply and retain a dedupe outcome. Cleanup requires both the
+seven-day age and a durable worker offset beyond the update; duplicate updates do not consume a new
+admission unit.
 
 ## TD-026 — Google request budgets and OAuth-attempt retention
 
@@ -103,14 +122,18 @@ should non-secret OAuth-attempt metadata remain after verifier ciphertext is cle
 reduce operator friction while increasing compromised-session and quota exposure. Keeping metadata
 longer improves investigation but expands retained identifiers; immediate deletion reduces evidence.
 
-**Recommendation.** For the single manager: at most 3 OAuth starts per 15 minutes and 10 per day;
-at most 6 successful manual scans per hour and 20 per day; one scan per technician at a time; retain
-sanitized attempt metadata for 30 days while continuing to clear verifier ciphertext when consumed
-or expired. Provider `Retry-After` always overrides a local allowance.
+**Approved decision.** Allow 5 OAuth starts per 15 minutes per manager and 20 per hour globally.
+Allow 6 manual Calendar scan/reconnect actions per 10 minutes per manager and 30 per hour globally.
+Retain OAuth-attempt metadata for 7 days. Existing short-lived state/PKCE TTL, single use, provider
+`Retry-After`, and worker/provider retry policy remain unchanged.
 
 **Changes after approval.** Add database-backed per-manager and global OAuth/scan buckets, expose
 only aggregate rejection metrics, and extend bounded cleanup to metadata older than the approved
 period without weakening single-use state or replay protection.
+
+**Implemented pilot control.** OAuth start and manual scan/reconnect use configurable
+database-backed manager/global buckets. Cleanup clears expired/consumed verifier ciphertext first
+and deletes only already-cleared attempt metadata after seven days.
 
 ## TD-031 — business, form, audit, archive, and backup retention
 
@@ -123,15 +146,19 @@ retention. Automatic time-based deletion reduces storage but can destroy financi
 evidence. Reviewed anonymization can reduce personal data while retaining accounting facts, but it
 needs a field-by-field policy and immutable audit record.
 
-**Recommendation.** During the TEST pilot, never automatically delete submitted business rows,
-revisions, or audit events. Continue the existing expiry cleanup for transient snapshots and
-ciphertext. Keep private backups for the approved operational backup window and perform any
-post-pilot anonymization only through a reviewed manual procedure.
+**Approved decision.** During the TEST pilot, never automatically delete Work Reports, Expenses,
+revisions, or audit records. Continue bounded cleanup for transient secret/session payloads. Keep a
+rolling 30-day operational backup window. Perform no automatic anonymization during the pilot.
 
 **Changes after approval.** Encode approved durations and legal holds as configuration, add bounded
 archive/anonymization jobs with dry-run and audit records, test backup expiry consistently, and keep
 business deletion separate from transient cleanup. No broader deletion is authorized by this
 record.
+
+**Implemented pilot control.** Cleanup remains limited to transient snapshots/ciphertext and the
+approved OAuth/Telegram metadata. The backup script removes only its exact script-owned dump and
+manifest filenames older than 30 days after publishing a complete new pair. Final production
+retention, legal holds, anonymization, and off-host policy remain open.
 
 ## TD-013 — narrow database-owned version boundary for approval
 
@@ -160,13 +187,17 @@ and dependent-state gaps. Expanding the version to every related row creates unn
 from queue and history activity. Separate versions per subsystem reduce conflicts but complicate
 deletion review and clients.
 
-**Recommendation.** Approve the single narrow `record_version` boundary above for the one-manager
+**Approved decision.** Use the single narrow `record_version` boundary above for the one-manager
 pilot. It closes the identified gap without creating a general event-sourcing architecture.
 
 **Changes after approval.** Add one additive migration, update API schemas/services and generated
 frontend contracts, move stale-write tests from timestamps to the monotonic version, add direct-SQL
-and dependent-state trigger tests, and preserve 409 behavior. This design is not implemented until
-approved.
+and dependent-state trigger tests, and preserve 409 behavior.
+
+**Implemented pilot control.** Migration `fca609190001` adds the version, database ownership guard,
+and narrow profile/calendar/Google/Telegram/schedule triggers. A transaction-local distinct-ID
+helper increments each affected technician once per transaction. PATCH compares the expected
+version under the existing lock and returns 409 for stale edits; `updated_at` remains display time.
 
 ## Locally completed operational evidence
 

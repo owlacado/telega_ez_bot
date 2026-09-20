@@ -40,7 +40,7 @@ async def patch_technician(client, identifier, **values):
     current = (await client.get(f"/api/technicians/{identifier}")).json()
     return await client.patch(
         f"/api/technicians/{identifier}",
-        json={"expected_updated_at": current["updated_at"], **values},
+        json={"expected_record_version": current["record_version"], **values},
     )
 
 
@@ -155,7 +155,7 @@ async def test_complete_flow_privacy_manager_retention(app, client, ready, caplo
     deleted = await client.request(
         "DELETE",
         f"/api/technicians/{ready}",
-        json={"confirmation": "DELETE", "expected_updated_at": profile["updated_at"]},
+        json={"confirmation": "DELETE", "expected_record_version": profile["record_version"]},
     )
     assert deleted.status_code == 409
     await patch_technician(client, ready, status="INACTIVE")
@@ -380,7 +380,7 @@ async def test_concurrent_20_identical_and_two_real_same_value(app, ready):
     assert await counts(app) == (2, 2)
 
 
-@pytest.mark.parametrize("action", ["inactive", "rebind", "delete"])
+@pytest.mark.parametrize("action", ["inactive", "rebind"])
 async def test_lifecycle_lock_race(app, ready, action):
     token = await issue(app)
     async with app.state.session_factory() as db, db.begin():
@@ -392,8 +392,6 @@ async def test_lifecycle_lock_race(app, ready, action):
             await db.execute(update(Technician).values(status="INACTIVE"))
         elif action == "rebind":
             await db.execute(update(TelegramBinding).values(private_generation=2))
-        else:
-            await db.execute(text("DELETE FROM technicians WHERE id=:id"), {"id": ready})
     with pytest.raises(HTTPException):
         await task
     assert await counts(app) == (0, 0)

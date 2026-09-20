@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-test("dashboard to permanent deletion, with a real local calendar", async ({
+test("dashboard to pilot deactivation, with a real local calendar", async ({
   page,
   request,
 }) => {
@@ -51,42 +51,19 @@ test("dashboard to permanent deletion, with a real local calendar", async ({
     await expect(
       page.getByRole("button", { name: /Preview .*Schedule/ }),
     ).toBeEnabled();
-    await page
-      .getByRole("button", { name: "Delete Technician", exact: true })
-      .click();
-    const deletion = page.getByRole("dialog", {
-      name: "Permanently delete technician?",
-    });
-    await deletion
-      .getByLabel("Deletion confirmation")
-      .fill(`DELETE Updated Smoke${suffix}`);
     await expect(
-      deletion.getByRole("button", { name: /Delete permanently/ }),
-    ).toBeDisabled();
-    await expect(
-      deletion.getByRole("button", { name: "DELETE PERMANENTLY", exact: true }),
-    ).toBeEnabled({ timeout: 12_000 });
-    await deletion
-      .getByRole("button", { name: "DELETE PERMANENTLY", exact: true })
-      .click();
-    await expect(page).toHaveURL(/\/technicians$/);
-    expect(
-      (await request.get(`/api/technicians/${technicianId}`)).status(),
-    ).toBe(404);
-    await expect(
-      page.getByRole("link", { name: `Open Updated Smoke${suffix}` }),
+      page.getByRole("button", { name: "Delete Technician", exact: true }),
     ).toHaveCount(0);
+    await page.getByLabel("Status").selectOption("INACTIVE");
+    await page.getByRole("button", { name: "Save profile" }).click();
+    await expect(
+      page.getByText("Profile saved.", { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Status")).toHaveValue("INACTIVE");
+    const saved = await request.get(`/api/technicians/${technicianId}`);
+    expect(saved.status()).toBe(200);
+    expect((await saved.json()).status).toBe("INACTIVE");
   } finally {
-    if (technicianId) {
-      const current = await request.get(`/api/technicians/${technicianId}`);
-      if (current.ok())
-        await request.delete(`/api/technicians/${technicianId}`, {
-          data: {
-            confirmation: "DELETE",
-            expected_updated_at: (await current.json()).updated_at,
-          },
-        });
-    }
     await request.delete(`/api/calendars/${calendar.id}`, {
       data: { confirmation: "DELETE", detach_assigned: true },
     });

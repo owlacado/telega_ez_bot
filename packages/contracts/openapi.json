@@ -5916,20 +5916,6 @@
             "minLength": 1,
             "title": "Last Name"
           },
-          "photo_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2083,
-                "minLength": 1,
-                "format": "uri"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo Url"
-          },
           "calendar_id": {
             "anyOf": [
               {
@@ -5958,17 +5944,17 @@
             "const": "DELETE",
             "title": "Confirmation"
           },
-          "expected_updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Expected Updated At"
+          "expected_record_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Record Version"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "confirmation",
-          "expected_updated_at"
+          "expected_record_version"
         ],
         "title": "TechnicianDelete"
       },
@@ -5987,17 +5973,6 @@
             "type": "string",
             "title": "Last Name"
           },
-          "photo_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo Url"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -6005,6 +5980,10 @@
               "INACTIVE"
             ],
             "title": "Status"
+          },
+          "record_version": {
+            "type": "integer",
+            "title": "Record Version"
           },
           "accounting_timezone": {
             "anyOf": [
@@ -6042,28 +6021,6 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
-          },
-          "driver_license_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Driver License Id"
-          },
-          "ssn_last4": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ssn Last4"
           }
         },
         "type": "object",
@@ -6071,15 +6028,13 @@
           "id",
           "first_name",
           "last_name",
-          "photo_url",
           "status",
+          "record_version",
           "calendar",
           "integrations",
           "pilot_readiness",
           "created_at",
-          "updated_at",
-          "driver_license_id",
-          "ssn_last4"
+          "updated_at"
         ],
         "title": "TechnicianDetail"
       },
@@ -6124,17 +6079,6 @@
             "type": "string",
             "title": "Last Name"
           },
-          "photo_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo Url"
-          },
           "status": {
             "type": "string",
             "enum": [
@@ -6142,6 +6086,10 @@
               "INACTIVE"
             ],
             "title": "Status"
+          },
+          "record_version": {
+            "type": "integer",
+            "title": "Record Version"
           },
           "accounting_timezone": {
             "anyOf": [
@@ -6186,8 +6134,8 @@
           "id",
           "first_name",
           "last_name",
-          "photo_url",
           "status",
+          "record_version",
           "calendar",
           "integrations",
           "pilot_readiness",
@@ -6198,10 +6146,10 @@
       },
       "TechnicianUpdate": {
         "properties": {
-          "expected_updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Expected Updated At"
+          "expected_record_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Record Version"
           },
           "first_name": {
             "anyOf": [
@@ -6229,20 +6177,6 @@
             ],
             "title": "Last Name"
           },
-          "photo_url": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 2083,
-                "minLength": 1,
-                "format": "uri"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Photo Url"
-          },
           "status": {
             "anyOf": [
               {
@@ -6257,30 +6191,6 @@
               }
             ],
             "title": "Status"
-          },
-          "driver_license_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 100
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Driver License Id"
-          },
-          "ssn_last4": {
-            "anyOf": [
-              {
-                "type": "string",
-                "pattern": "^[0-9]{4}$"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ssn Last4"
           },
           "accounting_timezone": {
             "anyOf": [
@@ -6298,7 +6208,7 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "expected_updated_at"
+          "expected_record_version"
         ],
         "title": "TechnicianUpdate"
       },

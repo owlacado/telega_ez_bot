@@ -467,10 +467,10 @@ async def test_worker_stale_health_is_independent_of_api(app, ready):
 
 @pytest.mark.parametrize(
     "change",
-    ["assignment", "scope", "disconnect", "excluded", "unavailable", "inactive", "deleted"],
+    ["assignment", "scope", "disconnect", "excluded", "unavailable", "inactive"],
 )
 async def test_authoritative_fetch_lifecycle_races(app, client, google, ready, change):
-    from sqlalchemy import delete, func
+    from sqlalchemy import func
 
     from hub.calendars.models import Calendar, CalendarAssignment
     from hub.google_calendar.models import CalendarConnection
@@ -512,8 +512,6 @@ async def test_authoritative_fetch_lifecycle_races(app, client, google, ready, c
                 await db.execute(
                     update(Technician).where(Technician.id == ready).values(status="INACTIVE")
                 )
-            else:
-                await db.execute(delete(Technician).where(Technician.id == ready))
     finally:
         release.set()
     response = await asyncio.wait_for(sending, 10)

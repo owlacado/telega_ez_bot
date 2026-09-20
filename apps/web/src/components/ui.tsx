@@ -1,33 +1,20 @@
-/* eslint-disable @next/next/no-img-element -- Explicit profile URLs are browser-loaded; the API never fetches remote images. */
 "use client";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { initials, statusLabel } from "@hub/shared";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 
 export function Avatar({
   firstName,
   lastName,
-  url,
   large = false,
 }: {
   firstName: string;
   lastName: string;
-  url?: string | null;
   large?: boolean;
 }) {
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   return (
     <div className={`avatar ${large ? "avatar-large" : ""}`}>
-      {url && failedUrl !== url ? (
-        <img
-          src={url}
-          alt={`${firstName} ${lastName}`}
-          referrerPolicy="no-referrer"
-          onError={() => setFailedUrl(url)}
-        />
-      ) : (
-        <span>{initials(firstName, lastName)}</span>
-      )}
+      <span>{initials(firstName, lastName)}</span>
     </div>
   );
 }

@@ -385,7 +385,7 @@ async def test_error_scope_revocation_and_backoff(client, google, assigned, app,
 
 
 @pytest.mark.parametrize(
-    "change", ["unavailable", "reassign", "delete", "disconnect", "upgrade", "expiry"]
+    "change", ["unavailable", "reassign", "deactivate", "disconnect", "upgrade", "expiry"]
 )
 async def test_event_request_concurrency(client, google, assigned, app, change):
     entered, release = asyncio.Event(), asyncio.Event()
@@ -405,12 +405,14 @@ async def test_event_request_concurrency(client, google, assigned, app, change):
                 await db.execute(update(Calendar).values(availability="UNAVAILABLE"))
             if change == "reassign":
                 await db.execute(update(CalendarAssignment).values(is_active=False))
-            if change == "delete":
-                from sqlalchemy import delete
-
+            if change == "deactivate":
                 from hub.technicians.models import Technician
 
-                await db.execute(delete(Technician).where(Technician.id == UUID(assigned[0]["id"])))
+                await db.execute(
+                    update(Technician)
+                    .where(Technician.id == UUID(assigned[0]["id"]))
+                    .values(status="INACTIVE")
+                )
             if change == "upgrade":
                 conn = await db.scalar(select(CalendarConnection))
                 conn.generation += 1
@@ -422,9 +424,7 @@ async def test_event_request_concurrency(client, google, assigned, app, change):
     finally:
         release.set()
     response = await task
-    if change == "delete":
-        assert response.status_code == 404
-    elif change == "expiry":
+    if change == "expiry":
         assert response.status_code == 401
     else:
         assert response.json()["state"] == "CHANGED" and response.json()["jobs"] == []

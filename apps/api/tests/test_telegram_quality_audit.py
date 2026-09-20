@@ -208,11 +208,11 @@ async def test_postgresql_race_matrix(client, engine, provider, race):
             first.close()
             first = client.post(endpoint + "/invitations", json=payload)
     elif race == "E":
-        version = (await client.get(f"/api/technicians/{identifier}")).json()["updated_at"]
+        version = (await client.get(f"/api/technicians/{identifier}")).json()["record_version"]
         second = client.request(
             "DELETE",
             f"/api/technicians/{identifier}",
-            json={"confirmation": "DELETE", "expected_updated_at": version},
+            json={"confirmation": "DELETE", "expected_record_version": version},
         )
     elif race in "FG":
         other = (
@@ -258,7 +258,8 @@ async def test_postgresql_race_matrix(client, engine, provider, race):
             assert [r.outcome for r in results].count("CONNECTED") == 1
             assert len(groups if race == "G" else users) == 1
         elif race == "E":
-            assert results[1].status_code == 204 and current is None and not invites and not jobs
+            assert results[1].status_code == 409
+            assert results[0].outcome == "CONNECTED" and current is not None
         elif race == "J":
             assert [r.status_code for r in results] == [201, 201]
             assert len(open_keys) == 1 and current.telegram_user_id == 101

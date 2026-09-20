@@ -29,6 +29,15 @@ class Settings(BaseSettings):
     google_client_secret: SecretStr | None = None
     google_oauth_redirect_uri: str | None = None
     google_calendar_credential_encryption_key: SecretStr | None = None
+    google_oauth_manager_limit: int = Field(default=5, ge=1, le=1000)
+    google_oauth_manager_window_seconds: int = Field(default=900, ge=1, le=86400)
+    google_oauth_global_limit: int = Field(default=20, ge=1, le=10000)
+    google_oauth_global_window_seconds: int = Field(default=3600, ge=1, le=86400)
+    google_manual_manager_limit: int = Field(default=6, ge=1, le=1000)
+    google_manual_manager_window_seconds: int = Field(default=600, ge=1, le=86400)
+    google_manual_global_limit: int = Field(default=30, ge=1, le=10000)
+    google_manual_global_window_seconds: int = Field(default=3600, ge=1, le=86400)
+    google_oauth_attempt_retention_days: int = Field(default=7, ge=1, le=365)
 
     schedule_delivery_enabled: bool = False
     schedule_payload_encryption_key: SecretStr | None = None
@@ -42,6 +51,11 @@ class Settings(BaseSettings):
     telegram_expected_bot_username: str | None = None
     telegram_expected_bot_id: int | None = None
     telegram_invite_seconds: int = Field(default=900, ge=60, le=3600)
+    telegram_sender_minute_limit: int = Field(default=30, ge=1, le=1000)
+    telegram_sender_burst_limit: int = Field(default=10, ge=1, le=1000)
+    telegram_sender_burst_seconds: int = Field(default=10, ge=1, le=3600)
+    telegram_global_minute_limit: int = Field(default=300, ge=1, le=10000)
+    telegram_processed_update_retention_days: int = Field(default=7, ge=7, le=365)
 
     @model_validator(mode="before")
     @classmethod

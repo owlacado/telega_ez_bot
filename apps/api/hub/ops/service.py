@@ -1,20 +1,21 @@
 from datetime import timedelta
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, select, text, tuple_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hub.accounting_mirrors.models import (
     AccountingMirrorRefresh,
     AccountingMirrorWorkerState,
 )
+from hub.auth.models import RateBucket
 from hub.core.config import Settings
 from hub.google_calendar.models import GoogleOAuthAttempt
 from hub.ops.schemas import CleanupResult, ComponentHealth, OperationsHealth, QueueCounts
 from hub.schedule_delivery.models import ScheduleDispatch, ScheduleWorkerState
-from hub.telegram.models import TelegramOutbox, TelegramWorkerState
+from hub.telegram.models import TelegramOutbox, TelegramProcessedUpdate, TelegramWorkerState
 from hub.work_reports.models import TechnicianFormSession
 
-EXPECTED_ALEMBIC_HEAD = "fba609190001"
+EXPECTED_ALEMBIC_HEAD = "fca609190001"
 FRESH_SECONDS = 120
 
 
@@ -161,8 +162,13 @@ async def operations_health(db: AsyncSession, settings: Settings) -> OperationsH
 
 
 async def cleanup_expired(
-    db: AsyncSession, *, apply: bool = False, batch_size: int = 100
+    db: AsyncSession,
+    *,
+    apply: bool = False,
+    batch_size: int = 100,
+    settings: Settings | None = None,
 ) -> CleanupResult:
+    settings = settings or Settings()
     batch_size = min(max(batch_size, 1), 1000)
     stamp = await db.scalar(select(func.clock_timestamp()))
     form_ids = (
@@ -204,6 +210,51 @@ async def cleanup_expired(
         .with_for_update(skip_locked=True)
     )
     payload_ids = (await db.scalars(payload_query)).all()
+    oauth_metadata_ids = (
+        await db.scalars(
+            select(GoogleOAuthAttempt.id)
+            .where(
+                GoogleOAuthAttempt.encrypted_verifier.is_(None),
+                GoogleOAuthAttempt.created_at
+                <= stamp - timedelta(days=settings.google_oauth_attempt_retention_days),
+            )
+            .order_by(GoogleOAuthAttempt.created_at, GoogleOAuthAttempt.id)
+            .limit(batch_size)
+            .with_for_update(skip_locked=True)
+        )
+    ).all()
+    processed_ids = (
+        await db.execute(
+            select(TelegramProcessedUpdate.bot_id, TelegramProcessedUpdate.update_id)
+            .join(
+                TelegramWorkerState,
+                TelegramWorkerState.bot_id == TelegramProcessedUpdate.bot_id,
+            )
+            .where(
+                TelegramProcessedUpdate.processed_at
+                <= stamp
+                - timedelta(days=settings.telegram_processed_update_retention_days),
+                TelegramWorkerState.next_update_id.is_not(None),
+                TelegramProcessedUpdate.update_id < TelegramWorkerState.next_update_id,
+            )
+            .order_by(
+                TelegramProcessedUpdate.processed_at,
+                TelegramProcessedUpdate.bot_id,
+                TelegramProcessedUpdate.update_id,
+            )
+            .limit(batch_size)
+            .with_for_update(of=TelegramProcessedUpdate, skip_locked=True)
+        )
+    ).all()
+    rate_bucket_ids = (
+        await db.scalars(
+            select(RateBucket.key_hash)
+            .where(RateBucket.window_start <= stamp - timedelta(days=7))
+            .order_by(RateBucket.window_start, RateBucket.key_hash)
+            .limit(batch_size)
+            .with_for_update(skip_locked=True)
+        )
+    ).all()
     if apply:
         if form_ids:
             await db.execute(
@@ -223,9 +274,27 @@ async def cleanup_expired(
                 .where(ScheduleDispatch.id.in_(payload_ids))
                 .values(encrypted_payload=None)
             )
+        if oauth_metadata_ids:
+            await db.execute(
+                delete(GoogleOAuthAttempt).where(GoogleOAuthAttempt.id.in_(oauth_metadata_ids))
+            )
+        if processed_ids:
+            await db.execute(
+                delete(TelegramProcessedUpdate).where(
+                    tuple_(
+                        TelegramProcessedUpdate.bot_id,
+                        TelegramProcessedUpdate.update_id,
+                    ).in_(processed_ids)
+                )
+            )
+        if rate_bucket_ids:
+            await db.execute(delete(RateBucket).where(RateBucket.key_hash.in_(rate_bucket_ids)))
     return CleanupResult(
         dry_run=not apply,
         expired_form_snapshots=len(form_ids),
         expired_oauth_verifiers=len(oauth_ids),
         expired_schedule_payloads=len(payload_ids),
+        expired_oauth_attempt_metadata=len(oauth_metadata_ids),
+        expired_telegram_processed_updates=len(processed_ids),
+        expired_rate_buckets=len(rate_bucket_ids),
     )

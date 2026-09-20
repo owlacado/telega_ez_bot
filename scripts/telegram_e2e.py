@@ -12,14 +12,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "apps/api"))
 import hub.models  # noqa: E402,F401
-from hub.auth.models import Manager, RateBucket  # noqa: E402
+from hub.auth.models import RateBucket  # noqa: E402
 from hub.auth.service import create_manager  # noqa: E402
 from hub.core.config import Settings  # noqa: E402
 from hub.telegram.delivery import deliver_one  # noqa: E402
 from hub.telegram.transport import parse_update  # noqa: E402
 from hub.telegram.updates import process_update  # noqa: E402
 from hub.telegram.worker import Worker  # noqa: E402
-from sqlalchemy import delete  # noqa: E402
+from sqlalchemy import delete, text  # noqa: E402
 from tests.fakes import BOT_ID, BOT_USERNAME, FakeTelegram  # noqa: E402
 
 
@@ -80,8 +80,6 @@ async def main():
                 raise RuntimeError("Test form was not issued")
             print(json.dumps({"url": result.reply.splitlines()[-1]}))
         elif action in {"work_report_cleanup", "expense_cleanup"}:
-            from sqlalchemy import text
-
             async with factory() as db, db.begin():
                 # Guarded disposable database only; product has no deletion bypass.
                 await db.execute(
@@ -126,8 +124,6 @@ async def main():
             print(json.dumps({"today": str(today)}))
         elif action == "accounting_correct":
             from uuid import UUID
-
-            from sqlalchemy import text
 
             async with factory() as db, db.begin():
                 await db.execute(text("SET LOCAL session_replication_role = replica"))
@@ -414,7 +410,16 @@ async def main():
                 await db.execute(delete(CalendarConnection))
         elif action == "cleanup":
             async with factory() as db, db.begin():
-                await db.execute(delete(Manager).where(Manager.username == payload["username"]))
+                # This harness is guarded to the disposable technician_hub_test database.
+                # TRUNCATE intentionally bypasses pilot production-delete triggers between tests.
+                await db.execute(
+                    text(
+                        "TRUNCATE technicians, calendars, managers, rate_buckets, "
+                        "audit_events, telegram_worker_states, telegram_processed_updates, "
+                        "google_oauth_attempts, calendar_connections, schedule_worker_states, "
+                        "accounting_mirror_worker_states RESTART IDENTITY CASCADE"
+                    )
+                )
         elif action == "claim":
             link = urlparse(payload["link"])
             query = parse_qs(link.query)

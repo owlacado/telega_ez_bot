@@ -224,8 +224,8 @@ def summary(
         id=technician.id,
         first_name=technician.first_name,
         last_name=technician.last_name,
-        photo_url=technician.photo_url,
         status=technician.status,
+        record_version=technician.record_version,
         accounting_timezone=technician.accounting_timezone,
         calendar=calendar,
         integrations=integrations,
@@ -242,8 +242,4 @@ def detail(
     settings: Settings | None = None,
     google_connection: CalendarConnection | None = None,
 ) -> TechnicianDetail:
-    return TechnicianDetail(
-        **summary(technician, settings, google_connection).model_dump(),
-        driver_license_id=technician.driver_license_id,
-        ssn_last4=technician.ssn_last4,
-    )
+    return TechnicianDetail(**summary(technician, settings, google_connection).model_dump())
