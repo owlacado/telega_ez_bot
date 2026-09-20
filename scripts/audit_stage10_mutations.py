@@ -126,8 +126,8 @@ MUTATIONS = (
     Mutation(
         "stale_worker_reported_running",
         "apps/api/hub/ops/service.py",
-        "    if not fresh:\n        return ComponentHealth(state=\"STALE\", message=\"Worker heartbeat is stale.\")",
-        "    if False:\n        return ComponentHealth(state=\"STALE\", message=\"Worker heartbeat is stale.\")",
+        '    if not fresh:\n        return ComponentHealth(state="STALE", message="Worker heartbeat is stale.")',
+        '    if False:\n        return ComponentHealth(state="STALE", message="Worker heartbeat is stale.")',
         pytest(f"{PILOT}::test_stale_enabled_worker_is_not_reported_running"),
     ),
     Mutation(
@@ -156,7 +156,9 @@ MUTATIONS = (
         "compose.yaml",
         "      - postgres_data:/var/lib/postgresql",
         "      - /var/lib/postgresql",
-        pytest(f"{PILOT}::test_normal_compose_retains_canonical_named_volume_and_safe_backup_drill"),
+        pytest(
+            f"{PILOT}::test_normal_compose_retains_canonical_named_volume_and_safe_backup_drill"
+        ),
     ),
     Mutation(
         "automatic_retry_after_ambiguous_send",
@@ -171,6 +173,87 @@ MUTATIONS = (
         '        if self.app_env not in {"development", "test"} and database.password in {',
         "        if False and database.password in {",
         pytest(f"{PILOT}::test_production_configuration_fails_closed"),
+    ),
+    Mutation(
+        "remote_http_production_origin_accepted",
+        "apps/api/hub/core/config.py",
+        '            if parsed.scheme == "http" and (',
+        "            if False and (",
+        pytest(f"{PILOT}::test_origin_edge_cases_fail_closed"),
+    ),
+    Mutation(
+        "preflight_prints_encryption_key",
+        "apps/api/hub/ops/cli.py",
+        '    if settings.google_mode == "real":\n        checks.append(',
+        '    if settings.google_mode == "real":\n        print(settings.google_calendar_credential_encryption_key.get_secret_value())\n        checks.append(',
+        pytest(f"{PILOT}::test_preflight_never_prints_provider_or_encryption_secrets"),
+    ),
+    Mutation(
+        "disabled_worker_reports_error",
+        "apps/api/hub/ops/service.py",
+        '    if disabled:\n        return ComponentHealth(state="DISABLED", message="Feature is intentionally disabled.")',
+        '    if False:\n        return ComponentHealth(state="DISABLED", message="Feature is intentionally disabled.")',
+        pytest(f"{PILOT}::test_worker_state_classification_is_truthful"),
+    ),
+    Mutation(
+        "operations_health_becomes_anonymous",
+        "apps/api/hub/auth/middleware.py",
+        'PUBLIC_PATHS = {"/api/health", "/api/auth/login"}',
+        'PUBLIC_PATHS = {"/api/health", "/api/auth/login", "/api/operations/health"}',
+        pytest(f"{PILOT}::test_operations_health_is_manager_only_and_truthful"),
+    ),
+    Mutation(
+        "backup_failure_keeps_published_artifacts",
+        "scripts/backup-postgres.ps1",
+        "    if (-not $published) {",
+        "    if ($false) {",
+        pytest(f"{PILOT}::test_backup_publishes_only_complete_unique_dump_manifest_pairs"),
+    ),
+    Mutation(
+        "cleanup_dry_run_mutates",
+        "apps/api/hub/ops/service.py",
+        "    if apply:\n        if form_ids:",
+        "    if True:\n        if form_ids:",
+        pytest(f"{PILOT}::test_cleanup_is_bounded_idempotent_and_preserves_business"),
+    ),
+    Mutation(
+        "mirror_lag_claimed_financial_corruption",
+        "apps/api/hub/ops/service.py",
+        '        status = "WARN"',
+        '        status = "BLOCK"',
+        pytest(
+            f"{PILOT}::test_optional_mirror_lag_is_operational_warning_not_financial_corruption"
+        ),
+    ),
+    Mutation(
+        "wrong_credential_key_is_tolerated",
+        "scripts/verify_backup_restore.py",
+        '                raise RuntimeError("A wrong credential key unexpectedly decrypted restored data.")',
+        "                pass  # mutation: tolerate wrong-key decryption",
+        pytest(f"{PILOT}::test_restore_drill_covers_all_durable_queues_audit_and_wrong_key"),
+    ),
+    Mutation(
+        "canonical_business_data_written_to_api_filesystem",
+        "compose.yaml",
+        "  api:\n    build:",
+        '  api:\n    volumes: ["./data:/app/data"]\n    build:',
+        pytest(
+            f"{PILOT}::test_normal_containers_do_not_store_canonical_business_data_on_app_filesystems"
+        ),
+    ),
+    Mutation(
+        "production_test_encryption_key_accepted",
+        "apps/api/hub/core/config.py",
+        "            if self.app_env not in {",
+        "            if False and self.app_env not in {",
+        pytest(f"{PILOT}::test_production_rejects_documented_test_encryption_keys"),
+    ),
+    Mutation(
+        "worker_freshness_threshold_ignores_database_clock",
+        "apps/api/hub/ops/service.py",
+        "        heartbeat and stamp - heartbeat <= timedelta(seconds=FRESH_SECONDS)",
+        "        heartbeat and stamp - heartbeat <= timedelta(seconds=0)",
+        pytest(f"{PILOT}::test_worker_freshness_threshold_uses_database_clock"),
     ),
 )
 

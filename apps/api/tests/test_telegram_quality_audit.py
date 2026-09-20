@@ -38,6 +38,7 @@ def configured(app):
     app.state.settings = Settings(
         database_url=TEST_URL,
         app_env="test",
+        allow_fake_providers=True,
         telegram_mode="fake",
         telegram_expected_bot_id=BOT_ID,
         telegram_expected_bot_username=BOT_USERNAME,

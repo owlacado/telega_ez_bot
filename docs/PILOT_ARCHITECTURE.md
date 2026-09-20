@@ -26,7 +26,7 @@ replaces committed Work Reports, Expenses, accounting revisions, queue state, or
 | --------------- | --------------------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
 | PostgreSQL      | Persistent volume and valid credentials                               | Disk, memory, connection capacity | `pg_isready`; API DB query                                                                 |
 | API             | Healthy PostgreSQL; current migration                                 | PostgreSQL                        | Public `/api/health` checks DB; manager `/api/operations/health` checks schema and workers |
-| Web             | Healthy API during Compose startup                                    | API for authenticated pages       | Anonymous `/login` healthcheck                                                             |
+| Web             | Healthy API during Compose startup                                    | API for authenticated pages       | Anonymous `/login` process/shell healthcheck; API health is separate                       |
 | Telegram worker | Healthy API/DB; real Telegram settings when enabled                   | PostgreSQL and Telegram           | `telegram_worker_states`; disabled mode exits successfully                                 |
 | Schedule worker | Healthy API/DB; Telegram and Google real settings; schedule key       | PostgreSQL, Calendar, Telegram    | `schedule_worker_states`; disabled mode exits successfully                                 |
 | Mirror worker   | Healthy API/DB; real Google settings and credential key               | PostgreSQL and Google Sheets      | `accounting_mirror_worker_states`; disabled mode exits successfully                        |
@@ -52,7 +52,7 @@ be reviewed; the system never blindly retries an ambiguous Telegram send.
 | Required Google Sheets when enabled   | Same Google variables; manager grants Sheets scope                                                                                        | Sheets has no separate credential or spreadsheet environment variable. Target IDs are manager-configured database state.                                       |
 | Required schedule when enabled        | `SCHEDULE_DELIVERY_ENABLED`, `SCHEDULE_PAYLOAD_ENCRYPTION_KEY`, `SCHEDULE_AUTO_DELIVERY_LOCAL_TIME`, enabled Telegram and Google settings | Schedule cannot start with either provider disabled.                                                                                                           |
 | Optional                              | `SESSION_LIFETIME_SECONDS`, `WORK_REPORT_SESSION_SECONDS`, `TELEGRAM_INVITE_SECONDS`, provider features in disabled mode                  | Bounds are validated centrally. Optional providers do not block core startup.                                                                                  |
-| Test-only                             | `TEST_DATABASE_URL`, `E2E_BASE_URL`; `fake` provider modes                                                                                | Must target `technician_hub_test` on an allowlisted test host.                                                                                                 |
+| Test-only                             | `TEST_DATABASE_URL`, `E2E_BASE_URL`, `ALLOW_FAKE_PROVIDERS`; `fake` provider modes                                                        | Requires explicit opt-in, `APP_ENV=test`, exact `technician_hub_test`, loopback/`test-db`, and a `_test_only` DB credential.                                   |
 | Library compatibility                 | `PTB_TIMEDELTA` in worker containers                                                                                                      | Telegram library behavior; no application secret.                                                                                                              |
 | Deprecated/unknown                    | None intentionally supported                                                                                                              | Pydantic ignores unrelated environment keys; the reviewed inventory is in `.env.example`.                                                                      |
 
@@ -60,10 +60,15 @@ be reviewed; the system never blindly retries an ambiguous Telegram send.
 
 The API uses its regular SQLAlchemy pool and a separate `NullPool` Google lock engine. Telegram and
 mirror workers each use one regular engine; the schedule worker uses one regular engine and one
-`NullPool` lock engine. At one-technician pilot load, default pools stay below PostgreSQL's default
-connection ceiling, but production must set a measured pool/connection budget for every replica.
-Do not multiply default pools across replicas without checking `max_connections` and reserving
-operator/migration capacity.
+`NullPool` lock engine. Each default regular engine can open 5 pooled plus 10 overflow connections.
+One API and one replica of each of the three workers can therefore open 60 regular connections; one
+concurrent ops/migration engine can bring that to 75. At one-technician pilot concurrency, the API
+and schedule `NullPool` lock paths add roughly two transient owners, leaving about 20 ordinary
+connections below PostgreSQL's default 100 after its usual reserved slots. This is a conservative
+pilot-only budget, not a general maximum: unbounded HTTP concurrency can create more `NullPool`
+owners. Run at most one replica of each worker and one API replica until explicit pool sizes,
+request admission, and deployment `max_connections` are approved. A second full worker set could
+raise regular-engine demand beyond 100.
 
 ## Persistence and generated files
 
@@ -80,7 +85,15 @@ but TLS, logs, and provider clients still need reasonable infrastructure clock s
 
 ## Network boundary
 
-Local development binds all published ports to loopback and may use HTTP. Any remote pilot needs an
-approved HTTPS reverse proxy, exact public origin, secure cookies, host filtering, request-size and
-timeout limits, and explicit proxy trust. The application does not trust arbitrary public
-`X-Forwarded-*` headers; terminate and replace forwarding headers only at a controlled proxy.
+Local development binds all published ports to loopback and may use HTTP. The API accepts only the
+exact hostnames from configured origins, loopback health-probe hosts, and the exact internal Compose
+Web-to-API service name `api`; a trusted Origin does not bypass a hostile Host. Any remote pilot
+needs an approved HTTPS reverse proxy, exact public origin,
+secure cookies, request-size and timeout limits, and explicit proxy trust. Uvicorn's default proxy
+trust is loopback-only, and application authorization does not consume `X-Forwarded-*` values.
+Terminate, discard, and replace client forwarding headers at the controlled proxy; if that proxy is
+not loopback, configure Uvicorn's trusted proxy IPs narrowly and firewall direct API access.
+
+The Web `/login` Docker probe establishes that the Next process can serve its shell. It can remain
+healthy while the API or database is down, so it must never be used as aggregate application
+readiness. The public API DB probe and authenticated Operations Health supply that separate signal.

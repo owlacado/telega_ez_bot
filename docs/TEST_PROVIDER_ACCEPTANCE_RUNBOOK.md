@@ -30,8 +30,10 @@ database backup and the Google/schedule encryption keys in separate protected sy
 13. Configure and sync All Tech to a different TEST spreadsheet; verify deterministic tab identity and
     that targets cannot overwrite one another.
 14. Compare UI, canonical accounting JSON, XLSX totals, and both Sheets projections.
-15. Disconnect integrations, revoke TEST grants/token if ending the exercise, remove TEST chats/files,
-    delete disposable technician data only through supported rules, and retain sanitized evidence.
+15. Disconnect integrations and revoke TEST grants/token if ending the exercise. Delete a TEST chat,
+    calendar, or spreadsheet only when it is dedicated to this exercise and the operator explicitly
+    intends external deletion; otherwise only disconnect it. Delete disposable technician data only
+    through supported rules, and retain sanitized evidence.
 
 ## Acceptance record
 

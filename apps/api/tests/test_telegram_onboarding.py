@@ -37,6 +37,7 @@ def configured_app(app):
     app.state.settings = Settings(
         database_url=TEST_URL,
         app_env="test",
+        allow_fake_providers=True,
         telegram_mode="fake",
         telegram_expected_bot_id=BOT_ID,
         telegram_expected_bot_username=BOT_USERNAME,
@@ -295,9 +296,7 @@ async def test_group_checks_must_be_fresh_at_approval(client, engine, provider):
 async def test_inactive_and_deleted_identity_cannot_claim_or_reappear(client, engine, provider):
     identifier = await technician(client)
     invitation = await issue(client, identifier)
-    assert (
-        await patch_technician(client, identifier, status="INACTIVE")
-    ).status_code == 200
+    assert (await patch_technician(client, identifier, status="INACTIVE")).status_code == 200
     assert (await claim(engine, provider, invitation)).outcome == "INVALID_INVITATION"
     assert (
         await client.request(

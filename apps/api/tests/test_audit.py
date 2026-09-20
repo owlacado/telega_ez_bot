@@ -319,7 +319,7 @@ async def test_real_database_connection_failure_has_safe_response(endpoint):
     async with app.router.lifespan_context(app):
         async with AsyncClient(
             transport=ASGITransport(app=app, raise_app_exceptions=False),
-            base_url="http://audit.local",
+            base_url="http://127.0.0.1:3000",
         ) as http:
             http.cookies.set("hub_session", "audit-placeholder-session")
             response = await http.get(endpoint)

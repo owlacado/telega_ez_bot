@@ -50,6 +50,7 @@ export default defineConfig({
           env: {
             DATABASE_URL: databaseUrl,
             APP_ENV: "test",
+            ALLOW_FAKE_PROVIDERS: "true",
             ALLOWED_ORIGINS: '["http://127.0.0.1:3001"]',
             TELEGRAM_MODE: "fake",
             SCHEDULE_DELIVERY_ENABLED: "true",

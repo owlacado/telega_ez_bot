@@ -11,6 +11,8 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -26,6 +28,7 @@ from hub.accounting_mirrors.models import (
     AccountingMirrorRefresh,
     AccountingMirrorTarget,
 )
+from hub.audit.models import AuditEvent
 from hub.auth.service import create_manager
 from hub.calendars.models import Calendar, CalendarAssignment
 from hub.core.config import Settings
@@ -36,6 +39,7 @@ from hub.google_calendar.types import EVENT_SCOPE, SHEETS_SCOPE
 from hub.integrations.models import TelegramBinding
 from hub.main import create_app
 from hub.ops.cli import FINGERPRINT_TABLES
+from hub.schedule_delivery.models import ScheduleDispatch
 from hub.technicians.models import Technician
 from hub.telegram.models import TelegramOutbox
 from hub.work_reports.models import WorkReport, WorkReportRevision
@@ -43,10 +47,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 DATABASE_NAME = "technician_hub_restore_test"
-DATABASE_URL = (
-    "postgresql+asyncpg://hub:hub_restore_test_only@127.0.0.1:5439/"
-    f"{DATABASE_NAME}"
-)
+DATABASE_URL = f"postgresql+asyncpg://hub:hub_restore_test_only@127.0.0.1:5439/{DATABASE_NAME}"
 COMPOSE = ROOT / "compose.backup-test.yaml"
 PASSWORD = "synthetic-restore-password"
 KEY = "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
@@ -136,9 +137,7 @@ async def seed() -> None:
                 occurrence_key="1" * 64,
                 current_revision_number=1,
             )
-            expense = TechnicianExpense(
-                technician_id=technician.id, current_revision_number=1
-            )
+            expense = TechnicianExpense(technician_id=technician.id, current_revision_number=1)
             db.add_all([report, expense])
             await db.flush()
             db.add_all(
@@ -198,6 +197,29 @@ async def seed() -> None:
                         requested_by=manager.id,
                         state="QUEUED",
                     ),
+                    ScheduleDispatch(
+                        technician_id=technician.id,
+                        calendar_id=calendar.id,
+                        target_date=WEEK,
+                        trigger="MANUAL",
+                        destination="PRIVATE",
+                        requested_destination=None,
+                        fallback_reason=None,
+                        status="PENDING",
+                        source_version="synthetic-restore-v1",
+                        fingerprint="2" * 64,
+                        job_count=1,
+                        encrypted_payload=SecretCipher(KEY).encrypt("synthetic schedule"),
+                        payload_expires_at=datetime(2026, 9, 15, tzinfo=UTC),
+                        available_at=datetime(2026, 9, 14, 18, tzinfo=UTC),
+                        delivery_deadline=datetime(2026, 9, 14, 23, tzinfo=UTC),
+                        created_by=manager.id,
+                        bot_id=700000003,
+                        telegram_user_id=700000001,
+                        chat_id=700000001,
+                        private_generation=1,
+                        group_generation=1,
+                    ),
                 ]
             )
     finally:
@@ -220,6 +242,35 @@ async def fingerprint() -> dict[str, dict[str, int | str]]:
                 ).one()
                 result[table] = {"count": count, "opaque_digest": digest}
         return result
+    finally:
+        await engine.dispose()
+
+
+async def concurrent_audit_transaction(ready: threading.Event, release: threading.Event) -> None:
+    """Commit two rows atomically while pg_dump establishes its MVCC snapshot."""
+    engine = create_async_engine(DATABASE_URL, hide_parameters=True)
+    try:
+        async with async_sessionmaker(engine)() as db, db.begin():
+            manager_id = await db.scalar(
+                select(AuditEvent.actor_id).where(AuditEvent.actor_id.is_not(None))
+            )
+            db.add_all(
+                [
+                    AuditEvent(
+                        actor_id=manager_id,
+                        action="restore.concurrent.first",
+                        outcome="SUCCESS",
+                    ),
+                    AuditEvent(
+                        actor_id=manager_id,
+                        action="restore.concurrent.second",
+                        outcome="SUCCESS",
+                    ),
+                ]
+            )
+            await db.flush()
+            ready.set()
+            await asyncio.to_thread(release.wait)
     finally:
         await engine.dispose()
 
@@ -260,21 +311,25 @@ async def verify_application() -> None:
     try:
         async with async_sessionmaker(engine)() as db:
             connection = await db.scalar(select(CalendarConnection).limit(1))
-            queue_count = await db.scalar(
-                select(func.count()).select_from(AccountingMirrorRefresh)
-            )
+            queue_count = await db.scalar(select(func.count()).select_from(AccountingMirrorRefresh))
             telegram_count = await db.scalar(select(func.count()).select_from(TelegramOutbox))
+            schedule_count = await db.scalar(select(func.count()).select_from(ScheduleDispatch))
+            audit_count = await db.scalar(select(func.count()).select_from(AuditEvent))
             ciphertext = connection.encrypted_refresh_token
-            if queue_count != 1 or telegram_count != 1 or not ciphertext:
+            if (
+                queue_count != 1
+                or telegram_count != 1
+                or schedule_count != 1
+                or not audit_count
+                or not ciphertext
+            ):
                 raise RuntimeError("Restored durable queue state differs.")
             if SecretCipher(KEY).decrypt(ciphertext) != "synthetic-refresh-token":
                 raise RuntimeError(
                     "Restored credential cannot be decrypted with the backed-up key."
                 )
             try:
-                SecretCipher("MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=").decrypt(
-                    ciphertext
-                )
+                SecretCipher("MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=").decrypt(ciphertext)
             except Exception:
                 pass
             else:
@@ -297,18 +352,47 @@ def main() -> None:
             )
             asyncio.run(seed())
             before = asyncio.run(fingerprint())
-            run(
-                [
-                    "powershell.exe",
-                    "-NoProfile",
-                    "-File",
-                    str(ROOT / "scripts" / "backup-postgres.ps1"),
-                    "-OutputDirectory",
-                    directory,
-                    "-ComposeFile",
-                    str(COMPOSE),
-                ]
-            )
+            ready, release = threading.Event(), threading.Event()
+            writer_error: list[BaseException] = []
+
+            def write_during_backup() -> None:
+                try:
+                    asyncio.run(concurrent_audit_transaction(ready, release))
+                except BaseException as error:
+                    writer_error.append(error)
+
+            writer = threading.Thread(target=write_during_backup, daemon=True)
+            writer.start()
+            if not ready.wait(timeout=10):
+                raise RuntimeError("Concurrent snapshot writer did not start.")
+            backup_error: list[BaseException] = []
+
+            def create_backup() -> None:
+                try:
+                    run(
+                        [
+                            "powershell.exe",
+                            "-NoProfile",
+                            "-File",
+                            str(ROOT / "scripts" / "backup-postgres.ps1"),
+                            "-OutputDirectory",
+                            directory,
+                            "-ComposeFile",
+                            str(COMPOSE),
+                        ]
+                    )
+                except BaseException as error:
+                    backup_error.append(error)
+
+            backup = threading.Thread(target=create_backup, daemon=True)
+            backup.start()
+            time.sleep(0.5)
+            release.set()
+            writer.join(timeout=10)
+            backup.join(timeout=60)
+            if writer.is_alive() or backup.is_alive() or writer_error or backup_error:
+                raise RuntimeError("Concurrent backup probe failed safely.")
+            after_source = asyncio.run(fingerprint())
             dumps = list(Path(directory).glob("*.dump"))
             if len(dumps) != 1:
                 raise RuntimeError("Backup tool did not produce exactly one dump.")
@@ -379,15 +463,19 @@ def main() -> None:
                 cwd=API_ROOT,
             )
             after = asyncio.run(fingerprint())
-            if after != before:
-                raise RuntimeError("Restored structural fingerprint differs from backup source.")
+            if json.dumps(after, sort_keys=True) not in {
+                json.dumps(before, sort_keys=True),
+                json.dumps(after_source, sort_keys=True),
+            }:
+                raise RuntimeError("Restored fingerprint is not a consistent source snapshot.")
             asyncio.run(verify_application())
             print(
                 json.dumps(
                     {
                         "backup": "PASS",
                         "restore": "PASS",
-                        "fingerprint": "MATCH",
+                        "fingerprint": "CONSISTENT_SNAPSHOT",
+                        "concurrent_atomic_write": "PASS",
                         "manager_login": "PASS",
                         "accounting": "PASS",
                         "durable_queues": "PASS",

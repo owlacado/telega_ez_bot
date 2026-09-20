@@ -14,7 +14,10 @@ policies for sensitive fields, audit/retention, abuse budgets, images, credentia
 5. Run `python -m hub.ops.cli queues` and confirm required workers are `RUNNING`, not merely present.
 6. Run `python -m hub.ops.cli fingerprint` and store the opaque output in the private change record.
 7. Create a private backup with `powershell -File scripts/backup-postgres.ps1 -OutputDirectory <private-path>`;
-   verify its SHA-256 manifest and latest isolated restore-drill evidence.
+   use a directory whose ACL is limited to the backup operators, then verify its SHA-256 manifest
+   and latest isolated restore-drill evidence. The script publishes a unique dump/manifest pair and
+   refuses to overwrite an artifact. The dump still contains business data and encrypted
+   credentials, so ciphertext does not make it safe to distribute.
 8. Complete the dedicated TEST provider runbook and link sanitized acceptance records.
 
 ## Technician onboarding
@@ -74,5 +77,8 @@ business-record deletion constraints.
 - Automatic schedule decisions can be missed across the whole decision window during long downtime.
 - DL/SSN fields are plaintext and must remain empty for the pilot while TD-011 is open.
 - External profile images need an approved privacy/CSP policy.
+- The Web `/login` probe checks only the Web process and static shell; use API and Operations Health
+  to decide whether the application is usable.
+- Run only one API and one replica of each enabled worker under the pilot connection budget.
 - XLSX and Google row heights approximate unusually long wrapped text; full values remain stored.
 - Contracts and GPS are outside the current product and are not readiness requirements.

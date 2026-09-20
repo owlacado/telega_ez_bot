@@ -7,6 +7,8 @@ import json
 import os
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -17,9 +19,43 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import verify_backup_restore as restore  # noqa: E402
 
 COMPOSE = ROOT / "compose.restart-test.yaml"
-DATABASE_URL = (
-    "postgresql+asyncpg://hub:hub_restart_test_only@127.0.0.1:5444/technician_hub_test"
-)
+DATABASE_URL = "postgresql+asyncpg://hub:hub_restart_test_only@127.0.0.1:5444/technician_hub_test"
+WORKERS = ("telegram-test-worker", "schedule-test-worker", "mirror-test-worker")
+
+
+async def wait_for_workers() -> None:
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    engine = create_async_engine(DATABASE_URL, hide_parameters=True)
+    try:
+        for _ in range(60):
+            try:
+                async with engine.connect() as connection:
+                    values = (
+                        await connection.execute(
+                            text(
+                                "SELECT "
+                                "EXISTS (SELECT 1 FROM telegram_worker_states "
+                                "WHERE status = 'RUNNING' "
+                                "AND heartbeat_at >= clock_timestamp() - interval '120 seconds'), "
+                                "EXISTS (SELECT 1 FROM schedule_worker_states "
+                                "WHERE status = 'RUNNING' "
+                                "AND heartbeat_at >= clock_timestamp() - interval '120 seconds'), "
+                                "EXISTS (SELECT 1 FROM accounting_mirror_worker_states "
+                                "WHERE status = 'RUNNING' AND heartbeat_at >= "
+                                "clock_timestamp() - interval '120 seconds')"
+                            )
+                        )
+                    ).one()
+                if all(values):
+                    return
+            except Exception:
+                pass
+            await asyncio.sleep(1)
+    finally:
+        await engine.dispose()
+    raise RuntimeError("Isolated workers did not publish current RUNNING heartbeats.")
 
 
 def run(command: list[str], *, cwd=ROOT, env=None) -> None:
@@ -43,23 +79,42 @@ def main() -> None:
         raise SystemExit("Refusing to run outside the dedicated restart stack.")
     restore.DATABASE_URL = DATABASE_URL
     env = {**os.environ, "DATABASE_URL": DATABASE_URL}
-    compose("up", "-d", "--wait", "db")
+    compose("up", "-d", "--wait", "test-db")
     try:
         run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=API_ROOT, env=env)
         asyncio.run(restore.seed())
+        seeded = asyncio.run(restore.fingerprint())
+        compose("up", "-d", "--wait", "api", "web", *WORKERS)
+        asyncio.run(wait_for_workers())
+        time.sleep(6)
         before = asyncio.run(restore.fingerprint())
-        compose("up", "-d", "--wait", "api", "web")
-        compose("restart", "db", "api", "web")
-        compose("up", "-d", "--wait", "db", "api", "web")
+        for table in ("telegram_outbox", "schedule_dispatches", "accounting_mirror_refreshes"):
+            if before[table]["count"] != seeded[table]["count"]:
+                raise RuntimeError("A durable queue row disappeared while workers started.")
+        compose("restart", "test-db", "api", "web", *WORKERS)
+        compose("up", "-d", "--wait", "test-db", "api", "web", *WORKERS)
+        asyncio.run(wait_for_workers())
+        time.sleep(6)
         after = asyncio.run(restore.fingerprint())
         if after != before:
             raise RuntimeError("Named-volume state changed across container restart.")
         asyncio.run(restore.verify_application())
         stable = asyncio.run(restore.fingerprint())
-        # Restart only PostgreSQL while API/Web remain alive. pool_pre_ping must
-        # discard the dead connection and recover without rebuilding either app.
-        compose("restart", "db")
-        compose("up", "-d", "--wait", "db")
+        # Stop PostgreSQL while API/Web/workers remain alive. Health must fail
+        # closed, then pool_pre_ping and worker loops must recover in place.
+        compose("stop", "test-db")
+        try:
+            urllib.request.urlopen("http://127.0.0.1:8003/api/health", timeout=10)
+        except urllib.error.HTTPError as error:
+            if error.code != 503:
+                raise RuntimeError("API returned an unexpected database-outage status.") from None
+        except urllib.error.URLError:
+            pass
+        else:
+            raise RuntimeError("API health stayed healthy while PostgreSQL was stopped.")
+        compose("start", "test-db")
+        compose("up", "-d", "--wait", "test-db")
+        asyncio.run(wait_for_workers())
         recovered = asyncio.run(restore.fingerprint())
         if recovered != stable:
             raise RuntimeError("Named-volume state changed across PostgreSQL restart.")
@@ -81,6 +136,8 @@ def main() -> None:
                     "api_recovery": "PASS",
                     "postgres_client_recovery": "PASS",
                     "web_recovery": "PASS",
+                    "worker_heartbeats": "PASS",
+                    "db_outage_health": "PASS",
                     "tables_verified": len(before),
                 },
                 sort_keys=True,

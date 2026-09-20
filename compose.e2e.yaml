@@ -1,7 +1,7 @@
 # Disposable production-image browser test stack. No Telegram worker or real credentials.
 name: technician-hub-e2e
 services:
-  db:
+  test-db:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: hub
@@ -17,8 +17,9 @@ services:
   api:
     image: technician-hub-api
     environment:
-      DATABASE_URL: postgresql+asyncpg://hub:hub_test_only@db:5432/technician_hub_test
+      DATABASE_URL: postgresql+asyncpg://hub:hub_test_only@test-db:5432/technician_hub_test
       APP_ENV: test
+      ALLOW_FAKE_PROVIDERS: "true"
       ALLOWED_ORIGINS: '["http://127.0.0.1:3002"]'
       TELEGRAM_MODE: fake
       TELEGRAM_EXPECTED_BOT_ID: "9000001"
@@ -34,7 +35,7 @@ services:
         "alembic upgrade head && uvicorn hub.main:app --host 0.0.0.0 --port 8000",
       ]
     depends_on:
-      db: { condition: service_healthy }
+      test-db: { condition: service_healthy }
     healthcheck:
       test:
         [

@@ -1,6 +1,6 @@
 name: technician-hub-restart-test
 services:
-  db:
+  test-db:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: hub
@@ -17,8 +17,9 @@ services:
   api:
     image: technician-hub-api
     environment:
-      DATABASE_URL: postgresql+asyncpg://hub:hub_restart_test_only@db:5432/technician_hub_test
+      DATABASE_URL: postgresql+asyncpg://hub:hub_restart_test_only@test-db:5432/technician_hub_test
       APP_ENV: test
+      ALLOW_FAKE_PROVIDERS: "true"
       ALLOWED_ORIGINS: '["http://127.0.0.1:3003"]'
       TELEGRAM_MODE: fake
       TELEGRAM_EXPECTED_BOT_ID: "9000001"
@@ -35,7 +36,7 @@ services:
       ]
     ports: ["127.0.0.1:8003:8000"]
     depends_on:
-      db: { condition: service_healthy }
+      test-db: { condition: service_healthy }
     healthcheck:
       test:
         [
@@ -64,6 +65,39 @@ services:
       interval: 3s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
+  telegram-test-worker:
+    image: technician-hub-api
+    command: ["python", "-m", "tests.isolated_worker_process", "telegram"]
+    environment: &test-worker-environment
+      DATABASE_URL: postgresql+asyncpg://hub:hub_restart_test_only@test-db:5432/technician_hub_test
+      APP_ENV: test
+      ALLOW_FAKE_PROVIDERS: "true"
+      ALLOWED_ORIGINS: '["http://127.0.0.1:3003"]'
+      TELEGRAM_MODE: fake
+      TELEGRAM_EXPECTED_BOT_ID: "9000001"
+      TELEGRAM_EXPECTED_BOT_USERNAME: hub_dedicated_test_bot
+      GOOGLE_MODE: fake
+      GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY: h296Hlwktt4byynveKVcQuxX7eN8ty77nlor-a3Omyc=
+      SCHEDULE_DELIVERY_ENABLED: "true"
+      SCHEDULE_PAYLOAD_ENCRYPTION_KEY: 1ajUDMfGL53YFA8iShNsP-xjjA0YvMk_0QPLePP2uKs=
+    depends_on:
+      api: { condition: service_healthy }
+    restart: unless-stopped
+  schedule-test-worker:
+    image: technician-hub-api
+    command: ["python", "-m", "tests.isolated_worker_process", "schedule"]
+    environment: *test-worker-environment
+    depends_on:
+      api: { condition: service_healthy }
+    stop_grace_period: 50s
+    restart: unless-stopped
+  mirror-test-worker:
+    image: technician-hub-api
+    command: ["python", "-m", "tests.isolated_worker_process", "mirror"]
+    environment: *test-worker-environment
+    depends_on:
+      api: { condition: service_healthy }
     restart: unless-stopped
 volumes:
   restart_data:

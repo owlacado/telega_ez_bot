@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     release_commit: str = "development"
     cookie_secure: bool = False
     allowed_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    allow_fake_providers: bool = False
     session_lifetime_seconds: int = Field(default=28800, ge=60, le=86400)
     work_report_session_seconds: int = Field(default=900, ge=600, le=900)
 
@@ -89,9 +90,14 @@ class Settings(BaseSettings):
                 or parsed.fragment
                 or parsed.username
                 or parsed.password
+                or not parsed.hostname
                 or parsed.hostname == "*"
             ):
                 raise ValueError("Origins must be exact HTTP(S) origins without paths.")
+            try:
+                parsed.hostname.encode("ascii")
+            except UnicodeEncodeError:
+                raise ValueError("Origins must use their ASCII IDNA host form.") from None
             if parsed.scheme == "http" and (
                 self.app_env not in {"development", "test"}
                 or parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
@@ -100,10 +106,15 @@ class Settings(BaseSettings):
         if self.telegram_mode == "fake" or self.google_mode == "fake":
             if (
                 self.app_env != "test"
+                or not self.allow_fake_providers
                 or database.database != "technician_hub_test"
-                or database.host not in {"127.0.0.1", "localhost", "test-db", "db"}
+                or database.host not in {"127.0.0.1", "localhost", "test-db"}
+                or not str(database.password).endswith("_test_only")
             ):
-                raise ValueError("Fake providers are restricted to the isolated test database.")
+                raise ValueError(
+                    "Fake providers require explicit opt-in and an isolated "
+                    "disposable test database."
+                )
         if self.app_env not in {"development", "test"} and database.password in {
             "hub_local_only",
             "hub_test_only",
@@ -124,12 +135,28 @@ class Settings(BaseSettings):
             if not self.google_calendar_credential_encryption_key:
                 raise ValueError("Google credential encryption key is required.")
             SecretCipher(self.google_calendar_credential_encryption_key.get_secret_value())
+            if self.app_env not in {
+                "development",
+                "test",
+            } and self.google_calendar_credential_encryption_key.get_secret_value() in {
+                "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+                "h296Hlwktt4byynveKVcQuxX7eN8ty77nlor-a3Omyc=",
+            }:
+                raise ValueError("Production Google credential encryption key is a test key.")
         if self.schedule_delivery_enabled:
             from hub.core.secrets import SecretCipher
 
             if not self.schedule_payload_encryption_key:
                 raise ValueError("Schedule payload encryption key is required.")
             SecretCipher(self.schedule_payload_encryption_key.get_secret_value())
+            if self.app_env not in {
+                "development",
+                "test",
+            } and self.schedule_payload_encryption_key.get_secret_value() in {
+                "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",
+                "1ajUDMfGL53YFA8iShNsP-xjjA0YvMk_0QPLePP2uKs=",
+            }:
+                raise ValueError("Production schedule payload encryption key is a test key.")
             if self.telegram_mode == "disabled" or not self.telegram_expected_bot_id:
                 raise ValueError("Schedule delivery requires configured Telegram identity.")
             if self.google_mode == "disabled":
@@ -158,3 +185,15 @@ class Settings(BaseSettings):
             if f"{redirect.scheme}://{redirect.netloc}" not in self.allowed_origins:
                 raise ValueError("Google callback must use a configured application origin.")
         return self
+
+    @property
+    def allowed_hosts(self) -> list[str]:
+        """Exact public origin hosts plus local container-health probe hosts."""
+        return sorted(
+            {
+                "localhost",
+                "127.0.0.1",
+                "api",
+                *(urlparse(origin).hostname for origin in self.allowed_origins),
+            }
+        )

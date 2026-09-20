@@ -48,6 +48,7 @@ async def main():
             settings = Settings(
                 database_url=url,
                 app_env="test",
+                allow_fake_providers=True,
                 telegram_mode="fake",
                 telegram_expected_bot_id=BOT_ID,
                 telegram_expected_bot_username=BOT_USERNAME,
@@ -200,6 +201,7 @@ async def main():
             settings = Settings(
                 database_url=url,
                 app_env="test",
+                allow_fake_providers=True,
                 google_mode="fake",
                 google_calendar_credential_encryption_key=SecretStr(
                     "acpU14UT8v3AsP9osikC88Q27CgN1o0jLIZu4aPKwHE="
@@ -358,6 +360,7 @@ async def main():
             settings = Settings(
                 database_url=url,
                 app_env="test",
+                allow_fake_providers=True,
                 telegram_mode="fake",
                 telegram_expected_bot_id=BOT_ID,
                 telegram_expected_bot_username=BOT_USERNAME,

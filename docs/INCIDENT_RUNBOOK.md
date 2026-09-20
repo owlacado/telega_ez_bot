@@ -70,3 +70,9 @@ policy before adding any broader deletion.
 Configure bounded container-log rotation at the Docker daemon or deployment platform. Keep audit
 records in PostgreSQL under the approved access/retention policy; container logs are not the audit
 system.
+
+The Web container can remain healthy during an API/DB outage because `/login` is intentionally a
+process/shell probe. Treat API `/api/health` and manager Operations Health as the application
+availability signals. Before copying `docker compose logs` to an incident system, inspect them in
+the private environment and redact any unexpected business or credential canary; the commands do
+not make third-party log transport safe automatically.

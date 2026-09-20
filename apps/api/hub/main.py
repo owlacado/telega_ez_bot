@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 from starlette.concurrency import run_in_threadpool
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 import hub.models  # noqa: F401
 from hub.accounting.router import router as accounting_router
@@ -70,6 +71,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await engine.dispose()
 
     app = FastAPI(title="Technician Hub API", version=config.app_version, lifespan=lifespan)
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.allowed_hosts)
     install_error_handlers(app)
     app.include_router(auth_router)
     app.include_router(telegram_router)

@@ -27,6 +27,7 @@ async def main():
     settings = Settings(
         _env_file=None,
         app_env="test",
+        allow_fake_providers=True,
         database_url=config["url"],
         telegram_mode="fake",
         telegram_expected_bot_id=BOT_ID,
