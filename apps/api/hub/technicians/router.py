@@ -9,6 +9,7 @@ from hub.calendars.models import CalendarAssignment
 from hub.calendars.schemas import AssignmentInput, AssignmentRead
 from hub.calendars.service import assign_calendar, unassign_calendar
 from hub.core.database import session
+from hub.google_calendar.models import CalendarConnection
 from hub.technicians.models import Technician
 from hub.technicians.schemas import (
     TechnicianCreate,
@@ -24,8 +25,15 @@ from hub.telegram.locks import advisory_guard
 router = APIRouter(prefix="/api/technicians", tags=["technicians"])
 
 
+async def current_google_connection(db: AsyncSession) -> CalendarConnection | None:
+    return await db.scalar(
+        select(CalendarConnection).where(CalendarConnection.is_current.is_(True))
+    )
+
+
 @router.get("", response_model=list[TechnicianSummary])
 async def list_technicians(
+    request: Request,
     q: str = Query(default="", max_length=200, pattern=r"^[^\x00-\x1f\x7f]*$"),
     db: AsyncSession = Depends(session),
 ) -> list[TechnicianSummary]:
@@ -37,7 +45,11 @@ async def list_technicians(
                 Technician.last_name.icontains(term, autoescape=True),
             )
         )
-    return [summary(item) for item in (await db.scalars(query)).all()]
+    connection = await current_google_connection(db)
+    return [
+        summary(item, request.app.state.settings, connection)
+        for item in (await db.scalars(query)).all()
+    ]
 
 
 @router.post("", response_model=TechnicianDetail, status_code=201)
@@ -59,16 +71,24 @@ async def create_technician(
             request.state.manager_id,
             allow_demo=request.app.state.settings.app_env in {"development", "test"},
         )
-    response = detail(await require_technician(db, technician.id))
+    response = detail(
+        await require_technician(db, technician.id),
+        request.app.state.settings,
+        await current_google_connection(db),
+    )
     await db.commit()
     return response
 
 
 @router.get("/{technician_id}", response_model=TechnicianDetail)
 async def get_technician(
-    technician_id: UUID, db: AsyncSession = Depends(session)
+    technician_id: UUID, request: Request, db: AsyncSession = Depends(session)
 ) -> TechnicianDetail:
-    return detail(await require_technician(db, technician_id))
+    return detail(
+        await require_technician(db, technician_id),
+        request.app.state.settings,
+        await current_google_connection(db),
+    )
 
 
 @router.patch("/{technician_id}", response_model=TechnicianDetail)
@@ -80,7 +100,11 @@ async def update_technician(
 ) -> TechnicianDetail:
     async with advisory_guard(request.app.state.engine, "technician", technician_id):
         technician = await require_technician(db, technician_id, lock=True)
-        values = payload.model_dump(mode="json", exclude_unset=True)
+        values = payload.model_dump(
+            mode="json", exclude_unset=True, exclude={"expected_updated_at"}
+        )
+        if technician.updated_at != payload.expected_updated_at:
+            raise HTTPException(409, "Profile changed. Reload and apply the edit again.")
         zone = values.get("accounting_timezone")
         if zone and not await db.scalar(
             text("SELECT EXISTS (SELECT 1 FROM pg_timezone_names WHERE name=:zone)"),
@@ -92,7 +116,11 @@ async def update_technician(
         if values.get("status") == "INACTIVE":
             await invalidate(db, technician_id)
         await db.flush()
-        response = detail(await require_technician(db, technician_id))
+        response = detail(
+            await require_technician(db, technician_id),
+            request.app.state.settings,
+            await current_google_connection(db),
+        )
         await db.commit()
         return response
 

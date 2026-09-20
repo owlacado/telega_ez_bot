@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Technician Hub API",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -2542,6 +2542,27 @@
         }
       }
     },
+    "/api/operations/health": {
+      "get": {
+        "tags": [
+          "operations"
+        ],
+        "summary": "Health",
+        "operationId": "health_api_operations_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsHealth"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "tags": [
@@ -3138,6 +3159,34 @@
           "name"
         ],
         "title": "CalendarSummary"
+      },
+      "ComponentHealth": {
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "BLOCK",
+              "RUNNING",
+              "STALE",
+              "STOPPED",
+              "ERROR",
+              "MISSING",
+              "DISABLED"
+            ],
+            "title": "State"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "message"
+        ],
+        "title": "ComponentHealth"
       },
       "ConnectionRead": {
         "properties": {
@@ -4234,12 +4283,22 @@
           "database": {
             "type": "string",
             "title": "Database"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "release_commit": {
+            "type": "string",
+            "title": "Release Commit"
           }
         },
         "type": "object",
         "required": [
           "status",
-          "database"
+          "database",
+          "version",
+          "release_commit"
         ],
         "title": "Health"
       },
@@ -4890,6 +4949,142 @@
           "running_instances"
         ],
         "title": "MirrorWorkerHealthRead"
+      },
+      "OperationsHealth": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "WARN",
+              "BLOCK"
+            ],
+            "title": "Status"
+          },
+          "app_version": {
+            "type": "string",
+            "title": "App Version"
+          },
+          "release_commit": {
+            "type": "string",
+            "title": "Release Commit"
+          },
+          "database": {
+            "$ref": "#/components/schemas/ComponentHealth"
+          },
+          "migration": {
+            "$ref": "#/components/schemas/ComponentHealth"
+          },
+          "telegram_worker": {
+            "$ref": "#/components/schemas/ComponentHealth"
+          },
+          "schedule_worker": {
+            "$ref": "#/components/schemas/ComponentHealth"
+          },
+          "mirror_worker": {
+            "$ref": "#/components/schemas/ComponentHealth"
+          },
+          "google_configuration": {
+            "$ref": "#/components/schemas/ComponentHealth"
+          },
+          "queues": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/QueueCounts"
+            },
+            "type": "object",
+            "title": "Queues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "app_version",
+          "release_commit",
+          "database",
+          "migration",
+          "telegram_worker",
+          "schedule_worker",
+          "mirror_worker",
+          "google_configuration",
+          "queues"
+        ],
+        "title": "OperationsHealth"
+      },
+      "PilotRequirement": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "READY",
+              "OPTIONAL",
+              "BLOCKED",
+              "NEEDS_ACTION"
+            ],
+            "title": "Status"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "status",
+          "required",
+          "reason"
+        ],
+        "title": "PilotRequirement"
+      },
+      "QueueCounts": {
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "default": 0
+          },
+          "processing": {
+            "type": "integer",
+            "title": "Processing",
+            "default": 0
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "default": 0
+          },
+          "ambiguous": {
+            "type": "integer",
+            "title": "Ambiguous",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "QueueCounts"
       },
       "ReportFact": {
         "properties": {
@@ -5835,6 +6030,9 @@
           "integrations": {
             "$ref": "#/components/schemas/IntegrationSummary"
           },
+          "pilot_readiness": {
+            "$ref": "#/components/schemas/TechnicianPilotReadiness"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5877,12 +6075,39 @@
           "status",
           "calendar",
           "integrations",
+          "pilot_readiness",
           "created_at",
           "updated_at",
           "driver_license_id",
           "ssn_last4"
         ],
         "title": "TechnicianDetail"
+      },
+      "TechnicianPilotReadiness": {
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "blocking_count": {
+            "type": "integer",
+            "title": "Blocking Count"
+          },
+          "requirements": {
+            "items": {
+              "$ref": "#/components/schemas/PilotRequirement"
+            },
+            "type": "array",
+            "title": "Requirements"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "blocking_count",
+          "requirements"
+        ],
+        "title": "TechnicianPilotReadiness"
       },
       "TechnicianSummary": {
         "properties": {
@@ -5942,6 +6167,9 @@
           "integrations": {
             "$ref": "#/components/schemas/IntegrationSummary"
           },
+          "pilot_readiness": {
+            "$ref": "#/components/schemas/TechnicianPilotReadiness"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -5962,6 +6190,7 @@
           "status",
           "calendar",
           "integrations",
+          "pilot_readiness",
           "created_at",
           "updated_at"
         ],
@@ -5969,6 +6198,11 @@
       },
       "TechnicianUpdate": {
         "properties": {
+          "expected_updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expected Updated At"
+          },
           "first_name": {
             "anyOf": [
               {
@@ -6063,6 +6297,9 @@
         },
         "additionalProperties": false,
         "type": "object",
+        "required": [
+          "expected_updated_at"
+        ],
         "title": "TechnicianUpdate"
       },
       "TelegramState": {

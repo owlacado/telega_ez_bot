@@ -17,6 +17,7 @@ Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max
 Last4 = Annotated[str, StringConstraints(pattern=r"^[0-9]{4}$")]
 Status = Literal["ACTIVE", "INACTIVE"]
 ConnectionStatus = Literal["NOT_CONNECTED", "PENDING", "CONNECTED", "ERROR"]
+ReadinessStatus = Literal["READY", "OPTIONAL", "BLOCKED", "NEEDS_ACTION"]
 
 
 class InputModel(BaseModel):
@@ -45,6 +46,7 @@ class TechnicianCreate(InputModel):
 
 
 class TechnicianUpdate(InputModel):
+    expected_updated_at: AwareDatetime
     first_name: Name | None = None
     last_name: Name | None = None
     photo_url: HttpUrl | None = None
@@ -107,6 +109,21 @@ class IntegrationSummary(BaseModel):
     gps_status: ConnectionStatus = "NOT_CONNECTED"
 
 
+class PilotRequirement(BaseModel):
+    key: str
+    label: str
+    status: ReadinessStatus
+    required: bool
+    reason: str
+    action: str | None = None
+
+
+class TechnicianPilotReadiness(BaseModel):
+    ready: bool
+    blocking_count: int
+    requirements: list[PilotRequirement]
+
+
 class TechnicianSummary(BaseModel):
     id: UUID
     first_name: str
@@ -116,6 +133,7 @@ class TechnicianSummary(BaseModel):
     accounting_timezone: str | None = None
     calendar: CalendarSummary | None
     integrations: IntegrationSummary
+    pilot_readiness: TechnicianPilotReadiness
     created_at: datetime
     updated_at: datetime
 

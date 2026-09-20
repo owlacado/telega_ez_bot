@@ -22,6 +22,7 @@ from tests.telegram_helpers import (
     connected_group,
     connected_private,
     event,
+    patch_technician,
     review,
     state,
     technician,
@@ -295,7 +296,7 @@ async def test_inactive_and_deleted_identity_cannot_claim_or_reappear(client, en
     identifier = await technician(client)
     invitation = await issue(client, identifier)
     assert (
-        await client.patch(f"/api/technicians/{identifier}", json={"status": "INACTIVE"})
+        await patch_technician(client, identifier, status="INACTIVE")
     ).status_code == 200
     assert (await claim(engine, provider, invitation)).outcome == "INVALID_INVITATION"
     assert (

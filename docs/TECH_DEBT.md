@@ -1,7 +1,7 @@
 # Technical debt register
 
-Current Stage 9 disposition: **35 entries, 10 RESOLVED, 25 OPEN** (0 CRITICAL,
-2 HIGH, 18 MEDIUM, 5 LOW). Historical counts below describe earlier stages.
+Current Stage 10 disposition: **35 entries, 11 RESOLVED, 24 OPEN** (0 CRITICAL,
+2 HIGH, 17 MEDIUM, 5 LOW). Historical counts below describe earlier stages.
 No existing debt is closed by Work Reports or Expenses.
 
 Manager CLI blocker follow-up: the user confirmed a password shorter than 14
@@ -68,7 +68,7 @@ Future stages must update this register when debt is discovered, resolved, or a 
 | TD-011 | HIGH     | Sensitive data protection                  | BEFORE INTERNAL PILOT | OPEN     |
 | TD-012 | MEDIUM   | Deployment / credentials / origins         | BEFORE INTERNAL PILOT | OPEN     |
 | TD-013 | MEDIUM   | Concurrent profile editing                 | BEFORE INTERNAL PILOT | OPEN     |
-| TD-014 | MEDIUM   | Provider state invariants                  | BEFORE NEXT STAGE     | OPEN     |
+| TD-014 | MEDIUM   | Provider state invariants                  | BEFORE NEXT STAGE     | RESOLVED |
 | TD-015 | MEDIUM   | Scaling / response size                    | LATER SCALE           | OPEN     |
 | TD-016 | MEDIUM   | Durability / operations                    | BEFORE PRODUCTION     | OPEN     |
 | TD-017 | MEDIUM   | Observability / timeouts                   | BEFORE INTERNAL PILOT | OPEN     |
@@ -234,6 +234,14 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Independent Stage 2 audit evidence:** Independent Google audit: destructive Google account replacement now binds confirmation to a digest of calendar identity/name/exclusions and active assignments, revalidated at start and callback. This narrowly fixes replacement impact; general concurrent profile editing and deletion version boundaries remain OPEN.
 - **Status:** OPEN
 
+### Stage 10 evidence
+
+Sanctioned profile PATCH now requires `expected_updated_at`, compares it while holding the
+technician serialization guard and row lock, and returns 409 without overwriting a newer edit.
+Regression coverage proves the first writer remains canonical. The broader item remains **OPEN
+(PARTIAL)** because `updated_at` is still ORM-owned, raw SQL writers do not advance a database
+version, and dependent binding/assignment changes remain outside the deletion/profile version.
+
 ## TD-014: Provider state invariants
 
 - **Severity:** MEDIUM
@@ -246,7 +254,12 @@ Future stages must update this register when debt is discovered, resolved, or a 
 - **Audit evidence:** `test_live_schema_constraints_and_documented_gap` directly verifies deployed uniqueness/FKs/partial invitation index and reproduces CONNECTED with a null identifier. No schema change is justified without a complete state policy and existing-data repair plan; GPS is outside this audit.
 - **Stage 2 evidence:** New Google source/identity, connection status/credential, account identity and current-connection constraints are database enforced; raw uniqueness and migration constraint tests cover them. Existing Telegram/GPS gaps remain unchanged and OPEN; no claim is made that Stage 2 closes this historical blocker.
 - **Independent Stage 2 audit evidence:** Independent Google audit: direct deployed unique constraints were removed temporarily and corresponding tests failed; constraints were restored and drift checked. OAuth manager/session ownership remains enforced in the authenticated service; independent FKs do not constitute a composite manager/session constraint for arbitrary SQL writers. Historical Telegram/GPS policy gaps are unchanged.
-- **Status:** OPEN
+- **Stage 10 evidence:** Migration `fba609190001` adds database CHECK constraints for Telegram
+  generations, availability enums, connected identifiers, available/current-private relationships,
+  and the GPS provider/status state machine. Direct PostgreSQL regressions reject impossible
+  connected-without-identity and GPS `NONE`/`CONNECTED` rows. Existing data was checked before the
+  additive migration, and the single-head/drift gates cover the deployed schema.
+- **Status:** RESOLVED by Stage 10.
 
 ## TD-015: Scaling / response size
 
@@ -765,3 +778,53 @@ altering Stage 5-8 business semantics.
 TD-033 remains a pre-pilot live TEST-provider obligation. TD-034 remains a production
 capacity obligation, and TD-035 remains later-scale presentation debt. Existing pilot
 and production blockers remain unchanged.
+
+## Stage 10 pilot-readiness hardening disposition
+
+Stage 10 resolves **TD-014** and adds no debt ID: **35 entries, 11 RESOLVED, 24 OPEN**
+(0 CRITICAL, 2 HIGH, 17 MEDIUM, 5 LOW). The complete classification and dependencies are
+in `PILOT_BLOCKER_MATRIX.md`. The canonical readiness projection intentionally reports product
+setup; it does not claim that the release-level live/provider/policy blockers are satisfied.
+
+- **TD-012 remains OPEN (PARTIAL).** Central validation rejects malformed database URLs,
+  production debug, insecure production cookies/origins, wildcard/userinfo origins, sample
+  production DB passwords, fake providers outside the isolated test database, missing provider
+  keys, and incomplete provider dependencies. Preflight checks release identity, DB/schema,
+  manager count, provider presence and technician timezone without contacting a provider or
+  printing a secret. Managed deployment credentials, approved TLS/proxy/host policy and wider
+  request admission remain external decisions.
+- **TD-013 remains OPEN (PARTIAL).** Sanctioned PATCH operations now reject stale
+  `expected_updated_at` values under the existing serialization boundary. Database-owned versioning,
+  raw SQL writer advancement, and a version boundary that includes dependent integration changes
+  remain unresolved.
+- **TD-014 is RESOLVED.** Migration `fba609190001` and direct database tests enforce the documented
+  Telegram generation/availability/identity combinations and GPS provider/status combinations.
+- **TD-016 remains OPEN (PARTIAL, production gate).** `backup-postgres.ps1` creates a custom dump
+  and SHA-256 manifest in an operator-selected private directory. The isolated restore drill proves
+  synthetic manager login, technician/calendar/Telegram metadata, Work Report, Expense, accounting,
+  mirror configuration, durable queues, opaque fingerprints and key behavior. Approved RPO/RTO,
+  off-host encryption/retention and scheduled restore ownership still remain.
+- **TD-017 remains OPEN (PARTIAL).** Public health distinguishes DB availability and exposes release
+  identity. Manager-only aggregate health reports schema, current/stale/stopped/error/disabled worker
+  states and payload-free queue counts. Correlation IDs, global database/request deadlines, alert
+  routing and measured deployment budgets remain.
+- **TD-025 remains OPEN (PARTIAL).** Pilot and incident runbooks document separate key/DB custody,
+  wrong/lost-key failure and deliberate reconnect. Durable remote revocation and managed key rotation
+  are not implemented or exercised with Google.
+- **TD-026 remains OPEN (PARTIAL).** Bounded cleanup clears consumed/expired PKCE verifier ciphertext
+  without deleting metadata. Per-manager/global OAuth and successful-scan budgets, approved metadata
+  retention and real quota evidence remain.
+- **TD-029 remains OPEN (PARTIAL).** Workers fail closed for invalid enabled configuration, report
+  persisted health, honor bounded shutdown, and have documented recovery/ambiguity rules. Managed
+  key rotation, alerting, fleet capacity and whole-window schedule downtime remain.
+- **TD-031 remains OPEN (PARTIAL).** Bounded idempotent cleanup expires abandoned form sessions and
+  clears their choice/selection snapshots while preserving fresh sessions, submitted business rows,
+  immutable revisions and audit events. An approved retention/anonymization/archive/backup policy is
+  still required.
+- **TD-010/011/018/023 remain OPEN and need policy decisions.** Stage 10 does not invent audit
+  retention, field encryption/access policy, external-image policy, or public-bot abuse budgets.
+- **TD-022/027/028/030/033 remain LIVE TEST REQUIRED.** No real Telegram, Google Calendar, Google
+  Sheets, technician or customer was contacted. Fake/provider-local evidence does not close them.
+- **TD-015/024/032/035 remain LATER SCALE. TD-019/020/034 remain additional production gates.**
+
+Pilot blockers after Stage 10 are TD-010/011/012/013/017/018/022/023/025/026/027/028/029/030/031/033. **PILOT READY: NO.** Contracts and GPS remain outside implemented pilot scope.

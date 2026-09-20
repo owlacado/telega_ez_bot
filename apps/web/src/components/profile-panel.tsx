@@ -42,6 +42,7 @@ export function ProfilePanel({
     setSaved(false);
     const form = new FormData(event.currentTarget);
     const payload: TechnicianUpdate = {
+      expected_updated_at: t.updated_at,
       first_name: String(form.get("first_name")).trim(),
       last_name: String(form.get("last_name")).trim(),
       photo_url: String(form.get("photo_url")).trim() || null,

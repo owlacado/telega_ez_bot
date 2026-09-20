@@ -16,7 +16,10 @@ test("canonical accounting daily weekly and current revision", async ({
   ).json();
   const extraTechs: { id: string }[] = [];
   await request.patch(`/api/technicians/${tech.id}`, {
-    data: { accounting_timezone: "America/Los_Angeles" },
+    data: {
+      expected_updated_at: tech.updated_at,
+      accounting_timezone: "America/Los_Angeles",
+    },
   });
   try {
     const { today } = harness({
@@ -34,7 +37,10 @@ test("canonical accounting daily weekly and current revision", async ({
       ).json();
       extraTechs.push(extra);
       await request.patch(`/api/technicians/${extra.id}`, {
-        data: { accounting_timezone: "America/Los_Angeles" },
+        data: {
+          expected_updated_at: extra.updated_at,
+          accounting_timezone: "America/Los_Angeles",
+        },
       });
       harness({ action: "accounting_setup", technician_id: extra.id });
     }

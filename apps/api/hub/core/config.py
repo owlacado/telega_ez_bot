@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy.engine import make_url
 
 
 class Settings(BaseSettings):
@@ -14,6 +15,9 @@ class Settings(BaseSettings):
     )
     database_url: str = "postgresql+asyncpg://hub:hub_local_only@127.0.0.1:5436/technician_hub"
     app_env: str = "development"
+    debug: bool = False
+    app_version: str = "0.3.0"
+    release_commit: str = "development"
     cookie_secure: bool = False
     allowed_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     session_lifetime_seconds: int = Field(default=28800, ge=60, le=86400)
@@ -58,6 +62,22 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def local_http_only(self) -> "Settings":
+        try:
+            database = make_url(self.database_url)
+        except Exception:
+            raise ValueError("DATABASE_URL must be a valid PostgreSQL async URL.") from None
+        if (
+            database.drivername != "postgresql+asyncpg"
+            or not database.database
+            or not database.host
+            or not database.username
+            or database.password is None
+        ):
+            raise ValueError("DATABASE_URL must include PostgreSQL async host and credentials.")
+        if self.debug and self.app_env not in {"development", "test"}:
+            raise ValueError("Debug mode is forbidden outside development/test.")
+        if not self.allowed_origins:
+            raise ValueError("At least one exact application origin is required.")
         if not self.cookie_secure and self.app_env not in {"development", "test"}:
             raise ValueError("Secure cookies are required outside local development/test.")
         for origin in self.allowed_origins:
@@ -68,6 +88,8 @@ class Settings(BaseSettings):
                 or parsed.query
                 or parsed.fragment
                 or parsed.username
+                or parsed.password
+                or parsed.hostname == "*"
             ):
                 raise ValueError("Origins must be exact HTTP(S) origins without paths.")
             if parsed.scheme == "http" and (
@@ -76,15 +98,19 @@ class Settings(BaseSettings):
             ):
                 raise ValueError("HTTP is allowed only on loopback for local development/test.")
         if self.telegram_mode == "fake" or self.google_mode == "fake":
-            from sqlalchemy.engine import make_url
-
-            db = make_url(self.database_url)
             if (
                 self.app_env != "test"
-                or db.database != "technician_hub_test"
-                or db.host not in {"127.0.0.1", "localhost", "test-db", "db"}
+                or database.database != "technician_hub_test"
+                or database.host not in {"127.0.0.1", "localhost", "test-db", "db"}
             ):
                 raise ValueError("Fake providers are restricted to the isolated test database.")
+        if self.app_env not in {"development", "test"} and database.password in {
+            "hub_local_only",
+            "hub_test_only",
+            "password",
+            "changeme",
+        }:
+            raise ValueError("Production database credentials must not use sample passwords.")
         if self.telegram_expected_bot_username:
             import re
 
@@ -106,6 +132,8 @@ class Settings(BaseSettings):
             SecretCipher(self.schedule_payload_encryption_key.get_secret_value())
             if self.telegram_mode == "disabled" or not self.telegram_expected_bot_id:
                 raise ValueError("Schedule delivery requires configured Telegram identity.")
+            if self.google_mode == "disabled":
+                raise ValueError("Schedule delivery requires configured Google Calendar access.")
         if self.google_mode == "real":
             if not all(
                 (self.google_client_id, self.google_client_secret, self.google_oauth_redirect_uri)

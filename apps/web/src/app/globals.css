@@ -492,6 +492,109 @@ a:focus-visible,
   justify-content: space-between;
   gap: 8px;
 }
+.card-statuses {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.readiness-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.readiness-badge.ready {
+  color: #176a46;
+  background: #eaf7f0;
+}
+.readiness-badge.needs-action {
+  color: #8b4c16;
+  background: #fff3df;
+}
+.readiness-panel {
+  grid-column: 1 / -1;
+}
+.readiness-list {
+  border-top: 1px solid var(--line);
+}
+.readiness-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 11px;
+  padding: 13px 20px;
+  border-bottom: 1px solid #f0f2f6;
+}
+.readiness-row:last-child {
+  border-bottom: 0;
+}
+.readiness-row > svg {
+  color: #7161a8;
+  margin-top: 2px;
+}
+.readiness-row strong,
+.readiness-row span,
+.readiness-row small {
+  display: block;
+}
+.readiness-row strong {
+  font-size: 12px;
+}
+.readiness-row span,
+.readiness-row small {
+  margin-top: 3px;
+  color: #657083;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.readiness-row small {
+  color: #744817;
+}
+.readiness-row > b {
+  color: #60697a;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+.operations-panel {
+  margin-top: 24px;
+}
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+.operation-status {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: start;
+  padding: 14px 18px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.operation-status strong,
+.operation-status small {
+  display: block;
+}
+.operation-status strong {
+  font-size: 11px;
+}
+.operation-status small {
+  margin-top: 3px;
+  color: #697386;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.operation-status > b {
+  font-size: 9px;
+  color: #6554a0;
+}
 .card-topline .eyebrow {
   font-size: 8px;
   letter-spacing: 1.5px;

@@ -15,13 +15,18 @@ services:
       interval: 3s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
   api:
     build:
       context: .
       dockerfile: infrastructure/api.Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.3.0}
+        RELEASE_COMMIT: ${RELEASE_COMMIT:-unknown}
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
       APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-false}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ALLOWED_ORIGINS: '${ALLOWED_ORIGINS:-["http://localhost:3000","http://127.0.0.1:3000"]}'
       TELEGRAM_MODE: ${TELEGRAM_MODE:-disabled}
@@ -59,20 +64,39 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
   web:
     build:
       context: .
       dockerfile: infrastructure/web.Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.3.0}
+        RELEASE_COMMIT: ${RELEASE_COMMIT:-unknown}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     depends_on:
       api:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
   telegram-worker:
     profiles: ["telegram"]
     build:
       context: .
       dockerfile: infrastructure/api.Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.3.0}
+        RELEASE_COMMIT: ${RELEASE_COMMIT:-unknown}
     command: ["python", "-m", "hub.telegram.worker"]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
@@ -91,12 +115,15 @@ services:
       api:
         condition: service_healthy
     stop_grace_period: 50s
-    restart: "no"
+    restart: "on-failure:5"
   schedule-worker:
     profiles: ["schedules"]
     build:
       context: .
       dockerfile: infrastructure/api.Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.3.0}
+        RELEASE_COMMIT: ${RELEASE_COMMIT:-unknown}
     command: ["python", "-m", "hub.schedule_delivery.worker"]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
@@ -122,12 +149,15 @@ services:
       api:
         condition: service_healthy
     stop_grace_period: 50s
-    restart: "no"
+    restart: "on-failure:5"
   accounting-mirror-worker:
     profiles: ["accounting-mirrors"]
     build:
       context: .
       dockerfile: infrastructure/api.Dockerfile
+      args:
+        APP_VERSION: ${APP_VERSION:-0.3.0}
+        RELEASE_COMMIT: ${RELEASE_COMMIT:-unknown}
     command: ["python", "-m", "hub.accounting_mirrors.worker"]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-hub}:${POSTGRES_PASSWORD:-hub_local_only}@db:5432/${POSTGRES_DB:-technician_hub}
@@ -143,7 +173,7 @@ services:
       api:
         condition: service_healthy
     stop_grace_period: 30s
-    restart: "no"
+    restart: "on-failure:5"
   test-db:
     profiles: ["test"]
     image: postgres:18-alpine

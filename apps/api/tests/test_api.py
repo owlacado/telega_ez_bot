@@ -26,7 +26,12 @@ async def calendar(client: AsyncClient, name: str = "DEMO - Calendar") -> dict:
 
 async def test_health(client):
     response = await client.get("/api/health")
-    assert response.json() == {"status": "ok", "database": "connected"}
+    assert response.json() == {
+        "status": "ok",
+        "database": "connected",
+        "version": "0.3.0",
+        "release_commit": "development",
+    }
     assert response.headers["cache-control"] == "no-store"
 
 
@@ -44,6 +49,7 @@ async def test_create_list_get_update(client, engine):
     updated = await client.patch(
         f"/api/technicians/{identifier}",
         json={
+            "expected_updated_at": person["updated_at"],
             "first_name": "Updated",
             "status": "INACTIVE",
             "ssn_last4": "0123",
@@ -59,7 +65,12 @@ async def test_create_list_get_update(client, engine):
     )
     assert (await client.get("/api/technicians?q=%25")).json() == []
     cleared = await client.patch(
-        f"/api/technicians/{identifier}", json={"ssn_last4": None, "driver_license_id": None}
+        f"/api/technicians/{identifier}",
+        json={
+            "expected_updated_at": updated.json()["updated_at"],
+            "ssn_last4": None,
+            "driver_license_id": None,
+        },
     )
     assert cleared.json()["ssn_last4"] is None
     async with engine.connect() as db:

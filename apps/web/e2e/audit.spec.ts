@@ -238,7 +238,7 @@ test("stale delete conflicts, failed delete can retry, and slow save locks input
     expect(
       (
         await request.patch(`/api/technicians/${t.id}`, {
-          data: { first_name: "Changed" },
+          data: { expected_updated_at: t.updated_at, first_name: "Changed" },
         })
       ).status(),
     ).toBe(200);

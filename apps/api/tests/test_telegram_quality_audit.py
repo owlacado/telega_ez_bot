@@ -340,7 +340,7 @@ async def test_production_telegram_route_allowlist_and_identity_injection(client
     production = create_app(
         Settings(
             _env_file=None,
-            database_url=TEST_URL,
+            database_url="postgresql+asyncpg://hub:unique-production-secret@db/technician_hub",
             app_env="production",
             cookie_secure=True,
             allowed_origins=["https://hub.invalid"],
@@ -514,13 +514,13 @@ async def test_live_schema_constraints_and_documented_gap(client, engine, provid
         with pytest.raises(IntegrityError):
             async with engine.begin() as db:
                 await db.execute(text(sql))
-    async with engine.begin() as db:
-        # TD-014: enum validity does not enforce the status/ID combination.
-        await db.execute(
-            update(TelegramBinding)
-            .where(TelegramBinding.technician_id == UUID(two))
-            .values(private_status="CONNECTED", telegram_user_id=None)
-        )
+    with pytest.raises(IntegrityError):
+        async with engine.begin() as db:
+            await db.execute(
+                update(TelegramBinding)
+                .where(TelegramBinding.technician_id == UUID(two))
+                .values(private_status="CONNECTED", telegram_user_id=None)
+            )
     assert not (await state(client, two))["private"]["approved"]
     async with engine.connect() as db:
         constraints = (
@@ -538,6 +538,7 @@ async def test_live_schema_constraints_and_documented_gap(client, engine, provid
         )
         assert any("UNIQUE (telegram_user_id)" in c for c in constraints)
         assert any("UNIQUE (telegram_group_chat_id)" in c for c in constraints)
+        assert any("private_status" in c and "telegram_user_id" in c for c in constraints)
         assert any("ON DELETE CASCADE" in c for c in constraints)
         indexes = (
             (

@@ -23,7 +23,9 @@ const python = path.resolve(
 const running = Boolean(process.env.E2E_BASE_URL);
 const scheduleKey =
   process.env.SCHEDULE_PAYLOAD_ENCRYPTION_KEY ??
-  randomBytes(32).toString("base64url") + "=";
+  (running
+    ? "1ajUDMfGL53YFA8iShNsP-xjjA0YvMk_0QPLePP2uKs="
+    : randomBytes(32).toString("base64url") + "=");
 process.env.SCHEDULE_PAYLOAD_ENCRYPTION_KEY = scheduleKey;
 export default defineConfig({
   testDir: "./e2e",

@@ -14,8 +14,9 @@ import { TechnicianCard } from "@/components/technician-card";
 import { AddTechnician } from "@/components/add-technician";
 import { DeleteTechnician } from "@/components/delete-technician";
 import { ProfilePanel } from "@/components/profile-panel";
+import { PilotReadiness } from "@/components/pilot-readiness";
 import { api } from "@/lib/api";
-import { calendar, technician } from "./fixtures";
+import { calendar, operationsHealth, technician } from "./fixtures";
 import { telegramState } from "./telegram-fixtures";
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
@@ -33,12 +34,14 @@ beforeEach(() => {
   mockedApi.mockImplementation(async (path) =>
     path === "/calendars"
       ? [calendar]
-      : path.endsWith("/telegram")
-        ? {
-            ...telegramState,
-            runtime: { ...telegramState.runtime, state: "DISABLED" },
-          }
-        : technician,
+      : path === "/operations/health"
+        ? operationsHealth
+        : path.endsWith("/telegram")
+          ? {
+              ...telegramState,
+              runtime: { ...telegramState.runtime, state: "DISABLED" },
+            }
+          : technician,
   );
 });
 afterEach(() => vi.useRealTimers());
@@ -334,7 +337,11 @@ it("missing accounting timezone is visible on card and dashboard before expense 
     },
   } as typeof technician;
   mockedApi.mockImplementation(async (path) =>
-    path === "/technicians" ? [complete] : [calendar],
+    path === "/technicians"
+      ? [complete]
+      : path === "/operations/health"
+        ? operationsHealth
+        : [calendar],
   );
   const card = render(<TechnicianCard technician={complete} />);
   expect(
@@ -342,7 +349,56 @@ it("missing accounting timezone is visible on card and dashboard before expense 
   ).toBeInTheDocument();
   card.unmount();
   render(<Dashboard />);
-  await screen.findByText("Accounting timezone required for expenses");
+  await screen.findByText("Accounting timezone");
+});
+
+it("renders backend readiness consistently without deriving new rules", async () => {
+  const backendProjection = {
+    ...technician.pilot_readiness,
+    ready: false,
+    blocking_count: 1,
+    requirements: [
+      {
+        key: "provider-defined",
+        label: "Provider-defined gate",
+        status: "NEEDS_ACTION" as const,
+        required: true,
+        reason: "Canonical API reason.",
+        action: "Canonical API action.",
+      },
+      {
+        key: "optional-feature",
+        label: "Optional mirror",
+        status: "OPTIONAL" as const,
+        required: false,
+        reason: "This feature is optional.",
+        action: null,
+      },
+    ],
+  };
+  const projected = {
+    ...technician,
+    accounting_timezone: "America/Los_Angeles",
+    pilot_readiness: backendProjection,
+  };
+  const card = render(<TechnicianCard technician={projected} />);
+  expect(screen.getByText("Needs Setup (1)")).toBeInTheDocument();
+  card.unmount();
+  const detail = render(<PilotReadiness readiness={backendProjection} />);
+  expect(screen.getByText("Canonical API reason.")).toBeInTheDocument();
+  expect(screen.getByText("Canonical API action.")).toBeInTheDocument();
+  expect(screen.getByText("Optional mirror")).toBeInTheDocument();
+  detail.unmount();
+
+  mockedApi.mockImplementation(async (path) =>
+    path === "/technicians"
+      ? [projected]
+      : path === "/operations/health"
+        ? operationsHealth
+        : [calendar],
+  );
+  render(<Dashboard />);
+  expect(await screen.findByText("Provider-defined gate")).toBeInTheDocument();
 });
 
 it("timezone selector preserves current value and saves an explicit choice", async () => {

@@ -115,6 +115,7 @@ async def test_old_group_transferred_to_another_technician(app, client, ready):
         original = await db.get(TelegramBinding, ready)
         original.telegram_group_chat_id = None
         original.group_status = "NOT_CONNECTED"
+        original.group_availability = "UNKNOWN"
         original.group_generation += 1
         original.group_private_generation = None
         await db.flush()

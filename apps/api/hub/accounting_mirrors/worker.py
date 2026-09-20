@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import signal
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from uuid import UUID, uuid4
@@ -450,20 +451,26 @@ class Worker:
 
 async def main():
     settings = Settings()
+    if settings.google_mode == "disabled":
+        print("Google Sheets mirroring is disabled. No provider was initialized.")
+        return
+    if settings.google_mode != "real":
+        raise SystemExit("Fake providers are injected only by the isolated test harness.")
     engine = create_async_engine(settings.database_url, pool_pre_ping=True, hide_parameters=True)
     factory = async_sessionmaker(engine, expire_on_commit=False)
-    provider = None
-    if settings.google_mode == "real":
-        from hub.google_calendar.provider import GoogleCalendarProvider
+    from hub.google_calendar.provider import GoogleCalendarProvider
 
-        provider = GoogleCalendarProvider(settings)
-    elif settings.google_mode == "fake":
-        from hub.google_calendar.fake import FakeCalendarProvider
-
-        provider = FakeCalendarProvider()
+    worker = Worker(factory, settings, GoogleCalendarProvider(settings))
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        try:
+            loop.add_signal_handler(sig, worker.stop.set)
+        except NotImplementedError:
+            signal.signal(sig, lambda *_: loop.call_soon_threadsafe(worker.stop.set))
     try:
-        await Worker(factory, settings, provider).run()
+        await worker.run()
     finally:
+        worker.stop.set()
         await engine.dispose()
 
 

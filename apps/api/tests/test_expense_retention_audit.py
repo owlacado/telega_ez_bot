@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from hub.audit.models import AuditEvent
 from hub.expenses.models import TechnicianExpense
-from tests.test_expenses import issue, send
+from tests.test_expenses import issue, patch_technician, send
 from tests.test_work_reports import BASE, PAYLOAD, ready, selected
 from tests.test_work_reports import assigned as assigned
 from tests.test_work_reports import google as google
@@ -18,7 +18,7 @@ report_ready = ready
 )
 async def test_retention_combinations(app, client, report_ready, report, expense):
     tid = report_ready
-    await client.patch(f"/api/technicians/{tid}", json={"accounting_timezone": "America/Denver"})
+    await patch_technician(client, tid, accounting_timezone="America/Denver")
     if report:
         _, headers, _ = await selected(app, client)
         assert (

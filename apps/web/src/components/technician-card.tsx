@@ -9,6 +9,7 @@ import {
 import type { Technician } from "@hub/contracts";
 import { statusLabel } from "@hub/shared";
 import { Avatar, Status } from "./ui";
+import { ReadinessBadge } from "./pilot-readiness";
 export function TechnicianCard({ technician: t }: { technician: Technician }) {
   const indicators = [
     {
@@ -27,7 +28,10 @@ export function TechnicianCard({ technician: t }: { technician: Technician }) {
     >
       <div className="card-topline">
         <span className="eyebrow">TECHNICIAN</span>
-        <Status value={t.status} />
+        <div className="card-statuses">
+          <ReadinessBadge readiness={t.pilot_readiness} />
+          <Status value={t.status} />
+        </div>
       </div>
       <div className="card-identity">
         <Avatar

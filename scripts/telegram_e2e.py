@@ -352,6 +352,7 @@ async def main():
             from hub.schedule_delivery.delivery import deliver_one as deliver_schedule
             from hub.schedule_delivery.models import ScheduleDispatch
             from hub.telegram.types import ProviderError, TrustedEvent
+            from pydantic import SecretStr
             from sqlalchemy import select
 
             settings = Settings(
@@ -360,7 +361,14 @@ async def main():
                 telegram_mode="fake",
                 telegram_expected_bot_id=BOT_ID,
                 telegram_expected_bot_username=BOT_USERNAME,
+                google_mode="fake",
+                google_calendar_credential_encryption_key=SecretStr(
+                    "acpU14UT8v3AsP9osikC88Q27CgN1o0jLIZu4aPKwHE="
+                ),
                 schedule_delivery_enabled=True,
+                schedule_payload_encryption_key=SecretStr(
+                    os.environ["SCHEDULE_PAYLOAD_ENCRYPTION_KEY"]
+                ),
             )
             provider.group(payload["chat_id"], payload["user_id"], payload["user_id"])
             if payload.get("ambiguous"):

@@ -13,6 +13,14 @@ async def technician(client, name="Demo"):
     return response.json()["id"]
 
 
+async def patch_technician(client, identifier, **values):
+    current = (await client.get(f"/api/technicians/{identifier}")).json()
+    return await client.patch(
+        f"/api/technicians/{identifier}",
+        json={"expected_updated_at": current["updated_at"], **values},
+    )
+
+
 async def state(client, identifier):
     response = await client.get(f"/api/technicians/{identifier}/telegram")
     assert response.status_code == 200, response.text

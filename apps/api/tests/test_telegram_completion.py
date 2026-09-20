@@ -22,7 +22,7 @@ from hub.telegram.types import Member, ProviderError
 from hub.telegram.updates import process_update
 from tests.conftest import TEST_URL
 from tests.fakes import BOT_ID, BOT_USERNAME, FakeTelegram
-from tests.telegram_helpers import claim, event, issue, state, technician
+from tests.telegram_helpers import claim, event, issue, patch_technician, state, technician
 
 
 @pytest.fixture(autouse=True)
@@ -127,7 +127,7 @@ async def test_unusable_invitation_never_creates_binding(client, engine, provide
     elif reason == "replaced":
         await issue(client, identifier)
     elif reason == "inactive":
-        await client.patch(f"/api/technicians/{identifier}", json={"status": "INACTIVE"})
+        await patch_technician(client, identifier, status="INACTIVE")
     else:
         profile = (await client.get(f"/api/technicians/{identifier}")).json()
         assert (
@@ -470,7 +470,7 @@ async def test_identifier_alone_does_not_report_connected(client, engine):
     async with engine.begin() as db:
         await db.execute(
             update(TelegramBinding).values(
-                telegram_user_id=123, private_status="ERROR", private_availability="AVAILABLE"
+                telegram_user_id=123, private_status="ERROR", private_availability="UNAVAILABLE"
             )
         )
         await db.execute(update(TelegramInvitation).values(closed_at=now(), revoked_at=now()))

@@ -11,6 +11,7 @@ import { ProfilePanel } from "@/components/profile-panel";
 import { GpsPanel } from "@/components/detail-placeholders";
 import { Accounting } from "@/components/accounting";
 import { DeleteTechnician } from "@/components/delete-technician";
+import { PilotReadiness } from "@/components/pilot-readiness";
 export default function TechnicianDetailPage({
   params,
 }: {
@@ -65,6 +66,7 @@ export default function TechnicianDetailPage({
             />
           </div>
           <div className="detail-grid">
+            <PilotReadiness readiness={technician.pilot_readiness} />
             <ProfilePanel
               key={id}
               technician={technician}

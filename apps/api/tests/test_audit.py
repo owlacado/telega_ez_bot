@@ -20,7 +20,9 @@ def confirmation(person):
 async def test_stale_delete_does_not_remove_renamed_profile(client):
     person = await create(client)
     path = f"/api/technicians/{person['id']}"
-    changed = await client.patch(path, json={"first_name": "Renamed"})
+    changed = await client.patch(
+        path, json={"expected_updated_at": person["updated_at"], "first_name": "Renamed"}
+    )
     assert changed.status_code == 200
     response = await client.request("DELETE", path, json=confirmation(person))
     assert response.status_code == 409
@@ -42,7 +44,8 @@ async def test_control_characters_are_validation_errors(client, field, value):
 async def test_blank_license_normalizes_to_null(client):
     person = await create(client)
     response = await client.patch(
-        f"/api/technicians/{person['id']}", json={"driver_license_id": "   "}
+        f"/api/technicians/{person['id']}",
+        json={"expected_updated_at": person["updated_at"], "driver_license_id": "   "},
     )
     assert response.status_code == 200 and response.json()["driver_license_id"] is None
 
@@ -199,7 +202,10 @@ async def test_update_delete_race_is_serialized(client):
     path = f"/api/technicians/{person['id']}"
     changed, removed = await asyncio.wait_for(
         asyncio.gather(
-            client.patch(path, json={"last_name": "Changed"}),
+            client.patch(
+                path,
+                json={"expected_updated_at": person["updated_at"], "last_name": "Changed"},
+            ),
             client.request("DELETE", path, json=confirmation(person)),
         ),
         10,
@@ -357,7 +363,12 @@ async def test_version_guard_preserves_stage1_delete_audit(client, engine, crede
 
     person = await create(client)
     path = f"/api/technicians/{person['id']}"
-    updated = (await client.patch(path, json={"first_name": "Changed"})).json()
+    updated = (
+        await client.patch(
+            path,
+            json={"expected_updated_at": person["updated_at"], "first_name": "Changed"},
+        )
+    ).json()
     assert (await client.request("DELETE", path, json=confirmation(person))).status_code == 409
     async with engine.connect() as db:
         assert (

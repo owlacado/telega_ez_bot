@@ -114,7 +114,10 @@ def test_insecure_cookie_configuration_rejected():
     with pytest.raises(ValueError):
         Settings(allowed_origins=["http://public.example"])
     assert Settings(
-        app_env="production", cookie_secure=True, allowed_origins=["https://hub.example"]
+        database_url="postgresql+asyncpg://hub:unique-production-secret@db/technician_hub",
+        app_env="production",
+        cookie_secure=True,
+        allowed_origins=["https://hub.example"],
     ).cookie_secure
 
 

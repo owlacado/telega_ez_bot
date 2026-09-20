@@ -12,21 +12,21 @@ import {
 import type { Calendar, Technician } from "@hub/contracts";
 import { useResource } from "@/lib/use-resource";
 import { Avatar, EmptyState, ErrorNotice, Loading } from "@/components/ui";
-function missing(t: Technician): string[] {
-  return [
-    !t.accounting_timezone && "Accounting timezone required for expenses",
-    !t.calendar && "Calendar not assigned",
-    t.integrations.telegram_private !== "CONNECTED" && "Telegram not connected",
-    t.integrations.telegram_group !== "CONNECTED" && "Work group not connected",
-    t.integrations.gps_status !== "CONNECTED" && "GPS not configured",
-  ].filter((value): value is string => Boolean(value));
-}
+import { OperationsHealthPanel } from "@/components/operations-health";
 export default function Dashboard() {
   const technicians = useResource<Technician[]>("/technicians");
   const calendars = useResource<Calendar[]>("/calendars");
   const attention = technicians.data
-    ?.map((t) => ({ technician: t, missing: missing(t) }))
-    .filter((item) => item.missing.length);
+    ?.map((t) => ({
+      technician: t,
+      missing: t.pilot_readiness.requirements
+        .filter(
+          (requirement) =>
+            requirement.required && requirement.status !== "READY",
+        )
+        .map((requirement) => requirement.label),
+    }))
+    .filter((item) => !item.technician.pilot_readiness.ready);
   const loaded = technicians.data && calendars.data;
   return (
     <>
@@ -150,6 +150,7 @@ export default function Dashboard() {
               </EmptyState>
             )}
           </section>
+          <OperationsHealthPanel />
           <div className="foundation-note">
             <span className="foundation-icon">
               <Wrench size={19} />
@@ -157,16 +158,15 @@ export default function Dashboard() {
             <div>
               <strong>A foundation built around your people</strong>
               <p>
-                Profiles and calendar assignments are ready. Telegram,
-                accounting, calendar sync, and GPS connections are planned for
-                later stages.
+                Readiness comes from the API and covers the workflows available
+                for a controlled technician pilot.
               </p>
             </div>
-            <span className="stage-badge">STAGE 0</span>
+            <span className="stage-badge">STAGE 10</span>
           </div>
           <p className="page-footnote">
-            Setup checks cover calendar assignment, Telegram private account,
-            work group, and GPS connection.
+            Optional features remain visible without blocking core pilot
+            readiness.
           </p>
         </>
       )}

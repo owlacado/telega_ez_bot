@@ -19,7 +19,7 @@ from hub.expenses.schemas import ExpenseInput
 from hub.technicians.models import Technician
 from hub.work_reports import service as forms
 from hub.work_reports.models import TechnicianFormSession
-from tests.test_expenses import BASE, PAYLOAD, counts, issue, send
+from tests.test_expenses import BASE, PAYLOAD, counts, issue, patch_technician, send
 from tests.test_expenses import ready as ready_fixture
 
 ready = ready_fixture
@@ -111,11 +111,9 @@ async def test_timezone_change_preserves_snapshot(app, client, ready, monkeypatc
         return instant
 
     monkeypatch.setattr(forms, "database_now", clock)
-    await client.patch(
-        f"/api/technicians/{ready}", json={"accounting_timezone": "America/New_York"}
-    )
+    await patch_technician(client, ready, accounting_timezone="America/New_York")
     first = await send(app, await issue(app))
-    await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": "America/Denver"})
+    await patch_technician(client, ready, accounting_timezone="America/Denver")
     second = await send(app, await issue(app))
     a = (await client.get(f"/api/expenses/{first.expense_id}")).json()
     b = (await client.get(f"/api/expenses/{second.expense_id}")).json()
@@ -139,13 +137,13 @@ async def test_timezone_change_preserves_snapshot(app, client, ready, monkeypatc
 )
 async def test_invalid_or_environment_timezone_rejected(client, ready, zone):
     assert (
-        await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": zone})
+        await patch_technician(client, ready, accounting_timezone=zone)
     ).status_code == 422
 
 
 async def test_missing_timezone_direct_http_and_local_date(app, client, ready):
     token = await issue(app)
-    await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": None})
+    await patch_technician(client, ready, accounting_timezone=None)
     for suffix, payload in [("", None), ("/submit", PAYLOAD)]:
         response = await client.post(
             BASE + suffix, headers={"Authorization": f"Bearer {token}"}, json=payload
@@ -396,7 +394,7 @@ async def test_missing_timezone_bot_truthful_and_no_enumeration(app, client, rea
     from hub.telegram.updates import process_update
     from tests.fakes import BOT_ID, FakeTelegram
 
-    await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": None})
+    await patch_technician(client, ready, accounting_timezone=None)
     for user in [771001, 555000]:
         result = await process_update(
             app.state.session_factory,
@@ -426,7 +424,7 @@ async def test_server_submission_uses_explicit_zone(app, client, ready, monkeypa
 
     monkeypatch.setattr(forms, "database_now", clock)
     assert (
-        await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": zone})
+        await patch_technician(client, ready, accounting_timezone=zone)
     ).status_code == 200
     result = await send(app, await issue(app))
     async with app.state.session_factory() as db:

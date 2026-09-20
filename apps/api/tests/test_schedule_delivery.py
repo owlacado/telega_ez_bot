@@ -14,6 +14,7 @@ from sqlalchemy import func, select, update
 from hub.audit.models import AuditEvent
 from hub.auth.security import now
 from hub.integrations.models import TelegramBinding
+from hub.ops.service import cleanup_expired
 from hub.schedule_delivery import delivery, scheduler, service
 from hub.schedule_delivery.acknowledgements import acknowledge
 from hub.schedule_delivery.domain import Payload, PayloadJob, cipher
@@ -260,6 +261,36 @@ async def test_expired_claim_recovery_and_stale_owner(app, client, ready, starte
     assert saved.message_id != 777
 
 
+async def test_cleanup_purges_only_expired_terminal_schedule_ciphertext(app, client, ready):
+    data = await enqueue(client, ready)
+    async with app.state.session_factory() as db, db.begin():
+        expired = await db.get(ScheduleDispatch, UUID(data["id"]))
+        stamp = await delivery.clock(db)
+        expired.status = "FAILED"
+        expired.finished_at = stamp
+        expired.payload_expires_at = stamp - timedelta(seconds=1)
+        values = {
+            column.name: getattr(expired, column.name)
+            for column in ScheduleDispatch.__table__.columns
+            if column.name not in {"id", "created_at", "updated_at"}
+        }
+        values.update(
+            target_date=expired.target_date + timedelta(days=1),
+            payload_expires_at=stamp + timedelta(days=1),
+        )
+        fresh = ScheduleDispatch(**values)
+        db.add(fresh)
+        await db.flush()
+        fresh_id = fresh.id
+    async with app.state.session_factory() as db, db.begin():
+        result = await cleanup_expired(db, apply=True)
+        assert result.expired_schedule_payloads == 1
+    async with app.state.session_factory() as db, db.begin():
+        assert (await db.get(ScheduleDispatch, UUID(data["id"]))).encrypted_payload is None
+        assert (await db.get(ScheduleDispatch, fresh_id)).encrypted_payload is not None
+        assert (await cleanup_expired(db, apply=True)).expired_schedule_payloads == 0
+
+
 @pytest.mark.parametrize(
     "change",
     ["private_generation", "telegram_user_id", "bot_id", "private_status", "private_availability"],
@@ -277,6 +308,10 @@ async def test_binding_change_cancels_without_send(app, client, ready, change):
             if change == "private_availability"
             else 555,
         )
+        if change in {"private_generation", "private_status"}:
+            binding.group_availability = "REVALIDATION_REQUIRED"
+        if change == "private_status":
+            binding.private_availability = "UNAVAILABLE"
     fake = FakeTelegram()
     await run_delivery(app, fake)
     saved = await row(app, data["id"])
@@ -292,6 +327,10 @@ async def test_rebound_identity_cannot_ack(app, client, ready, change):
     async with app.state.session_factory() as db, db.begin():
         binding = await db.get(TelegramBinding, ready)
         setattr(binding, change, "NOT_CONNECTED" if change == "private_status" else 444)
+        if change in {"private_generation", "private_status"}:
+            binding.group_availability = "REVALIDATION_REQUIRED"
+        if change == "private_status":
+            binding.private_availability = "UNAVAILABLE"
     event = TrustedEvent(
         1,
         "CALLBACK",

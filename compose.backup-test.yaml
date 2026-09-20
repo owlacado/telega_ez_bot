@@ -1,0 +1,15 @@
+name: technician-hub-backup-test
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: hub
+      POSTGRES_PASSWORD: hub_restore_test_only
+      POSTGRES_DB: technician_hub_restore_test
+    ports: ["127.0.0.1:5439:5432"]
+    tmpfs: ["/var/lib/postgresql"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hub -d technician_hub_restore_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

@@ -31,6 +31,8 @@ async def main():
         telegram_mode="fake",
         telegram_expected_bot_id=BOT_ID,
         telegram_expected_bot_username=BOT_USERNAME,
+        google_mode="fake",
+        google_calendar_credential_encryption_key=config["key"],
         schedule_delivery_enabled=True,
         schedule_payload_encryption_key=config["key"],
     )

@@ -863,6 +863,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/operations/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Health */
+        get: operations["health_api_operations_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -1108,6 +1125,16 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** ComponentHealth */
+        ComponentHealth: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "PASS" | "BLOCK" | "RUNNING" | "STALE" | "STOPPED" | "ERROR" | "MISSING" | "DISABLED";
+            /** Message */
+            message: string;
         };
         /** ConnectionRead */
         ConnectionRead: {
@@ -1526,6 +1553,10 @@ export interface components {
             status: string;
             /** Database */
             database: string;
+            /** Version */
+            version: string;
+            /** Release Commit */
+            release_commit: string;
         };
         /** IntegrationSummary */
         IntegrationSummary: {
@@ -1775,6 +1806,69 @@ export interface components {
             state: "RUNNING" | "STOPPED" | "ERROR" | "STALE" | "MISSING";
             /** Running Instances */
             running_instances: number;
+        };
+        /** OperationsHealth */
+        OperationsHealth: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PASS" | "WARN" | "BLOCK";
+            /** App Version */
+            app_version: string;
+            /** Release Commit */
+            release_commit: string;
+            database: components["schemas"]["ComponentHealth"];
+            migration: components["schemas"]["ComponentHealth"];
+            telegram_worker: components["schemas"]["ComponentHealth"];
+            schedule_worker: components["schemas"]["ComponentHealth"];
+            mirror_worker: components["schemas"]["ComponentHealth"];
+            google_configuration: components["schemas"]["ComponentHealth"];
+            /** Queues */
+            queues: {
+                [key: string]: components["schemas"]["QueueCounts"];
+            };
+        };
+        /** PilotRequirement */
+        PilotRequirement: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "OPTIONAL" | "BLOCKED" | "NEEDS_ACTION";
+            /** Required */
+            required: boolean;
+            /** Reason */
+            reason: string;
+            /** Action */
+            action?: string | null;
+        };
+        /** QueueCounts */
+        QueueCounts: {
+            /**
+             * Pending
+             * @default 0
+             */
+            pending: number;
+            /**
+             * Processing
+             * @default 0
+             */
+            processing: number;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Ambiguous
+             * @default 0
+             */
+            ambiguous: number;
         };
         /** ReportFact */
         ReportFact: {
@@ -2142,6 +2236,7 @@ export interface components {
             accounting_timezone?: string | null;
             calendar: components["schemas"]["CalendarSummary"] | null;
             integrations: components["schemas"]["IntegrationSummary"];
+            pilot_readiness: components["schemas"]["TechnicianPilotReadiness"];
             /**
              * Created At
              * Format: date-time
@@ -2156,6 +2251,15 @@ export interface components {
             driver_license_id: string | null;
             /** Ssn Last4 */
             ssn_last4: string | null;
+        };
+        /** TechnicianPilotReadiness */
+        TechnicianPilotReadiness: {
+            /** Ready */
+            ready: boolean;
+            /** Blocking Count */
+            blocking_count: number;
+            /** Requirements */
+            requirements: components["schemas"]["PilotRequirement"][];
         };
         /** TechnicianSummary */
         TechnicianSummary: {
@@ -2179,6 +2283,7 @@ export interface components {
             accounting_timezone?: string | null;
             calendar: components["schemas"]["CalendarSummary"] | null;
             integrations: components["schemas"]["IntegrationSummary"];
+            pilot_readiness: components["schemas"]["TechnicianPilotReadiness"];
             /**
              * Created At
              * Format: date-time
@@ -2192,6 +2297,11 @@ export interface components {
         };
         /** TechnicianUpdate */
         TechnicianUpdate: {
+            /**
+             * Expected Updated At
+             * Format: date-time
+             */
+            expected_updated_at: string;
             /** First Name */
             first_name?: string | null;
             /** Last Name */
@@ -4086,6 +4196,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    health_api_operations_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationsHealth"];
                 };
             };
         };

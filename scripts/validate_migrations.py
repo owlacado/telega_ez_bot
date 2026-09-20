@@ -501,7 +501,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["faa609190001"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["fba609190001"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -545,7 +545,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "faa609190001"
+                    == "fba609190001"
                 )
             else:
                 await db.execute(
@@ -620,7 +620,7 @@ async def stage5_history(action):
                 ) == Decimal("123.45")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "faa609190001"
+                    == "fba609190001"
                 )
             else:
                 await db.execute(
@@ -691,7 +691,7 @@ async def stage6_history(action):
                 ) == Decimal("20.01")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "faa609190001"
+                    == "fba609190001"
                 )
             else:
                 await db.execute(
@@ -757,7 +757,7 @@ async def stage9_mirror_fixture(action):
                 assert row == ("INDIVIDUAL", tech, "migrationSheet_12345")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "faa609190001"
+                    == "fba609190001"
                 )
             else:
                 await db.execute(
@@ -796,4 +796,60 @@ alembic("heads")
 print(
     "Stage 9 populated Stage 8 preservation, destructive-data rollback refusal, "
     "empty round-trip, one head, and zero drift passed."
+)
+
+
+async def stage10_provider_invariants(check=False):
+    engine = create_async_engine(url, hide_parameters=True)
+    try:
+        async with engine.begin() as db:
+            if not check:
+                await db.execute(
+                    text(
+                        "UPDATE telegram_bindings SET private_status='CONNECTED', "
+                        "telegram_user_id=1234567890, bot_id=9000001, private_generation=1, "
+                        "private_availability='AVAILABLE' WHERE technician_id=:id"
+                    ),
+                    {"id": tech},
+                )
+            row = (
+                await db.execute(
+                    text(
+                        "SELECT private_status,telegram_user_id,private_generation,"
+                        "private_availability FROM telegram_bindings WHERE technician_id=:id"
+                    ),
+                    {"id": tech},
+                )
+            ).one()
+            assert row == ("CONNECTED", 1234567890, 1, "AVAILABLE")
+            if check:
+                constraints = set(
+                    (
+                        await db.scalars(
+                            text(
+                                "SELECT conname FROM pg_constraint "
+                                "WHERE conrelid='telegram_bindings'::regclass"
+                            )
+                        )
+                    ).all()
+                )
+                assert {
+                    "ck_telegram_bindings_private_connected_identity",
+                    "ck_telegram_bindings_group_connected_identity",
+                    "ck_telegram_bindings_group_available_current_private",
+                } <= constraints
+    finally:
+        await engine.dispose()
+
+
+asyncio.run(stage10_provider_invariants())
+alembic("downgrade", "faa609190001")
+asyncio.run(stage10_provider_invariants())
+alembic("upgrade", "head")
+asyncio.run(stage10_provider_invariants(check=True))
+alembic("check")
+alembic("heads")
+print(
+    "Stage 10 populated provider state survives constraint rollback/re-upgrade; "
+    "one head and zero drift passed."
 )

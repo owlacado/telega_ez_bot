@@ -25,6 +25,7 @@ from hub.core.database import session
 from hub.core.errors import install_error_handlers
 from hub.expenses.router import router as expenses_router
 from hub.google_calendar.router import router as google_router
+from hub.ops.router import router as operations_router
 from hub.schedule_delivery.router import router as schedule_router
 from hub.technicians.router import router as technicians_router
 from hub.telegram.router import router as telegram_router
@@ -34,6 +35,8 @@ from hub.work_reports.router import router as reports_router
 class Health(BaseModel):
     status: str
     database: str
+    version: str
+    release_commit: str
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -66,7 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         await google_lock_engine.dispose()
         await engine.dispose()
 
-    app = FastAPI(title="Technician Hub API", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="Technician Hub API", version=config.app_version, lifespan=lifespan)
     install_error_handlers(app)
     app.include_router(auth_router)
     app.include_router(telegram_router)
@@ -84,6 +87,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(accounting_mirror_health_router)
     app.include_router(accounting_xlsx_technician_router)
     app.include_router(accounting_xlsx_all_router)
+    app.include_router(operations_router)
 
     @app.middleware("http")
     async def protect_responses(request: Request, call_next):
@@ -141,7 +145,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.get("/api/health", response_model=Health, tags=["health"])
     async def health(db: AsyncSession = Depends(session)) -> Health:
         await db.execute(text("SELECT 1"))
-        return Health(status="ok", database="connected")
+        return Health(
+            status="ok",
+            database="connected",
+            version=config.app_version,
+            release_commit=config.release_commit,
+        )
 
     return app
 

@@ -13,6 +13,41 @@ class TelegramBinding(Timestamps, Base):
     __table_args__ = (
         CheckConstraint(f"private_status IN {CONNECTION_STATES}", name="private_status"),
         CheckConstraint(f"group_status IN {CONNECTION_STATES}", name="group_status"),
+        CheckConstraint(
+            "private_generation >= 0 AND group_generation >= 0", name="nonnegative_generations"
+        ),
+        CheckConstraint(
+            "private_availability IN "
+            "('UNKNOWN','AVAILABLE','BLOCKED','UNAVAILABLE')",
+            name="private_availability",
+        ),
+        CheckConstraint(
+            "group_availability IN "
+            "('UNKNOWN','AVAILABLE','UNAVAILABLE','REVALIDATION_REQUIRED','MIGRATION_CONFLICT')",
+            name="group_availability",
+        ),
+        CheckConstraint(
+            "private_status != 'CONNECTED' OR "
+            "(telegram_user_id IS NOT NULL AND bot_id IS NOT NULL "
+            "AND private_generation > 0)",
+            name="private_connected_identity",
+        ),
+        CheckConstraint(
+            "group_status != 'CONNECTED' OR "
+            "(telegram_group_chat_id IS NOT NULL AND bot_id IS NOT NULL "
+            "AND group_generation > 0)",
+            name="group_connected_identity",
+        ),
+        CheckConstraint(
+            "private_availability != 'AVAILABLE' OR private_status = 'CONNECTED'",
+            name="private_available_connected",
+        ),
+        CheckConstraint(
+            "group_availability != 'AVAILABLE' OR "
+            "(group_status = 'CONNECTED' AND private_status = 'CONNECTED' "
+            "AND group_private_generation = private_generation)",
+            name="group_available_current_private",
+        ),
     )
     technician_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("technicians.id", ondelete="CASCADE"), primary_key=True
@@ -47,6 +82,11 @@ class GpsBinding(Timestamps, Base):
     __table_args__ = (
         CheckConstraint("provider IN ('NONE', 'MOTOWATCHDOG_SHARE')", name="provider"),
         CheckConstraint(f"status IN {CONNECTION_STATES}", name="status"),
+        CheckConstraint(
+            "(provider = 'NONE' AND status = 'NOT_CONNECTED') OR "
+            "(provider = 'MOTOWATCHDOG_SHARE' AND status != 'NOT_CONNECTED')",
+            name="provider_status",
+        ),
     )
     technician_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("technicians.id", ondelete="CASCADE"), primary_key=True

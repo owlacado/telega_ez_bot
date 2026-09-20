@@ -40,6 +40,14 @@ PAYLOAD = dict(
 )
 
 
+async def patch_technician(client, identifier, **values):
+    current = (await client.get(f"/api/technicians/{identifier}")).json()
+    return await client.patch(
+        f"/api/technicians/{identifier}",
+        json={"expected_updated_at": current["updated_at"], **values},
+    )
+
+
 @pytest.fixture
 async def ready(app, client, assigned, google):
     tid = UUID(assigned[0]["id"])
@@ -150,7 +158,7 @@ async def test_full_flow_snapshot_privacy_receipt_manager_retention(
     )
     assert deleted.status_code == 409 and "business records" in deleted.text
     assert (
-        await client.patch(f"/api/technicians/{ready}", json={"status": "INACTIVE"})
+        await patch_technician(client, ready, status="INACTIVE")
     ).status_code == 200
     assert (await client.get(f"/api/work-reports/{report['id']}")).status_code == 200
     assert (await client.post(BASE, headers=headers)).status_code == 410
@@ -272,7 +280,10 @@ async def test_invalidated_form_fails_closed(app, client, ready, mutation):
                 update(TelegramBinding)
                 .where(TelegramBinding.technician_id == ready)
                 .values(
-                    private_generation=2, telegram_user_id=771002 if mutation == "rebind" else None
+                    private_generation=2,
+                    telegram_user_id=771002 if mutation == "rebind" else None,
+                    private_status="CONNECTED" if mutation == "rebind" else "NOT_CONNECTED",
+                    private_availability="AVAILABLE" if mutation == "rebind" else "UNKNOWN",
                 )
             )
     assert (await client.post(BASE + "/submit", headers=headers, json=PAYLOAD)).status_code == 410

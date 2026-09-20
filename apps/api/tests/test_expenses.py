@@ -36,6 +36,14 @@ PAYLOAD = {
 }
 
 
+async def patch_technician(client, identifier, **values):
+    current = (await client.get(f"/api/technicians/{identifier}")).json()
+    return await client.patch(
+        f"/api/technicians/{identifier}",
+        json={"expected_updated_at": current["updated_at"], **values},
+    )
+
+
 @pytest.fixture
 async def ready(app, client):
     tech = (
@@ -44,8 +52,8 @@ async def ready(app, client):
         )
     ).json()
     tid = UUID(tech["id"])
-    response = await client.patch(
-        f"/api/technicians/{tid}", json={"accounting_timezone": "America/Los_Angeles"}
+    response = await patch_technician(
+        client, tid, accounting_timezone="America/Los_Angeles"
     )
     assert response.status_code == 200, response.text
     async with app.state.session_factory() as db, db.begin():
@@ -150,7 +158,7 @@ async def test_complete_flow_privacy_manager_retention(app, client, ready, caplo
         json={"confirmation": "DELETE", "expected_updated_at": profile["updated_at"]},
     )
     assert deleted.status_code == 409
-    await client.patch(f"/api/technicians/{ready}", json={"status": "INACTIVE"})
+    await patch_technician(client, ready, status="INACTIVE")
     assert (await client.get(f"/api/expenses/{result.json()['expense_id']}")).status_code == 200
     assert (await client.post(BASE + "/submit", headers=headers, json=PAYLOAD)).status_code == 410
     async with app.state.session_factory() as db:
@@ -318,10 +326,10 @@ async def test_missing_timezone_and_admission(app, client, ready):
             == 5
         )
     assert (
-        await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": "Not/AZone"})
+        await patch_technician(client, ready, accounting_timezone="Not/AZone")
     ).status_code == 422
     token = await issue(app)
-    await client.patch(f"/api/technicians/{ready}", json={"accounting_timezone": None})
+    await patch_technician(client, ready, accounting_timezone=None)
     assert await issue(app) is None
     with pytest.raises(HTTPException) as error:
         await send(app, token)
