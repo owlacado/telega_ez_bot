@@ -72,59 +72,73 @@ async def process_update(
     *,
     settings=None,
 ) -> UpdateResult:
+    async with advisory_guard(factory.kw["bind"], f"telegram-update:{bot_id}", event.update_id):
+        return await _process_update(factory, provider, event, bot_id, settings=settings)
+
+
+async def _process_update(
+    factory: async_sessionmaker,
+    provider: TelegramProvider,
+    event: TrustedEvent,
+    bot_id: int,
+    *,
+    settings=None,
+) -> UpdateResult:
     config = settings
     if config is None:
         from hub.core.config import Settings
 
         config = Settings()
-    if event.kind != "CALLBACK":
-        async with factory() as db:
-            if await db.get(TelegramProcessedUpdate, (bot_id, event.update_id)):
-                return UpdateResult("DUPLICATE")
-    async with factory() as db, db.begin():
-        admitted = True
-        budgets = []
-        if event.user_id is not None:
-            budgets.extend(
-                [
-                    (
-                        f"telegram:admission:sender-minute:{bot_id}:{event.user_id}",
-                        config.telegram_sender_minute_limit,
-                        60,
-                    ),
-                    (
-                        f"telegram:admission:sender-burst:{bot_id}:{event.user_id}",
-                        config.telegram_sender_burst_limit,
-                        config.telegram_sender_burst_seconds,
-                    ),
-                ]
-            )
-        budgets.append(
-            (
-                f"telegram:admission:global:{bot_id}",
-                config.telegram_global_minute_limit,
-                60,
-            )
-        )
-        for key, limit, seconds in budgets:
-            try:
-                await rate_limit(
-                    db,
-                    key,
-                    limit=limit,
-                    seconds=seconds,
+    async with factory() as db:
+        existing = await db.get(TelegramProcessedUpdate, (bot_id, event.update_id))
+        if existing and existing.outcome != "ADMITTED":
+            return UpdateResult("DUPLICATE")
+    if existing is None:
+        async with factory() as db, db.begin():
+            admitted = True
+            budgets = []
+            if event.user_id is not None:
+                budgets.extend(
+                    [
+                        (
+                            f"telegram:admission:sender-minute:{bot_id}:{event.user_id}",
+                            config.telegram_sender_minute_limit,
+                            60,
+                        ),
+                        (
+                            f"telegram:admission:sender-burst:{bot_id}:{event.user_id}",
+                            config.telegram_sender_burst_limit,
+                            config.telegram_sender_burst_seconds,
+                        ),
+                    ]
                 )
-            except HTTPException as exc:
-                if exc.status_code != 429:
-                    raise
-                admitted = False
-        if not admitted:
+            budgets.append(
+                (
+                    f"telegram:admission:global:{bot_id}",
+                    config.telegram_global_minute_limit,
+                    60,
+                )
+            )
+            for key, limit, seconds in budgets:
+                try:
+                    await rate_limit(
+                        db,
+                        key,
+                        limit=limit,
+                        seconds=seconds,
+                    )
+                except HTTPException as exc:
+                    if exc.status_code != 429:
+                        raise
+                    admitted = False
+            outcome = "ADMITTED" if admitted else "RATE_LIMITED"
             await db.execute(
                 insert(TelegramProcessedUpdate)
-                .values(bot_id=bot_id, update_id=event.update_id, outcome="RATE_LIMITED")
+                .values(bot_id=bot_id, update_id=event.update_id, outcome=outcome)
                 .on_conflict_do_nothing()
             )
-            return UpdateResult("RATE_LIMITED")
+            if not admitted:
+                return UpdateResult("RATE_LIMITED")
     if event.kind == "CALLBACK":
         # Clear Telegram's progress indicator promptly, before database work. A failure
         # to answer is cosmetic and must not prevent the authoritative acknowledgement.
@@ -144,6 +158,15 @@ async def process_update(
             )
         except Exception:
             pass
+        async with factory() as db, db.begin():
+            record = await db.get(
+                TelegramProcessedUpdate,
+                (bot_id, event.update_id),
+                with_for_update=True,
+            )
+            if record is None or record.outcome != "ADMITTED":
+                return UpdateResult("DUPLICATE")
+            record.outcome = outcome
         return UpdateResult(outcome)
     proof = await prepare_claim(factory, event, provider, bot_id)
     async with AsyncExitStack() as locks:
@@ -152,13 +175,12 @@ async def process_update(
                 advisory_guard(factory.kw["bind"], "technician", proof.technician_id)
             )
         async with factory() as db, db.begin():
-            inserted = await db.scalar(
-                insert(TelegramProcessedUpdate)
-                .values(bot_id=bot_id, update_id=event.update_id, outcome="PROCESSING")
-                .on_conflict_do_nothing()
-                .returning(TelegramProcessedUpdate.update_id)
+            record = await db.get(
+                TelegramProcessedUpdate,
+                (bot_id, event.update_id),
+                with_for_update=True,
             )
-            if inserted is None:
+            if record is None or record.outcome != "ADMITTED":
                 return UpdateResult("DUPLICATE")
             result = "IGNORED"
             reply = None
@@ -229,6 +251,5 @@ async def process_update(
                     reply = reply or REPLIES.get(result)
                 if proof and result == "CONNECTED":
                     reply = None  # Durable, generation-checked outbox sends the confirmation.
-            record = await db.get(TelegramProcessedUpdate, (bot_id, event.update_id))
             record.outcome = result
         return UpdateResult(result, reply)

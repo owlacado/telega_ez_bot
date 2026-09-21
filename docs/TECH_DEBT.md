@@ -251,12 +251,14 @@ version, and dependent binding/assignment changes remain outside the deletion/pr
 
 ### Approved pilot-policy evidence
 
-Migration `fca609190001` adds database-owned `record_version`, direct-write protection, and narrow
-triggers for protected profile, active assignment/calendar source, current Google connection,
-Telegram routing/readiness, and schedule-enabled state. A transaction-local distinct-ID helper
-increments once per affected technician. PATCH now requires `expected_record_version`, locks and
-compares it, and preserves 409 stale-write behavior. Direct SQL and dependent-state regressions
-cover the boundary; `updated_at` remains display/audit time.
+Migration `fca609190001` introduced database-owned `record_version`; independent audit migration
+`fda609200001` narrows it to effective routing/readiness changes and makes technician identity
+explicitly database-owned. Protected profile, active assignment/calendar source, current Google
+connection, effective Telegram routing/readiness, and schedule-enabled changes bump once per affected
+technician and transaction. Display-only assignment/Telegram metadata and absent-equivalent disabled
+rows do not bump. Concurrent commits serialize without a lost/regressing version, and rollback leaves
+no bump. PATCH requires and returns the current `expected_record_version`; `updated_at` remains
+display/audit time. See `AUDIT_PILOT_POLICY_IMPLEMENTATION.md`.
 
 - **Status:** RESOLVED
 
@@ -392,6 +394,10 @@ cover the boundary; `updated_at` remains display/audit time.
 - **Approved pilot evidence:** Database-backed configurable admission enforces 30 actions/minute
   per sender, 10/10 seconds burst, and 300/minute global. Rejected actions emit no reply and retain
   a dedupe outcome. Seven-day cleanup deletes only updates below the durable worker offset.
+  Independent audit found and fixed a crash/retry loss path: accepted updates now commit one durable
+  `ADMITTED` reservation, retries do not consume another unit, callbacks are durably deduplicated,
+  and concurrent duplicates consume one unit. Boundary, cleanup, concurrency, and mutation checks
+  pass; see `AUDIT_PILOT_POLICY_IMPLEMENTATION.md`.
 - **Status:** RESOLVED
 
 ## TD-024: Telegram profile and group-title metadata freshness
@@ -430,7 +436,9 @@ cover the boundary; `updated_at` remains display/audit time.
 - **Approved pilot evidence:** Database-backed admission enforces 5 OAuth starts/15 minutes per
   manager and 20/hour global, plus 6 manual scan/reconnect actions/10 minutes per manager and
   30/hour global. Seven-day cleanup deletes only attempt metadata whose verifier was already
-  cleared. PKCE TTL/single-use and provider/worker retry behavior are unchanged.
+  cleared. PKCE TTL/single-use and provider/worker retry behavior are unchanged. Independent audit
+  boundary and mutation checks prove manager admission cannot be disabled silently and does not
+  rate-limit automatic worker/provider retry paths; see `AUDIT_PILOT_POLICY_IMPLEMENTATION.md`.
 - **Status:** RESOLVED
 
 ## TD-027: Google OAuth and CalendarList live sandbox acceptance

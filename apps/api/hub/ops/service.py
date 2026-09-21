@@ -15,7 +15,7 @@ from hub.schedule_delivery.models import ScheduleDispatch, ScheduleWorkerState
 from hub.telegram.models import TelegramOutbox, TelegramProcessedUpdate, TelegramWorkerState
 from hub.work_reports.models import TechnicianFormSession
 
-EXPECTED_ALEMBIC_HEAD = "fca609190001"
+EXPECTED_ALEMBIC_HEAD = "fda609200001"
 FRESH_SECONDS = 120
 
 
@@ -232,8 +232,7 @@ async def cleanup_expired(
             )
             .where(
                 TelegramProcessedUpdate.processed_at
-                <= stamp
-                - timedelta(days=settings.telegram_processed_update_retention_days),
+                <= stamp - timedelta(days=settings.telegram_processed_update_retention_days),
                 TelegramWorkerState.next_update_id.is_not(None),
                 TelegramProcessedUpdate.update_id < TelegramWorkerState.next_update_id,
             )

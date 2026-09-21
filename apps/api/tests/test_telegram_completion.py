@@ -339,9 +339,12 @@ async def test_claim_transaction_rollback_keeps_token_and_binding_unchanged(
         assert value.consumed_at is None and value.closed_at is None
         assert (await db.get(TelegramBinding, UUID(identifier))).telegram_user_id is None
         assert await db.scalar(select(func.count()).select_from(TelegramOutbox)) == 0
-        assert await db.scalar(select(func.count()).select_from(TelegramProcessedUpdate)) == 0
+        reserved = await db.get(TelegramProcessedUpdate, (BOT_ID, 1))
+        assert reserved and reserved.outcome == "ADMITTED"
     monkeypatch.setattr(claims, "activate", original)
     assert (await claim(engine, provider, invitation)).outcome == "CONNECTED"
+    async with async_sessionmaker(engine)() as db:
+        assert (await db.get(TelegramProcessedUpdate, (BOT_ID, 1))).outcome == "CONNECTED"
 
 
 async def test_private_change_during_group_proof_rejected(client, engine, provider):

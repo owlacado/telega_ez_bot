@@ -506,6 +506,8 @@ async def test_audit_all_tech_query_budget_stays_four(app, count):
                 for index in range(count)
             ]
         )
+        await db.flush()
+        await db.execute(update(Technician).values(created_at=datetime(2026, 9, 14, tzinfo=UTC)))
     statements = []
 
     def track(conn, cursor, statement, parameters, context, executemany):
@@ -545,6 +547,12 @@ async def test_audit_mixed_timezones_inclusion_order_and_current_name_semantics(
                 )
                 for identifier, (first, last, status, zone) in zip(ids, rows, strict=True)
             ]
+        )
+        await db.flush()
+        await db.execute(
+            update(Technician)
+            .where(Technician.id != ids[7])
+            .values(created_at=datetime(2026, 9, 14, tzinfo=UTC))
         )
     await seed(
         app.state.session_factory,

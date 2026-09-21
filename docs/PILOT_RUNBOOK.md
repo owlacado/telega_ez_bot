@@ -6,8 +6,10 @@ selected-deployment operational controls and five dedicated live TEST-provider a
 
 ## Before the pilot
 
-1. Verify the approved choices and implementation evidence in `PILOT_POLICY_DECISIONS.md`.
-2. Use a reviewed release commit and clean build. Store the commit in `RELEASE_COMMIT`.
+1. Verify the approved choices in `PILOT_POLICY_DECISIONS.md` and the independent evidence in
+   `AUDIT_PILOT_POLICY_IMPLEMENTATION.md`.
+2. Use a reviewed release commit and clean build. Store the commit in `RELEASE_COMMIT`; verify the
+   database reports the single expected migration head `fda609200001`.
 3. Instantiate and record the remote TEST deployment contract from `PILOT_ARCHITECTURE.md`: one
    HTTPS proxy, private application network, replaced forwarding headers, exact trusted proxy IP,
    request limits, exact HTTPS origin, secure cookie, and direct-API firewall.

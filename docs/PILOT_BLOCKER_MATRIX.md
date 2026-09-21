@@ -77,10 +77,19 @@ approval or contacting a provider:
 
 | Group | IDs | Result | Remaining gate |
 | ----- | --- | ------ | -------------- |
-| Resolved locally | TD-013, TD-018, TD-023, TD-026 | Additive database versioning, initials-only profiles, database-backed admission, and bounded metadata cleanup are implemented and tested. | None for the stated debt acceptance condition. |
+| Resolved locally | TD-013, TD-018, TD-023, TD-026 | Additive database versioning through `fda609200001`, initials-only profiles, crash-safe database-backed admission, and bounded metadata cleanup are independently audited and tested. | None for the stated debt acceptance condition. |
 | Moved out of TEST pilot | TD-010, TD-011, TD-031 | Permanent deletion and sensitive collection are disabled; pilot business evidence has no automatic deletion/anonymization and backups use a rolling 30-day policy. | Final production legal/business/security policy remains open. |
 | Operational setup | TD-012, TD-017, TD-025, TD-029 | Local docs, preflight, monitors, recovery tooling, thresholds, and application budgets are ready. | Install and evidence the selected TEST deployment's proxy/TLS, secret store, alert routing, scheduled monitoring, and deployed synthetic recovery. |
 | Live TEST acceptance | TD-022, TD-027, TD-028, TD-030, TD-033 | No provider was contacted and every live row remains open. | Execute `PILOT_LIVE_ACCEPTANCE_PLAN.md` with dedicated fictional TEST resources. |
 
 The register is now 15 RESOLVED and 20 OPEN. Nine items remain controlled TEST-pilot blockers.
 **PILOT READY: NO.**
+
+## Independent implementation audit
+
+`AUDIT_PILOT_POLICY_IMPLEMENTATION.md` records the adversarial audit. It fixed a Telegram
+crash/retry loss path, added durable callback/concurrent dedupe, and narrowed `record_version` to the
+approved effective-state boundary with immutable technician identity. Nine of nine policy mutations
+were detected, the full backend/frontend/migration gates passed, generated contracts were byte-stable,
+and the normal database fingerprint was unchanged after the additive migration. No live provider was
+contacted. The remaining blocker set and readiness decision are unchanged.

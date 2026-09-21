@@ -591,6 +591,12 @@ async def test_all_tech_inclusion_order_snapshot_and_query_budget(app):
                 ),
             ]
         )
+        await db.flush()
+        await db.execute(
+            update(Technician)
+            .where(Technician.id != ids[4])
+            .values(created_at=datetime(2026, 9, 14, tzinfo=UTC))
+        )
         await db.execute(
             update(Technician)
             .where(Technician.id == ids[4])
@@ -663,6 +669,8 @@ async def test_all_tech_database_query_count_is_four_for_thirty_technicians(app)
                 for index in range(30)
             ]
         )
+        await db.flush()
+        await db.execute(update(Technician).values(created_at=datetime(2026, 9, 14, tzinfo=UTC)))
     statements = []
 
     def track(conn, cursor, statement, parameters, context, executemany):

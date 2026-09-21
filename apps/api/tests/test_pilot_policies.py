@@ -52,16 +52,17 @@ async def test_profile_version_is_database_owned_and_delete_is_disabled(client, 
             )
     with pytest.raises(IntegrityError):
         async with engine.begin() as db:
-            await db.execute(
-                text("DELETE FROM technicians WHERE id=:id"), {"id": profile["id"]}
-            )
+            await db.execute(text("DELETE FROM technicians WHERE id=:id"), {"id": profile["id"]})
 
 
-@pytest.mark.parametrize("column,value", [
-    ("photo_url", "https://example.invalid/photo.png"),
-    ("driver_license_id", "DEMO-ONLY"),
-    ("ssn_last4", "0123"),
-])
+@pytest.mark.parametrize(
+    "column,value",
+    [
+        ("photo_url", "https://example.invalid/photo.png"),
+        ("driver_license_id", "DEMO-ONLY"),
+        ("ssn_last4", "0123"),
+    ],
+)
 async def test_database_rejects_new_pilot_profile_data(engine, column, value):
     with pytest.raises(IntegrityError):
         async with engine.begin() as db:
@@ -88,10 +89,17 @@ async def test_readiness_dependencies_increment_once_per_transaction(client, eng
 
     identifier = UUID(profile["id"])
     async with engine.begin() as db:
-        await db.execute(TelegramBinding.__table__.insert().values(technician_id=identifier))
+        await db.execute(
+            TelegramBinding.__table__.insert().values(
+                technician_id=identifier,
+                private_status="PENDING",
+                private_generation=1,
+                bot_id=10,
+            )
+        )
         await db.execute(
             ScheduleDeliverySetting.__table__.insert().values(
-                technician_id=identifier, enabled=False
+                technician_id=identifier, enabled=True
             )
         )
     async with engine.connect() as db:

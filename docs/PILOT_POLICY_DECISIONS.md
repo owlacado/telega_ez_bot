@@ -108,10 +108,11 @@ Telegram provider send/retry handling.
 admission buckets, sanitized rejection outcomes, and bounded cleanup that proves the retained offset
 cannot replay deleted updates. The existing invitation, verification, and test-send budgets remain.
 
-**Implemented pilot control.** Configurable database-backed buckets run before application action
-processing. Rejected updates receive no reply and retain a dedupe outcome. Cleanup requires both the
-seven-day age and a durable worker offset beyond the update; duplicate updates do not consume a new
-admission unit.
+**Implemented pilot control.** Configurable database-backed buckets commit admission together with
+an `ADMITTED` processed-update reservation before application work. A retry resumes that reservation
+without another charge; finalized, rejected, and callback outcomes remain durably deduplicated.
+Cleanup requires both the seven-day age and a durable worker offset beyond the update. Independent
+crash/retry, callback, concurrent-duplicate, boundary, cleanup, and mutation checks pass.
 
 ## TD-026 — Google request budgets and OAuth-attempt retention
 
@@ -157,8 +158,9 @@ record.
 
 **Implemented pilot control.** Cleanup remains limited to transient snapshots/ciphertext and the
 approved OAuth/Telegram metadata. The backup script removes only its exact script-owned dump and
-manifest filenames older than 30 days after publishing a complete new pair. Final production
-retention, legal holds, anonymization, and off-host policy remain open.
+manifest filenames older than 30 days after publishing a complete new pair. Independent synthetic
+execution retained arbitrary operator files, partial names, lookalikes, and newer artifacts. Final
+production retention, legal holds, anonymization, and off-host policy remain open.
 
 ## TD-013 — narrow database-owned version boundary for approval
 
@@ -194,10 +196,13 @@ pilot. It closes the identified gap without creating a general event-sourcing ar
 frontend contracts, move stale-write tests from timestamps to the monotonic version, add direct-SQL
 and dependent-state trigger tests, and preserve 409 behavior.
 
-**Implemented pilot control.** Migration `fca609190001` adds the version, database ownership guard,
-and narrow profile/calendar/Google/Telegram/schedule triggers. A transaction-local distinct-ID
-helper increments each affected technician once per transaction. PATCH compares the expected
-version under the existing lock and returns 409 for stale edits; `updated_at` remains display time.
+**Implemented pilot control.** Migration `fca609190001` introduced the version and triggers;
+independent audit migration `fda609200001` makes technician identity database-owned and narrows
+assignment, Telegram, and schedule triggers to effective state. The transaction-local distinct-ID
+helper increments each affected technician once per transaction. Concurrent transactions serialize,
+rollback leaves no bump, and display-only or absent-equivalent rows do not bump. PATCH compares and
+returns the current version under the existing lock; `updated_at` remains display time. Full details
+are in `AUDIT_PILOT_POLICY_IMPLEMENTATION.md`.
 
 ## Locally completed operational evidence
 

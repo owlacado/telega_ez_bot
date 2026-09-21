@@ -181,6 +181,103 @@ async def test_application_admission_global_limit_spans_senders(app, provider, f
     assert outcomes == ["HELP", "HELP", "RATE_LIMITED"]
 
 
+async def test_admitted_update_retry_is_not_charged_again_or_lost(
+    app, provider, factory, monkeypatch
+):
+    import hub.telegram.updates as updates_module
+
+    settings = app.state.settings.model_copy(
+        update={
+            "telegram_sender_minute_limit": 1,
+            "telegram_sender_burst_limit": 1,
+            "telegram_global_minute_limit": 1,
+        }
+    )
+    event = TrustedEvent(
+        301,
+        "COMMAND",
+        chat_id=773001,
+        chat_type="private",
+        user_id=773001,
+        command="/help",
+    )
+    original = updates_module.prepare_claim
+    attempts = 0
+
+    async def fail_once(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("synthetic crash after durable admission")
+        return await original(*args, **kwargs)
+
+    monkeypatch.setattr(updates_module, "prepare_claim", fail_once)
+    with pytest.raises(RuntimeError, match="synthetic crash"):
+        await process_update(factory, provider, event, BOT_ID, settings=settings)
+    async with factory() as db:
+        reserved = await db.get(TelegramProcessedUpdate, (BOT_ID, event.update_id))
+        assert reserved.outcome == "ADMITTED"
+    assert (
+        await process_update(factory, provider, event, BOT_ID, settings=settings)
+    ).outcome == "HELP"
+    async with factory() as db:
+        assert (await db.get(TelegramProcessedUpdate, (BOT_ID, event.update_id))).outcome == "HELP"
+
+
+async def test_concurrent_duplicate_consumes_one_admission_unit(app, provider, factory):
+    settings = app.state.settings.model_copy(
+        update={
+            "telegram_sender_minute_limit": 1,
+            "telegram_sender_burst_limit": 1,
+            "telegram_global_minute_limit": 1,
+        }
+    )
+    event = TrustedEvent(
+        302,
+        "COMMAND",
+        chat_id=773002,
+        chat_type="private",
+        user_id=773002,
+        command="/help",
+    )
+    results = await asyncio.gather(
+        *[process_update(factory, provider, event, BOT_ID, settings=settings) for _ in range(4)]
+    )
+    assert sorted(result.outcome for result in results) == [
+        "DUPLICATE",
+        "DUPLICATE",
+        "DUPLICATE",
+        "HELP",
+    ]
+
+
+async def test_callback_has_durable_dedupe_record(app, provider, factory, monkeypatch):
+    calls = 0
+
+    async def acknowledge(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return "ACKNOWLEDGED"
+
+    monkeypatch.setattr("hub.schedule_delivery.acknowledgements.acknowledge", acknowledge)
+    event = TrustedEvent(
+        303,
+        "CALLBACK",
+        chat_id=-100773003,
+        user_id=773003,
+        message_id=99,
+        payload="sch:synthetic",
+        callback_query_id="synthetic-query",
+    )
+    assert (await process_update(factory, provider, event, BOT_ID)).outcome == "ACKNOWLEDGED"
+    assert (await process_update(factory, provider, event, BOT_ID)).outcome == "DUPLICATE"
+    assert calls == 1
+    async with factory() as db:
+        assert (await db.get(TelegramProcessedUpdate, (BOT_ID, event.update_id))).outcome == (
+            "ACKNOWLEDGED"
+        )
+
+
 async def test_poll_timeout_retries_with_bounded_backoff(app, engine, provider, monkeypatch):
     import hub.telegram.worker as worker_module
 
