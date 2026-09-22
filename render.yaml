@@ -1,0 +1,113 @@
+# One web container (Caddy + Next.js + FastAPI), one combined worker, one TEST database.
+# Review plan, region, public origin, and all manual credentials before Blueprint creation.
+databases:
+  - name: technician-hub-test-db
+    databaseName: technician_hub_test_pilot
+    user: technician_hub_test_pilot
+    postgresMajorVersion: 18
+    region: oregon
+    plan: 0.5c-1g
+    ipAllowList: []
+
+services:
+  - type: web
+    name: technician-hub-test-web
+    runtime: docker
+    region: oregon
+    plan: 1c-2g
+    scaling:
+      numInstances: 1
+    dockerContext: .
+    dockerfilePath: infrastructure/render.Dockerfile
+    dockerCommand: python -m hub.render_runtime web
+    preDeployCommand: python -m hub.render_runtime migrate
+    healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: RENDER_DATABASE_URL
+        fromDatabase:
+          name: technician-hub-test-db
+          property: connectionString
+      - key: APP_ENV
+        value: pilot
+      - key: APP_VERSION
+        value: 0.3.0
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DEBUG
+        value: "false"
+      - key: ALLOW_FAKE_PROVIDERS
+        value: "false"
+      - key: PUBLIC_APP_ORIGIN
+        sync: false
+      - key: TELEGRAM_MODE
+        value: disabled
+      - key: TELEGRAM_EXPECTED_BOT_ID
+        sync: false
+      - key: TELEGRAM_EXPECTED_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GOOGLE_MODE
+        value: disabled
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY
+        sync: false
+      - key: SCHEDULE_DELIVERY_ENABLED
+        value: "false"
+      - key: SCHEDULE_PAYLOAD_ENCRYPTION_KEY
+        sync: false
+
+  - type: worker
+    name: technician-hub-test-worker
+    runtime: docker
+    region: oregon
+    plan: 1c-2g
+    scaling:
+      numInstances: 1
+    dockerContext: .
+    dockerfilePath: infrastructure/api.Dockerfile
+    dockerCommand: python -m hub.render_runtime worker
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: RENDER_DATABASE_URL
+        fromDatabase:
+          name: technician-hub-test-db
+          property: connectionString
+      - key: APP_ENV
+        value: pilot
+      - key: APP_VERSION
+        value: 0.3.0
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DEBUG
+        value: "false"
+      - key: ALLOW_FAKE_PROVIDERS
+        value: "false"
+      - key: PUBLIC_APP_ORIGIN
+        sync: false
+      - key: PTB_TIMEDELTA
+        value: "true"
+      - key: TELEGRAM_MODE
+        value: disabled
+      - key: TELEGRAM_EXPECTED_BOT_ID
+        sync: false
+      - key: TELEGRAM_EXPECTED_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GOOGLE_MODE
+        value: disabled
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY
+        sync: false
+      - key: SCHEDULE_DELIVERY_ENABLED
+        value: "false"
+      - key: SCHEDULE_PAYLOAD_ENCRYPTION_KEY
+        sync: false

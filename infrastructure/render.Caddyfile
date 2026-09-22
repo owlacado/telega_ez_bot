@@ -1,0 +1,37 @@
+{
+	auto_https off
+	admin off
+	servers {
+		timeouts {
+			read_header 15s
+			read_body 15s
+		}
+	}
+}
+
+:{$PORT:10000} {
+	request_body {
+		max_size 1MB
+	}
+	@backend path /api /api/* /docs /docs/* /redoc /redoc/* /openapi.json
+
+	handle @backend {
+		reverse_proxy 127.0.0.1:8000 {
+			header_up -Forwarded
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up -X-Real-IP
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:3000 {
+			header_up -Forwarded
+			header_up -X-Forwarded-For
+			header_up -X-Forwarded-Host
+			header_up -X-Forwarded-Proto
+			header_up -X-Real-IP
+		}
+	}
+}

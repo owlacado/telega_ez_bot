@@ -1,5 +1,10 @@
 # One-technician pilot runbook
 
+For the proposed single-Web/single-worker Render deployment, use `RENDER_DEPLOYMENT.md` for the
+specific network, secret, migration, manager-provisioning, and health commands. Its Render-managed
+TEST database is separate from the local Compose database. The selected deployment still needs
+the operational controls below and all live TEST-provider acceptance before pilot readiness.
+
 **Current release status: PILOT READY — NO.** Approved application policies are implemented. Do not
 start the pilot until the nine remaining items in `PILOT_BLOCKER_MATRIX.md` are satisfied: four
 selected-deployment operational controls and five dedicated live TEST-provider acceptances.
@@ -14,8 +19,9 @@ selected-deployment operational controls and five dedicated live TEST-provider a
    HTTPS proxy, private application network, replaced forwarding headers, exact trusted proxy IP,
    request limits, exact HTTPS origin, secure cookie, and direct-API firewall.
 4. Provision unique database credentials, Google client secret, Google credential key, schedule
-   payload key, and Telegram token in the deployment secret store. Mount the Telegram token as a
-   read-only file. Grant only the service identity and named recovery custodians access. Keep the
+   payload key, and Telegram token in the deployment secret store. For Compose, mount the Telegram
+   token as a read-only file; on Render, supply `TELEGRAM_BOT_TOKEN` as a managed secret environment
+   variable. Grant only the service identity and named recovery custodians access. Keep the
    two encryption keys and recovery copies outside the database backup system.
 5. Run `python scripts/verify_pilot_key_recovery.py`. It must report PASS and must never receive or
    print deployed keys. Rehearse the deployed secret-store recovery procedure with newly generated
@@ -27,10 +33,12 @@ selected-deployment operational controls and five dedicated live TEST-provider a
    strict exit covers aggregate WARN/BLOCK; the scheduler must also evaluate the JSON counts and
    compare consecutive samples for the numeric thresholds below.
 8. Run `python -m hub.ops.cli fingerprint` and store the opaque output in the private change record.
-9. Create a private backup with `powershell -File scripts/backup-postgres.ps1 -OutputDirectory <private-path>`;
+9. For Compose, create a private backup with `powershell -File scripts/backup-postgres.ps1 -OutputDirectory <private-path>`;
    use a directory whose ACL is limited to the backup operators, then verify its SHA-256 manifest
    and latest isolated restore-drill evidence. The script publishes a unique dump/manifest pair and
-   refuses to overwrite an artifact. The dump still contains business data and encrypted
+   refuses to overwrite an artifact. On Render, use its managed PostgreSQL backup/PITR and document
+   the private isolated restore drill; do not point the Compose script at Render. The dump still
+   contains business data and encrypted
    credentials, so ciphertext does not make it safe to distribute. The default rolling retention
    is 30 days; `-RetentionDays` may change it only through a recorded operational policy change.
 10. Complete `PILOT_LIVE_ACCEPTANCE_PLAN.md` in order and link sanitized acceptance records.
