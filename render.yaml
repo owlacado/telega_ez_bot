@@ -35,8 +35,7 @@ services:
     runtime: docker
     region: oregon
     plan: 0.5c-512mb
-    scaling:
-      numInstances: 1
+    numInstances: 1
     dockerContext: .
     dockerfilePath: infrastructure/render.Dockerfile
     dockerCommand: python -m hub.render_runtime web
@@ -60,8 +59,7 @@ services:
     runtime: docker
     region: oregon
     plan: 0.5c-512mb
-    scaling:
-      numInstances: 1
+    numInstances: 1
     dockerContext: .
     dockerfilePath: infrastructure/api.Dockerfile
     dockerCommand: python -m hub.render_runtime worker
