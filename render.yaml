@@ -1,5 +1,25 @@
 # One web container (Caddy + Next.js + FastAPI), one combined worker, one TEST database.
-# Review plan, region, public origin, and all manual credentials before Blueprint creation.
+# Provider modes stay disabled until a separately reviewed live-TEST activation change.
+envVarGroups:
+  - name: technician-hub-test-shared
+    envVars:
+      - key: APP_ENV
+        value: pilot
+      - key: APP_VERSION
+        value: 0.3.0
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: DEBUG
+        value: "false"
+      - key: ALLOW_FAKE_PROVIDERS
+        value: "false"
+      - key: TELEGRAM_MODE
+        value: disabled
+      - key: GOOGLE_MODE
+        value: disabled
+      - key: SCHEDULE_DELIVERY_ENABLED
+        value: "false"
+
 databases:
   - name: technician-hub-test-db
     databaseName: technician_hub_test_pilot
@@ -14,7 +34,7 @@ services:
     name: technician-hub-test-web
     runtime: docker
     region: oregon
-    plan: 1c-2g
+    plan: 0.5c-512mb
     scaling:
       numInstances: 1
     dockerContext: .
@@ -24,48 +44,22 @@ services:
     healthCheckPath: /api/health
     maxShutdownDelaySeconds: 60
     envVars:
+      - fromGroup: technician-hub-test-shared
       - key: RENDER_DATABASE_URL
         fromDatabase:
           name: technician-hub-test-db
           property: connectionString
-      - key: APP_ENV
-        value: pilot
-      - key: APP_VERSION
-        value: 0.3.0
-      - key: COOKIE_SECURE
-        value: "true"
-      - key: DEBUG
-        value: "false"
-      - key: ALLOW_FAKE_PROVIDERS
-        value: "false"
       - key: PUBLIC_APP_ORIGIN
-        sync: false
-      - key: TELEGRAM_MODE
-        value: disabled
-      - key: TELEGRAM_EXPECTED_BOT_ID
-        sync: false
-      - key: TELEGRAM_EXPECTED_BOT_USERNAME
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: GOOGLE_MODE
-        value: disabled
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY
-        sync: false
-      - key: SCHEDULE_DELIVERY_ENABLED
-        value: "false"
-      - key: SCHEDULE_PAYLOAD_ENCRYPTION_KEY
-        sync: false
+        fromService:
+          type: web
+          name: technician-hub-test-web
+          envVarKey: RENDER_EXTERNAL_URL
 
   - type: worker
     name: technician-hub-test-worker
     runtime: docker
     region: oregon
-    plan: 1c-2g
+    plan: 0.5c-512mb
     scaling:
       numInstances: 1
     dockerContext: .
@@ -73,41 +67,15 @@ services:
     dockerCommand: python -m hub.render_runtime worker
     maxShutdownDelaySeconds: 60
     envVars:
+      - fromGroup: technician-hub-test-shared
       - key: RENDER_DATABASE_URL
         fromDatabase:
           name: technician-hub-test-db
           property: connectionString
-      - key: APP_ENV
-        value: pilot
-      - key: APP_VERSION
-        value: 0.3.0
-      - key: COOKIE_SECURE
-        value: "true"
-      - key: DEBUG
-        value: "false"
-      - key: ALLOW_FAKE_PROVIDERS
-        value: "false"
       - key: PUBLIC_APP_ORIGIN
-        sync: false
+        fromService:
+          type: web
+          name: technician-hub-test-web
+          envVarKey: RENDER_EXTERNAL_URL
       - key: PTB_TIMEDELTA
         value: "true"
-      - key: TELEGRAM_MODE
-        value: disabled
-      - key: TELEGRAM_EXPECTED_BOT_ID
-        sync: false
-      - key: TELEGRAM_EXPECTED_BOT_USERNAME
-        sync: false
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: GOOGLE_MODE
-        value: disabled
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: GOOGLE_CLIENT_SECRET
-        sync: false
-      - key: GOOGLE_CALENDAR_CREDENTIAL_ENCRYPTION_KEY
-        sync: false
-      - key: SCHEDULE_DELIVERY_ENABLED
-        value: "false"
-      - key: SCHEDULE_PAYLOAD_ENCRYPTION_KEY
-        sync: false
