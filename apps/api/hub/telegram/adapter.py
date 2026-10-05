@@ -5,10 +5,13 @@ from pathlib import Path
 
 from telegram import (
     Bot,
+    BotCommand,
+    BotCommandScopeChat,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     LinkPreviewOptions,
-    ReplyKeyboardMarkup,
+    MenuButtonCommands,
+    ReplyKeyboardRemove,
 )
 from telegram.error import (
     BadRequest,
@@ -133,6 +136,26 @@ class TelegramBotAdapter:
             raise safe_error(error) from None
 
     async def send(self, chat_id: int, message: str) -> int:
+        # Configure only a connected technician's private chat. Telegram persists this
+        # menu across sessions; repeat setup on home/form replies to repair older chats.
+        if chat_id > 0 and message.startswith(
+            ("You're connected to Technician Hub.", "Submit Report\n", "Expenses\n")
+        ):
+            try:
+                await self.bot.set_my_commands(
+                    [BotCommand("report", "Submit a report"), BotCommand("expenses", "Expenses")],
+                    scope=BotCommandScopeChat(chat_id),
+                    language_code="",
+                )
+                await self.bot.set_chat_menu_button(
+                    chat_id=chat_id, menu_button=MenuButtonCommands()
+                )
+            except TelegramError as error:
+                # Cosmetic configuration must not block a durable confirmation or
+                # change its retry/unknown-delivery semantics. A later reply retries.
+                logging.getLogger(__name__).warning(
+                    "Telegram command menu setup failed: %s", safe_error(error).code
+                )
         try:
             return (
                 await self.bot.send_message(
@@ -140,11 +163,7 @@ class TelegramBotAdapter:
                     message,
                     protect_content=True,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
-                    reply_markup=ReplyKeyboardMarkup(
-                        [["Submit Report", "Expenses"]], resize_keyboard=True
-                    )
-                    if chat_id > 0 and message.startswith("You're connected to Technician Hub.")
-                    else None,
+                    reply_markup=ReplyKeyboardRemove() if chat_id > 0 else None,
                 )
             ).message_id
         except TelegramError as error:
