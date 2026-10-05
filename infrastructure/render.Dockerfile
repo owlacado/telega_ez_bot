@@ -14,6 +14,8 @@ ENV API_INTERNAL_URL=http://127.0.0.1:8000
 RUN npm run build
 
 FROM caddy:2 AS router
+# Render uses an unprivileged port; file capabilities can cause execve EPERM.
+RUN setcap -r /usr/bin/caddy && test -z "$(getcap /usr/bin/caddy)"
 
 FROM python:3.13-slim-bookworm AS api-base
 ENV PYTHONUNBUFFERED=1
@@ -29,6 +31,8 @@ USER hub
 FROM api-base AS web
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=router /usr/bin/caddy /usr/bin/caddy
+# This build gate runs as hub and checks the final copied binary.
+RUN python -c "import os, subprocess; assert os.geteuid() != 0; assert 'security.capability' not in os.listxattr('/usr/bin/caddy'); subprocess.run(['caddy', 'version'], check=True)"
 COPY --from=web-build --chown=hub:hub /app/apps/web/.next/standalone /app/
 COPY --from=web-build --chown=hub:hub /app/apps/web/.next/static /app/apps/web/.next/static
 COPY infrastructure/render.Caddyfile /app/render.Caddyfile
