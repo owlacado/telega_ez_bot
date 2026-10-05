@@ -24,7 +24,7 @@ databases:
   - name: technician-hub-test-db
     databaseName: technician_hub_test_pilot
     user: technician_hub_test_pilot
-    postgresMajorVersion: 18
+    postgresMajorVersion: "18"
     region: oregon
     plan: 0.5c-1g
     ipAllowList: []
