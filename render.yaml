@@ -26,7 +26,7 @@ databases:
     user: technician_hub_test_pilot
     postgresMajorVersion: "18"
     region: oregon
-    plan: 0.5c-1g
+    plan: 0.1c-256mb
     ipAllowList: []
 
 services:

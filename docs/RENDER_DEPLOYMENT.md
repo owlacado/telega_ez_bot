@@ -10,9 +10,9 @@ The plan identifiers below are current Render Blueprint plan IDs. Keep one insta
 | --- | --- | --- | --- | --- |
 | `technician-hub-test-web` | `0.5c-512mb` (0.5 CPU, 512 MB) | Caddy, FastAPI, and the full Next.js runtime in one Web container | Yes | Sustained CPU or memory pressure, OOM/restarts, or login/API latency outside the pilot SLO after measuring the cause |
 | `technician-hub-test-worker` | `0.5c-512mb` (0.5 CPU, 512 MB) | Supervises Telegram, schedule-delivery, and Google Sheets mirror children when enabled | Yes | Sustained CPU or memory pressure, restarts, growing durable backlog, stale heartbeat, or missed delivery/mirror SLA |
-| `technician-hub-test-db` | `0.5c-1g` (0.5 CPU, 1 GB, persistent paid Postgres) | New private TEST system of record | Yes | Memory/CPU pressure, connection saturation, storage/IO pressure, or measured query latency |
+| `technician-hub-test-db` | `0.1c-256mb` (0.1 CPU, 256 MB, persistent paid Postgres) | New private TEST system of record | Yes | Memory/CPU pressure, connection saturation, storage/IO pressure, or measured query latency |
 
-Render also offers `0.1c-256mb` paid Postgres, but it is not the smallest **suitable** choice for this deployment. The documented single-replica connection budget can reach 75 regular connections plus temporary owners; 256 MB gives too little database-memory margin even though both small plans currently allow at most 100 connections. `0.5c-1g` is therefore the initial database plan. Review the Dashboard price before creation.
+The initial one-technician TEST pilot uses `0.1c-256mb` paid Postgres (up to 100 connections), which accommodates the documented single-replica connection budget of 75 regular connections plus temporary owners. Monitor memory and CPU independently of the connection limit; vertically upgrade the database later if metrics show RAM/CPU pressure. Review the Dashboard price before creation.
 
 CRM, the first-party Calendar, and future LLM/RAG workloads can grow on this architecture. Do not split services before measurements justify it. The combined worker can be separated later if CPU, memory, backlog, heartbeat, or SLA evidence shows that one workload interferes with another.
 
@@ -94,7 +94,7 @@ Stop after completing this base sequence. Do not configure Google or Telegram du
 2. Connect or select GitHub repository `owlacado/telega_ez_bot`.
 3. Select branch `main` and the root `render.yaml`.
 4. Review the preview. It must show exactly these three resources in `oregon`: Web `technician-hub-test-web`, Background Worker `technician-hub-test-worker`, and PostgreSQL `technician-hub-test-db`. The shared environment group is configuration, not an additional service.
-5. Confirm the plans are Web `0.5c-512mb`, Worker `0.5c-512mb`, PostgreSQL `0.5c-1g`, with one Web and one Worker instance. Review the displayed monthly cost before approving creation.
+5. Confirm the plans are Web `0.5c-512mb`, Worker `0.5c-512mb`, PostgreSQL `0.1c-256mb`, with one Web and one Worker instance. Review the displayed monthly cost before approving creation.
 6. Confirm the database is new, private, empty, and has no public allowlist. Do not import the local database.
 7. The initial manual-value list must be empty. If Render prompts for a provider secret or `PUBLIC_APP_ORIGIN`, stop and recheck that the Blueprint is using the reviewed commit; do not enter placeholders.
 8. Create the resources. Render generates the database credential and Web URL, wires `PUBLIC_APP_ORIGIN` to the Web `RENDER_EXTERNAL_URL` for both services, builds the images, runs the Web migration, and then starts the services.
