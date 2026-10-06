@@ -143,13 +143,17 @@ async def clear_test_delivery_history():
             if await db.scalar(text("SELECT to_regclass('technician_expenses')")):
                 await db.execute(
                     text(
-                        "TRUNCATE technician_form_sessions, expense_revisions, technician_expenses"
+                        "TRUNCATE telegram_outbox, technician_form_sessions, "
+                        "expense_revisions, technician_expenses"
                     )
                 )
                 await db.execute(text("UPDATE technicians SET accounting_timezone=NULL"))
             if await db.scalar(text("SELECT to_regclass('work_reports')")):
                 await db.execute(
-                    text("TRUNCATE technician_form_sessions, work_report_revisions, work_reports")
+                    text(
+                        "TRUNCATE telegram_outbox, technician_form_sessions, "
+                        "work_report_revisions, work_reports"
+                    )
                 )
             if await db.scalar(text("SELECT to_regclass('schedule_dispatches')")):
                 await db.execute(
@@ -501,7 +505,7 @@ alembic("check")
 
 configuration = Config(str(root / "apps/api/alembic.ini"))
 configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["fda609200001"]
+assert ScriptDirectory.from_config(configuration).get_heads() == ["fea610060001"]
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -545,7 +549,7 @@ async def legacy_history(action):
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fda609200001"
+                    == "fea610060001"
                 )
             else:
                 await db.execute(
@@ -620,11 +624,14 @@ async def stage5_history(action):
                 ) == Decimal("123.45")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fda609200001"
+                    == "fea610060001"
                 )
             else:
                 await db.execute(
-                    text("TRUNCATE technician_form_sessions, work_report_revisions, work_reports")
+                    text(
+                        "TRUNCATE telegram_outbox, technician_form_sessions, "
+                        "work_report_revisions, work_reports"
+                    )
                 )
     finally:
         await engine.dispose()
@@ -691,12 +698,13 @@ async def stage6_history(action):
                 ) == Decimal("20.01")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fda609200001"
+                    == "fea610060001"
                 )
             else:
                 await db.execute(
                     text(
-                        "TRUNCATE technician_form_sessions, expense_revisions, technician_expenses"
+                        "TRUNCATE telegram_outbox, technician_form_sessions, "
+                        "expense_revisions, technician_expenses"
                     )
                 )
     finally:
@@ -757,7 +765,7 @@ async def stage9_mirror_fixture(action):
                 assert row == ("INDIVIDUAL", tech, "migrationSheet_12345")
                 assert (
                     await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fda609200001"
+                    == "fea610060001"
                 )
             else:
                 await db.execute(

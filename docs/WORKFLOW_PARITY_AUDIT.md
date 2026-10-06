@@ -1,5 +1,112 @@
 # End-to-end workflow parity audit
 
+## Approved pilot workflow completion (2026-10-06)
+
+This section supersedes the historical gap dispositions below. Implementation starts from audit
+commit `2d87ed738cd9909f0caca6b737ed98c577f66a66`. The following choices are now explicitly approved:
+Work Report and Expense group publication are required; Calendar report write-back is intentionally
+not restored; `/daily` and `/tomorrow` are deferred. Neither command is advertised or implemented.
+
+| Workflow                    | Current approved result                                                                                                  | Classification                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Report -> PG -> Work Group  | Same-transaction durable activity intent; existing Telegram worker sends saved revision facts to the captured work group | IMPLEMENTED locally; live required              |
+| Expense -> PG -> Work Group | Same path, with saved expense date/timezone/type/amount/note                                                             | IMPLEMENTED locally; live required              |
+| Schedule ACK                | One exact dispatch, only while current/non-superseded and effective binding/destination available                        | IMPLEMENTED locally; live required              |
+| Manager saved details       | Real technician page exposes read-only report/expense dialogs, saved name, revision and submission time                  | IMPLEMENTED locally                             |
+| Calendar report write-back  | No event-write scope, mutation, or report projection restored                                                            | INTENTIONALLY REMOVED from approved pilot scope |
+| `/daily`, `/tomorrow`       | No handlers or Menu entries                                                                                              | INTENTIONALLY DEFERRED                          |
+
+### Delivery and recovery contract
+
+`hub.telegram.activity.enqueue_activity` adds a WORK_REPORT/EXPENSE reference to the existing
+`TelegramOutbox` inside the submission transaction. Unique report/expense references prevent extra
+intents on receipt replay; a rollback removes both fact and intent. Worker provider I/O happens only
+after commit. Provider failure cannot undo the report/expense. The outbox stores references and
+captured group/user/generations, not copied form secrets or plaintext report bodies. Rendering reads
+the immutable submitted revision and uses plain text, no parse mode, no IDs/tokens. Long notes and
+context are visibly abbreviated to keep a single message below Telegram's length limit; complete
+facts remain in the manager view. No multipart send or new worker/reliability system was added.
+
+The existing worker checks active technician, exact bot/group/user and generations, group bot send
+rights and technician membership, then re-reads binding/cancellation after membership I/O. Activity
+never falls back to private chat and never follows a later group replacement. Missing/unavailable
+group at submission records a CANCELLED intent without blocking persistence. Unverified membership
+or definitive rejection stops the activity; confirmed rate rejection uses the existing bounded
+retry (at most three attempts, allowed retry_after <=600 seconds). Unknown send results and claimed
+work after a crash remain UNKNOWN and are not automatically resent. Exactly-once external delivery
+is not claimed. Recent Telegram activity exposes Work report/Expense labels and delivery outcomes.
+
+There is deliberately no new financial correction, activity-resend endpoint, historical backfill,
+or private post-save notification. Browser receipt confirms persistence. FAILED/CANCELLED/UNKNOWN
+require operator review: inspect the saved manager record and the TEST group, repair setup, and
+record a manual communication decision if needed. Never resubmit the expense to recover a message,
+reset UNKNOWN to QUEUED via SQL, or assume connecting a replacement group republishes history.
+
+### Exact ACK semantics
+
+Every newly accepted ScheduleDispatch supersedes prior dispatches for that technician/work date
+within the same transaction and technician lock used by ACK. This happens at enqueue, including an
+explicit resend; even a later failed/cancelled new dispatch does not reactivate an older button.
+Coalesced duplicate enqueue creates no replacement. A different work date is independent. The
+superseded timestamp is additive: SENT receipts and any earlier acknowledgement remain historical
+facts. Old buttons are rejected, including previously acknowledged buttons after supersession.
+
+ACK requires SENT, unexpired token, exact bot/actor/chat/message, active technician, current private
+and applicable group generations and AVAILABLE effective binding/destination. UNAVAILABLE,
+REVALIDATION_REQUIRED and other unavailable states are rejected. Concurrent duplicate valid ACKs
+return idempotent success and record one acknowledgement/audit. ACK means only the technician
+confirmed seeing that exact schedule, not job completion, payroll approval, or business acceptance.
+The manager history displays supersession without erasing earlier receipt evidence.
+Pilot readiness now requires an available work group for report/expense activity even with automatic
+schedule delivery disabled; financial submission itself still does not depend on group availability.
+
+### Migration, verification and remaining gaps
+
+Additive migration `fea610060001` follows `fda609200001`: nullable outbox source/destination fields,
+source uniqueness/FKs/kind constraints, and schedule superseded_at. Existing activity is not backfilled
+or sent. Existing older same-date schedules are marked superseded deterministically by created_at
+then UUID; where old timestamps tie, this matches existing history ordering, not an inferred send
+chronology. Populated activity/supersession rollback is refused. Stop old writers/workers during
+migration and deploy matching API/worker/frontend code; this pass applies migration only to an
+isolated synthetic database, not the normal database or Render.
+
+Verification for this change:
+
+- Focused backend adversarial set: 27 passed, including populated migration, failure/replay,
+  membership/rebinding, concurrent claim, supersession and concurrent ACK checks.
+- One full backend gate completed: 1,564 passed, 5 failed, 2 skipped (3 dependency deprecation
+  warnings). Four failures exposed the stale operational expected-schema constant; one exposed
+  swallowing an unexpected onboarding send exception. Both causes were fixed: preflight expects
+  `fea610060001`, and unexpected send exceptions retain the existing worker crash/recovery path.
+- Final affected rerun: all 224 tests passed across pilot activity, operational/readiness and all
+  Telegram test modules, including all five previously failing cases. The full suite was not run
+  a second time after these two narrow corrections. The two full-run skips are existing POSIX TTY
+  manager-CLI tests skipped on Windows; Docker/Linux TTY execution is not claimed.
+- Frontend: 12 files / 150 tests passed, including the real technician route and saved attribution
+  dialogs; TypeScript, ESLint and Next production build passed.
+- Migration lifecycle/drift validator passed: single head `fea610060001`, historical preservation,
+  populated rollback refusal and zero schema drift. Generated OpenAPI/TypeScript were regenerated
+  twice with identical hashes; their only schema addition is nullable `superseded_at`.
+- Ruff lint passed. Changed Python files passed format checks. Repository-wide formatting still
+  reports eight pre-existing, unchanged files; unrelated formatting was not included in this patch.
+- Secret scan: 353 Git-visible files, zero findings. `git diff --check` passed.
+
+All automated providers are fakes. Docker Engine was unavailable, so database checks used a new
+isolated native PostgreSQL 18.6 cluster on loopback port 5547, database `technician_hub_test`, with
+synthetic fixtures only. Normal database, manager, calendars and `technician-hub_postgres_data`
+were not connected to, migrated, reset or modified. Preservation here is by non-interaction, not a
+new normal-database fingerprint comparison. No container/deployment or live provider check is claimed.
+
+The old P0 product decisions and local ACK/detail gaps are addressed for this approved scope.
+Operational entry gates TD-012/017/025/029 and live gates TD-022/027/028/030/033 remain open. Controlled
+live Telegram acceptance may resume only on the verified matching release after deployment entry
+gates, using the expanded acceptance sequence. PILOT READY remains NO until reviewed live evidence.
+P1 still includes explicit stop/review handling for incorrect financial submissions (no corrections),
+redo/unlisted-job eligibility and timezone/membership acceptance. Deferred commands and intentionally
+absent Calendar writes are no longer missing pilot workflow obligations. No Contracts/GPS/CRM work.
+
+## Historical audit at 70186c5 (retained evidence)
+
 Audit date: 2026-10-06. Audited branch: `main`. Exact application HEAD:
 `70186c5102b2b7b2d35c68e7815cf965d4986a4d` (native Telegram command-menu change).
 The working tree was clean before this audit. The audit commit changes this document only.
@@ -37,32 +144,32 @@ legacy `docs/TECHNICIAN_BOT_WORKFLOW.md` says Daily output is private, but its l
 
 Evidence keys point to the traced source below. Recommendations are proposals, not approved changes.
 
-| Workflow | Intended behavior | Current behavior | Classification | Missing link | Recommendation |
-| --- | --- | --- | --- | --- | --- |
-| Technician creation and setup | Manager creates technician, sets identity/timezone/calendar, connects private chat and group | Reachable create/profile/assignment/Telegram controls; setup projection and deactivation; pilot blocks deletion, DL/SSN and external avatars | IMPLEMENTED | None for approved TEST setup; readiness is not release acceptance | Follow setup order; do not use a green readiness badge as parity approval [E1] |
-| Private Telegram onboarding | Invitation identifies the technician; status and usable navigation follow binding | Actor/purpose/generation checks, durable confirmation, `/start`/`status`, scoped native menu | IMPLEMENTED | Live mobile/provider behavior still unaccepted | Test exact private actor and replay with TEST bot [E2] |
-| Native Menu | Expose working private actions | Exactly `/report` and `/expenses`; private reply keyboard removed, menu repaired on connected/form replies | IMPLEMENTED | Broader legacy menu intentionally absent, not broken registration | Keep dead commands hidden; verify persisted menu in live client [E2] |
-| `/report` to saved facts | Private report action, eligible job, mobile form, durable report, manager sees values | Short-lived form, shared Calendar picker, frozen selection, PG report/revision/audit, browser receipt, manager Accounting facts | IMPLEMENTED | No group/private post-save notification in this bounded path; historical detail issue below | Accept as intake only, not full legacy reporting [E3/E7] |
-| Full Work Report operational loop | Saved report reaches group, private status and Calendar projection; manager can inspect/recover | Intake/accounting/Sheets enqueue exist; Telegram and Calendar post-save delivery do not | PARTIALLY IMPLEMENTED | No report Telegram outbox, delivery/status/retry or Calendar write-back | Decide required pilot outputs; add only approved links in a later task [E3/E9] |
-| `/expenses` to saved facts | Private form, server-owned date, expense persisted and visible to manager | Explicit timezone, scoped form, PG expense/revision/audit, browser receipt, Accounting facts | IMPLEMENTED | No post-save Telegram output in this bounded path | Accept intake separately from group notification [E4/E7] |
-| Full Expense operational loop | Save -> group message -> private status -> recover delivery failure | Facts and accounting exist; browser receipt only | PARTIALLY IMPLEMENTED | No expense Telegram outbox, status, retry or private completion message | Decide group delivery and completion status before pilot [E4] |
-| Work Group as shared operations channel | Technician + company staff converse normally; bot posts reports, expenses, daily summary and schedules | Human conversation stays in Telegram; binding, onboarding/test messages and official schedule messages exist | PARTIALLY IMPLEMENTED | Report, expense and Daily Report publications absent | Treat group as schedule channel until required outputs are approved and implemented [E2-E6] |
-| Group membership/revalidation | Reject wrong actor/audience, invalidate lost access, restore through explicit revalidation | Trusted-actor onboarding, lifecycle handling, explicit verification; schedule checks membership before send | PARTIALLY IMPLEMENTED | Continuous member-loss observation is not guaranteed for non-admin bot; ack ignores availability | Preserve fail-closed send checks; resolve acknowledgement rule and live TD-022 evidence [E2/E6] |
-| Daily Report technician workflow | `/daily` -> local-day totals -> group Daily Report then next-workday schedule -> concise private result | Manager Daily Accounting only; neither command nor two-message dispatch exists | PARTIALLY IMPLEMENTED | Private entry, renderer/orchestration, ordered durable messages, status/recovery | Explicitly accept deferral or scope this workflow for the pilot; do not alias `/daily` to a manager endpoint [E5/E7] |
-| Technician-requested schedule | `/tomorrow` requests informational next-workday schedule; group output or private fallback/status | Manager preview and official dispatch exist; no technician command | PARTIALLY IMPLEMENTED | Private command/authorization and informational delivery/status path | Decide whether manager/auto schedules suffice for TEST pilot [E5/E6] |
-| Manager/automatic schedule send | Calendar -> preview -> durable dispatch -> chosen group/private destination -> visible result | Shared fresh projection, encrypted snapshot, worker, bounded retry/ambiguity, history and callback path | IMPLEMENTED | Live delivery not proven; acknowledgement policy gaps are separate below | Exercise existing path after P0 acknowledgement clarification/remediation [E6] |
-| Schedule acknowledgement parity | Legacy requires bound actor and latest non-superseded dispatch | Actor/chat/message/generation/expiry validated; each SENT dispatch can be acknowledged | PARTIALLY IMPLEMENTED | No availability gate; no superseded/latest-dispatch check | Fix known-unavailable case; approve latest-only versus historical-receipt semantics [E6] |
-| Google Calendar discovery/jobs | Manager connects, discovers and assigns calendars, reads jobs for operations | OAuth/discovery/exclusion/reconnect -> assignment -> Today/preview/report picker; read-only event access | IMPLEMENTED | Google remains the job source, unlike legacy managed PG visits | Preserve current architecture; confirm explicit eligibility differences [E8] |
-| Report write-back to Calendar | Legacy replaces managed report block without destroying dispatcher text | No write scope, event mutation or report Calendar outbox | PRODUCT DECISION NEEDED | Whole outbound report projection was expressly deferred at Stage 5 | Choose retain read-only or separately approve narrow write-back; do not silently restore [E9] |
-| Manager daily/weekly accounting | See facts, totals, dates and historical technicians | Per-technician Overview/Daily/Weekly, backend date navigation, refresh and canonical totals | IMPLEMENTED | Not technician self-service, payroll, or a company-wide web finance dashboard | Preserve scope; distinguish accounting read from delivery and detailed receipt inspection [E7] |
-| Manager detailed submission inspection | Open report/expense details including saved attribution and submission time | APIs and components remain, but detail page mounts only Accounting | ACCIDENTALLY DROPPED | No production import/JSX route to old detail modals; Accounting omits those details | Restore a reachable detail action or equivalent approved view; no new financial mutation [E10] |
-| Corrections and expense voiding | Legacy corrects reports/expenses, retains revisions, excludes void expenses | New submissions are revision 1; resubmission conflicts; no correction/void API/UI | INTENTIONALLY DEFERRED | Approved correction/void workflow and migration absent | Before pilot, choose stop-on-mistake policy or separately scope remediation; never edit PG/Sheets ad hoc [E3/E4] |
-| Individual/All Tech XLSX | Manager selects week, downloads usable output | Weekly UI -> manager API -> canonical snapshot -> shared renderer -> download | IMPLEMENTED | No technician delivery or financial approval/settlement workflow | Treat exports as outputs; manager handles sharing [E11] |
-| Individual/All Tech Google Sheets | Manager configures targets, business changes refresh projection, failure is recoverable | UI target config/sync/status/open -> durable coalesced queue -> worker -> RAW projection | IMPLEMENTED | External sharing and historical backfill are manual; no inbound edits | Manually sync selected old weeks; review permissions; TD-033 stays open [E12] |
-| Receipt / service Contract | Legacy `/receipt`, visit-bound form, immutable contract, PDF to group | No business model/form/PDF/delivery implementation | INTENTIONALLY DEFERRED | Entire workflow outside current scope | Keep P2; generated `packages/contracts` is API transport, not this product [E13] |
-| Receipt photos for expenses | Humans can put photos in work group; app does not own attachments | No expense upload/link field or storage | INTENTIONALLY DEFERRED | In-app attachment workflow intentionally absent in both current and inspected legacy expense flow | Keep manual group photos separate from service Contracts [E4] |
-| Forms/Sheets as database; Discord | Earlier infrastructure should not remain business authority | First-party forms and PG facts; outbound Sheets only; no Discord | INTENTIONALLY REMOVED | None | Do not reconstruct obsolete intake/mapping dependencies [E3/E4/E12] |
-| Wider roles, custom catalogs, CRM/dispatch/first-party Calendar, GPS/AI | Some exist in legacy or appear in future scope | Hub manager-only access and fixed audited categories; other domains absent/placeholders | INTENTIONALLY DEFERRED | No approved current-pilot expansion | Keep P2; a legacy implementation is not authorization to port unrelated domains [E13] |
+| Workflow                                                                | Intended behavior                                                                                       | Current behavior                                                                                                                             | Classification          | Missing link                                                                                      | Recommendation                                                                                                       |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Technician creation and setup                                           | Manager creates technician, sets identity/timezone/calendar, connects private chat and group            | Reachable create/profile/assignment/Telegram controls; setup projection and deactivation; pilot blocks deletion, DL/SSN and external avatars | IMPLEMENTED             | None for approved TEST setup; readiness is not release acceptance                                 | Follow setup order; do not use a green readiness badge as parity approval [E1]                                       |
+| Private Telegram onboarding                                             | Invitation identifies the technician; status and usable navigation follow binding                       | Actor/purpose/generation checks, durable confirmation, `/start`/`status`, scoped native menu                                                 | IMPLEMENTED             | Live mobile/provider behavior still unaccepted                                                    | Test exact private actor and replay with TEST bot [E2]                                                               |
+| Native Menu                                                             | Expose working private actions                                                                          | Exactly `/report` and `/expenses`; private reply keyboard removed, menu repaired on connected/form replies                                   | IMPLEMENTED             | Broader legacy menu intentionally absent, not broken registration                                 | Keep dead commands hidden; verify persisted menu in live client [E2]                                                 |
+| `/report` to saved facts                                                | Private report action, eligible job, mobile form, durable report, manager sees values                   | Short-lived form, shared Calendar picker, frozen selection, PG report/revision/audit, browser receipt, manager Accounting facts              | IMPLEMENTED             | No group/private post-save notification in this bounded path; historical detail issue below       | Accept as intake only, not full legacy reporting [E3/E7]                                                             |
+| Full Work Report operational loop                                       | Saved report reaches group, private status and Calendar projection; manager can inspect/recover         | Intake/accounting/Sheets enqueue exist; Telegram and Calendar post-save delivery do not                                                      | PARTIALLY IMPLEMENTED   | No report Telegram outbox, delivery/status/retry or Calendar write-back                           | Decide required pilot outputs; add only approved links in a later task [E3/E9]                                       |
+| `/expenses` to saved facts                                              | Private form, server-owned date, expense persisted and visible to manager                               | Explicit timezone, scoped form, PG expense/revision/audit, browser receipt, Accounting facts                                                 | IMPLEMENTED             | No post-save Telegram output in this bounded path                                                 | Accept intake separately from group notification [E4/E7]                                                             |
+| Full Expense operational loop                                           | Save -> group message -> private status -> recover delivery failure                                     | Facts and accounting exist; browser receipt only                                                                                             | PARTIALLY IMPLEMENTED   | No expense Telegram outbox, status, retry or private completion message                           | Decide group delivery and completion status before pilot [E4]                                                        |
+| Work Group as shared operations channel                                 | Technician + company staff converse normally; bot posts reports, expenses, daily summary and schedules  | Human conversation stays in Telegram; binding, onboarding/test messages and official schedule messages exist                                 | PARTIALLY IMPLEMENTED   | Report, expense and Daily Report publications absent                                              | Treat group as schedule channel until required outputs are approved and implemented [E2-E6]                          |
+| Group membership/revalidation                                           | Reject wrong actor/audience, invalidate lost access, restore through explicit revalidation              | Trusted-actor onboarding, lifecycle handling, explicit verification; schedule checks membership before send                                  | PARTIALLY IMPLEMENTED   | Continuous member-loss observation is not guaranteed for non-admin bot; ack ignores availability  | Preserve fail-closed send checks; resolve acknowledgement rule and live TD-022 evidence [E2/E6]                      |
+| Daily Report technician workflow                                        | `/daily` -> local-day totals -> group Daily Report then next-workday schedule -> concise private result | Manager Daily Accounting only; neither command nor two-message dispatch exists                                                               | PARTIALLY IMPLEMENTED   | Private entry, renderer/orchestration, ordered durable messages, status/recovery                  | Explicitly accept deferral or scope this workflow for the pilot; do not alias `/daily` to a manager endpoint [E5/E7] |
+| Technician-requested schedule                                           | `/tomorrow` requests informational next-workday schedule; group output or private fallback/status       | Manager preview and official dispatch exist; no technician command                                                                           | PARTIALLY IMPLEMENTED   | Private command/authorization and informational delivery/status path                              | Decide whether manager/auto schedules suffice for TEST pilot [E5/E6]                                                 |
+| Manager/automatic schedule send                                         | Calendar -> preview -> durable dispatch -> chosen group/private destination -> visible result           | Shared fresh projection, encrypted snapshot, worker, bounded retry/ambiguity, history and callback path                                      | IMPLEMENTED             | Live delivery not proven; acknowledgement policy gaps are separate below                          | Exercise existing path after P0 acknowledgement clarification/remediation [E6]                                       |
+| Schedule acknowledgement parity                                         | Legacy requires bound actor and latest non-superseded dispatch                                          | Actor/chat/message/generation/expiry validated; each SENT dispatch can be acknowledged                                                       | PARTIALLY IMPLEMENTED   | No availability gate; no superseded/latest-dispatch check                                         | Fix known-unavailable case; approve latest-only versus historical-receipt semantics [E6]                             |
+| Google Calendar discovery/jobs                                          | Manager connects, discovers and assigns calendars, reads jobs for operations                            | OAuth/discovery/exclusion/reconnect -> assignment -> Today/preview/report picker; read-only event access                                     | IMPLEMENTED             | Google remains the job source, unlike legacy managed PG visits                                    | Preserve current architecture; confirm explicit eligibility differences [E8]                                         |
+| Report write-back to Calendar                                           | Legacy replaces managed report block without destroying dispatcher text                                 | No write scope, event mutation or report Calendar outbox                                                                                     | PRODUCT DECISION NEEDED | Whole outbound report projection was expressly deferred at Stage 5                                | Choose retain read-only or separately approve narrow write-back; do not silently restore [E9]                        |
+| Manager daily/weekly accounting                                         | See facts, totals, dates and historical technicians                                                     | Per-technician Overview/Daily/Weekly, backend date navigation, refresh and canonical totals                                                  | IMPLEMENTED             | Not technician self-service, payroll, or a company-wide web finance dashboard                     | Preserve scope; distinguish accounting read from delivery and detailed receipt inspection [E7]                       |
+| Manager detailed submission inspection                                  | Open report/expense details including saved attribution and submission time                             | APIs and components remain, but detail page mounts only Accounting                                                                           | ACCIDENTALLY DROPPED    | No production import/JSX route to old detail modals; Accounting omits those details               | Restore a reachable detail action or equivalent approved view; no new financial mutation [E10]                       |
+| Corrections and expense voiding                                         | Legacy corrects reports/expenses, retains revisions, excludes void expenses                             | New submissions are revision 1; resubmission conflicts; no correction/void API/UI                                                            | INTENTIONALLY DEFERRED  | Approved correction/void workflow and migration absent                                            | Before pilot, choose stop-on-mistake policy or separately scope remediation; never edit PG/Sheets ad hoc [E3/E4]     |
+| Individual/All Tech XLSX                                                | Manager selects week, downloads usable output                                                           | Weekly UI -> manager API -> canonical snapshot -> shared renderer -> download                                                                | IMPLEMENTED             | No technician delivery or financial approval/settlement workflow                                  | Treat exports as outputs; manager handles sharing [E11]                                                              |
+| Individual/All Tech Google Sheets                                       | Manager configures targets, business changes refresh projection, failure is recoverable                 | UI target config/sync/status/open -> durable coalesced queue -> worker -> RAW projection                                                     | IMPLEMENTED             | External sharing and historical backfill are manual; no inbound edits                             | Manually sync selected old weeks; review permissions; TD-033 stays open [E12]                                        |
+| Receipt / service Contract                                              | Legacy `/receipt`, visit-bound form, immutable contract, PDF to group                                   | No business model/form/PDF/delivery implementation                                                                                           | INTENTIONALLY DEFERRED  | Entire workflow outside current scope                                                             | Keep P2; generated `packages/contracts` is API transport, not this product [E13]                                     |
+| Receipt photos for expenses                                             | Humans can put photos in work group; app does not own attachments                                       | No expense upload/link field or storage                                                                                                      | INTENTIONALLY DEFERRED  | In-app attachment workflow intentionally absent in both current and inspected legacy expense flow | Keep manual group photos separate from service Contracts [E4]                                                        |
+| Forms/Sheets as database; Discord                                       | Earlier infrastructure should not remain business authority                                             | First-party forms and PG facts; outbound Sheets only; no Discord                                                                             | INTENTIONALLY REMOVED   | None                                                                                              | Do not reconstruct obsolete intake/mapping dependencies [E3/E4/E12]                                                  |
+| Wider roles, custom catalogs, CRM/dispatch/first-party Calendar, GPS/AI | Some exist in legacy or appear in future scope                                                          | Hub manager-only access and fixed audited categories; other domains absent/placeholders                                                      | INTENTIONALLY DEFERRED  | No approved current-pilot expansion                                                               | Keep P2; a legacy implementation is not authorization to port unrelated domains [E13]                                |
 
 ## Source traces and exact missing links
 

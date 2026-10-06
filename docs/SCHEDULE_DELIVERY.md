@@ -1,5 +1,10 @@
 # Schedule delivery (Stage 4)
 
+> Approved pilot ACK update: only the current/non-superseded dispatch for a technician/work date
+> can be acknowledged. New enqueue supersedes older ACK eligibility; history is retained. Effective
+> private/group availability must be AVAILABLE. ACK means seeing this exact schedule only. See
+> WORKFLOW_PARITY_AUDIT.md for migration/backfill and acceptance details.
+
 ## Scope and boundaries
 
 Manual Send, explicit Resend, and the automatic scheduler all call

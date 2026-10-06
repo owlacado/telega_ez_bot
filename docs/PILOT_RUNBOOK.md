@@ -14,7 +14,7 @@ selected-deployment operational controls and five dedicated live TEST-provider a
 1. Verify the approved choices in `PILOT_POLICY_DECISIONS.md` and the independent evidence in
    `AUDIT_PILOT_POLICY_IMPLEMENTATION.md`.
 2. Use a reviewed release commit and clean build. Store the commit in `RELEASE_COMMIT`; verify the
-   database reports the single expected migration head `fda609200001`.
+   database reports the single expected migration head `fea610060001`.
 3. Instantiate and record the remote TEST deployment contract from `PILOT_ARCHITECTURE.md`: one
    HTTPS proxy, private application network, replaced forwarding headers, exact trusted proxy IP,
    request limits, exact HTTPS origin, secure cookie, and direct-API firewall.
@@ -57,8 +57,7 @@ thresholds; record any approved change before applying it.
 Create one fictional/test-approved technician first. Set the active status and explicit IANA
 accounting timezone. The pilot UI/API do not accept driver license ID, SSN last four, or an external
 profile image; generated initials are the only technician image representation.
-Assign exactly one available calendar. Complete private Telegram onboarding and, only when schedule
-delivery is enabled, the work group. For a Google calendar, confirm current connection and event-read
+Assign exactly one available calendar. Complete private Telegram onboarding and the work group required for report/expense activity. For a Google calendar, confirm current connection and event-read
 scope. The API checklist must show `Ready for Pilot`; an optional mirror may remain `OPTIONAL`.
 
 ## Daily operation
@@ -67,7 +66,12 @@ At the start of day, inspect Operations Health and queue counts. Confirm the tec
 calendar, timezone, Telegram destination, and today's fictional/approved jobs. During work, issue
 short-lived Work Report or Expense links only to the intended TEST private chat. Treat the links as
 transferable bearer capabilities: do not forward them, and revoke/reconnect the binding after a
-suspected leak. Check the submitted record and canonical daily accounting.
+suspected leak. Check the submitted record and canonical daily accounting. Open Saved submissions
+for saved attribution, revision and submission time. Verify the matching Work Group message and
+Recent Telegram activity outcome; a browser receipt proves persistence, not Telegram delivery.
+Review FAILED/CANCELLED/UNKNOWN with the operator. Never submit a duplicate expense to recover a
+notification or manually reset an uncertain send. Repair/revalidate the group; replacement does
+not backfill older activity. See PILOT_LIVE_ACCEPTANCE_PLAN.md for the controlled failure sequence.
 
 Before schedule delivery, preview it, confirm the work group and day, and verify the schedule worker
 is current. Never resend an `AMBIGUOUS` Telegram dispatch automatically; a manager must check the

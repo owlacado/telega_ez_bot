@@ -48,8 +48,8 @@ async def test_canonical_readiness_combinations(app, client):
     profile = await create_technician(client)
     identifier = UUID(profile["id"])
     assert profile["pilot_readiness"]["ready"] is False
-    assert profile["pilot_readiness"]["blocking_count"] == 3
-    assert requirement(profile, "telegram_group")["status"] == "OPTIONAL"
+    assert profile["pilot_readiness"]["blocking_count"] == 4
+    assert requirement(profile, "telegram_group")["status"] == "NEEDS_ACTION"
     assert requirement(profile, "google_sheets_mirror")["status"] == "OPTIONAL"
 
     response = await patch_technician(client, identifier, accounting_timezone="America/Los_Angeles")
@@ -77,7 +77,7 @@ async def test_canonical_readiness_combinations(app, client):
         )
     ).status_code == 200
     ready = (await client.get(f"/api/technicians/{identifier}")).json()
-    assert ready["pilot_readiness"]["ready"] is True
+    assert ready["pilot_readiness"]["ready"] is False
     assert requirement(ready, "google_events")["status"] == "OPTIONAL"
 
     app.state.settings.schedule_delivery_enabled = True
@@ -85,6 +85,13 @@ async def test_canonical_readiness_combinations(app, client):
     assert schedule_required["pilot_readiness"]["ready"] is False
     assert requirement(schedule_required, "telegram_group")["status"] == "NEEDS_ACTION"
     app.state.settings.schedule_delivery_enabled = False
+    async with app.state.session_factory() as db, db.begin():
+        binding = await db.get(TelegramBinding, identifier)
+        binding.group_status, binding.group_availability = "CONNECTED", "AVAILABLE"
+        binding.group_generation = binding.group_private_generation = 1
+        binding.telegram_group_chat_id = -771002
+    ready = (await client.get(f"/api/technicians/{identifier}")).json()
+    assert ready["pilot_readiness"]["ready"] is True
     inactive = await patch_technician(client, identifier, status="INACTIVE")
     assert requirement(inactive.json(), "profile")["status"] == "BLOCKED"
 

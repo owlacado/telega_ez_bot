@@ -932,3 +932,18 @@ Telegram provider and made no Contracts or GPS product change.
 
 The nine remaining controlled TEST-pilot blockers are TD-012/017/022/025/027/028/029/030/033.
 **PILOT READY: NO.**
+
+## Approved pilot workflow completion
+
+Work Report and Expense submissions now create durable group activity in the existing Telegram
+outbox. Financial commits remain independent of provider availability; generation/member checks,
+rate-rejection retry, and UNKNOWN/no-blind-retry handling apply. The manager can inspect historical
+attribution, submission timestamp and revision in the restored saved-submission dialogs. Current
+same-date ScheduleDispatch replaces prior ACK eligibility, with availability and exact actor/message
+checks; previous receipts/history remain intact. Migration: `fea610060001`.
+
+Approved scope: no Calendar report write-back; `/daily` and `/tomorrow` remain deferred. No correction,
+void, Contracts, GPS or CRM workflow was introduced. See WORKFLOW_PARITY_AUDIT.md for the delivery
+failure/manual-review contract and verification. These changes close the identified local workflow
+links, not external acceptance: TD-012/017/025/029 and TD-022/027/028/030/033 remain OPEN. No TD is closed
+or reclassified by fake-provider evidence. PILOT READY: NO pending deployment and live TEST evidence.

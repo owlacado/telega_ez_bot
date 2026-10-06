@@ -549,3 +549,28 @@ it("renders hostile Telegram metadata as plain text", async () => {
   expect(await screen.findByText(name)).toBeVisible();
   expect(view.container.querySelector("img")).toBeNull();
 });
+
+it("shows business delivery results as report/expense activity", async () => {
+  data.deliveries = [
+    {
+      id: "r",
+      destination: "WORK_GROUP",
+      kind: "WORK_REPORT",
+      state: "UNKNOWN",
+      error_code: "NETWORK_UNCERTAIN",
+      created_at: "2026-10-06T12:00:00Z",
+    },
+    {
+      id: "e",
+      destination: "WORK_GROUP",
+      kind: "EXPENSE",
+      state: "SENT",
+      error_code: null,
+      created_at: "2026-10-06T12:01:00Z",
+    },
+  ];
+  renderConnections();
+  fireEvent.click(await screen.findByText("Recent Telegram activity"));
+  expect(screen.getByText(/Work report/)).toHaveTextContent("UNKNOWN");
+  expect(screen.getByText(/Group.*Expense/)).toHaveTextContent("SENT");
+});

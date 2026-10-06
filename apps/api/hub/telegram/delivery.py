@@ -9,6 +9,7 @@ from hub.auth.security import now
 from hub.integrations.models import TelegramBinding
 from hub.integrations.ports import TelegramProvider
 from hub.technicians.models import Technician
+from hub.telegram.activity import ACTIVITY_KINDS, bound, render_activity
 from hub.telegram.common import approved_id, can_deliver, generation
 from hub.telegram.locks import advisory_guard
 from hub.telegram.models import TelegramInvitation, TelegramOutbox
@@ -170,7 +171,11 @@ async def deliver_one(
                 and current.private_generation == job.private_generation
             )
             target = approved_id(current, job.destination) if current else None
+            activity = job.kind in ACTIVITY_KINDS
             available = valid and can_deliver(current, job.destination, bot_id)
+            if activity:
+                available = available and bound(job, current)
+            message = await render_activity(db, job) if activity and available else None
         if not valid:
             await finish(factory, job_id, "CANCELLED", error="BINDING_CHANGED")
         elif job.kind == "VERIFY_GROUP":
@@ -178,12 +183,13 @@ async def deliver_one(
         elif not available or target is None:
             await finish(factory, job_id, "CANCELLED", error="DESTINATION_UNAVAILABLE")
         else:
+            send_started = False
             try:
                 if job.destination == "WORK_GROUP":
                     bot = await provider.member(target, bot_id)
                     member = (
                         await provider.member(target, current.telegram_user_id)
-                        if bot.status == "administrator"
+                        if activity or bot.status == "administrator"
                         else None
                     )
                     if (
@@ -194,7 +200,25 @@ async def deliver_one(
                         raise ProviderError("ACCESS_DENIED")
                 # Dedicated advisory lock serializes sends with disconnect/replacement/deletion.
                 # No transaction remains open while Telegram is being contacted.
-                message = MESSAGES[job.kind]
+                if activity:
+                    # Membership I/O can race lifecycle updates. Re-read identity,
+                    # availability and cancellation after inspection, before send.
+                    async with factory() as db:
+                        fresh_job = await db.get(TelegramOutbox, job_id)
+                        fresh_binding = await db.get(TelegramBinding, technician_id)
+                        fresh_tech = await db.get(Technician, technician_id)
+                        still_valid = (
+                            fresh_job
+                            and fresh_job.state == "PROCESSING"
+                            and fresh_tech
+                            and fresh_tech.status == "ACTIVE"
+                            and bound(fresh_job, fresh_binding)
+                        )
+                    if not still_valid:
+                        await finish(factory, job_id, "CANCELLED", error="BINDING_CHANGED")
+                        return True
+                else:
+                    message = MESSAGES[job.kind]
                 if job.kind == "APPROVED":
                     message = (
                         "You're connected to Technician Hub."
@@ -204,6 +228,7 @@ async def deliver_one(
                             f"{technician.last_name}."
                         )
                     )
+                send_started = True
                 message_id = await provider.send(target, message)
                 await finish(factory, job_id, "SENT", message_id=message_id)
             except ProviderError as error:
@@ -215,7 +240,10 @@ async def deliver_one(
                     await finish(
                         factory,
                         job_id,
-                        "UNKNOWN" if error.code == "NETWORK_UNCERTAIN" else "FAILED",
+                        "UNKNOWN"
+                        if send_started
+                        and error.code in {"NETWORK_UNCERTAIN", "PROVIDER_UNAVAILABLE"}
+                        else "FAILED",
                         error=error.code,
                     )
     return True

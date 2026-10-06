@@ -94,3 +94,34 @@ to investigate and reconcile; it is not by itself canonical financial corruption
 
 Only reviewed PASS evidence can change `Live completed` in
 `TEST_PROVIDER_ACCEPTANCE_MATRIX.md`. Local fake-provider reruns never substitute for this plan.
+
+## Required additions for the approved pilot workflow release
+
+Use matching API/Telegram worker/frontend with migration `fea610060001` or its successor. The normal
+database is not a test fixture. Apply approved deployment/backup procedures before live activation.
+The prior order remains: private onboarding -> group -> Google read setup -> forms/activity ->
+schedule/ACK -> Sheets -> parity/recovery. Calendar remains read-only; do not grant write scope or
+expect a report description update. Menu contains only /report and /expenses; no /daily or /tomorrow.
+
+At step 5, test one report and one expense with fictional values. Verify browser success, one stored
+record/revision and one activity intent on receipt replay. Verify the exact TEST work group receives
+the matching saved technician/date/operational facts, literal formatting, no internal IDs/tokens and
+no private fallback. In the technician page open Saved submissions, then each record; verify saved
+name, timestamp and revision even after renaming the fictional profile. Compare Accounting as before.
+
+Observe Recent Telegram activity for SENT, FAILED, CANCELLED or UNKNOWN. A known unavailable group
+must not prevent the financial save. Lost membership, revoked bot rights and replacement must not
+send queued facts to a different destination. Transient lookup failures must not disclose facts to
+an unverified group. Use automated fake injection for uncertainty when a live failure cannot be
+safely induced. UNKNOWN is an operator review, never permission to reset/replay or submit a second
+expense. Repair setup and document manual follow-up; replacement does not backfill old messages.
+
+At step 6, acknowledge the current exact schedule twice and verify one stored ACK. Send a changed
+schedule or explicit resend for the same technician/work date; old button must fail immediately,
+even before the new send completes. Acknowledge the new delivered message. Verify a different actor
+cannot ACK and known UNAVAILABLE/REVALIDATION_REQUIRED effective binding rejects ACK. Restore through
+normal revalidation. Preserve previous receipt/ACK history; ACK means seeing the exact schedule only.
+Record the release/client versions and sanitized evidence, without tokens or destination identifiers.
+
+All live matrix rows remain pending until this is executed and reviewed. This document does not
+constitute provider execution or deployment approval by itself.

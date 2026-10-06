@@ -1,5 +1,11 @@
 # Technician expenses — Stage 6
 
+> Approved pilot update: successful submissions now enqueue Work Group activity on the existing
+> Telegram outbox. Browser receipt still confirms persistence independently of delivery. The stage
+> text below records the earlier boundary; its no-Telegram-notification statements are superseded.
+> See WORKFLOW_PARITY_AUDIT.md and PILOT_LIVE_ACCEPTANCE_PLAN.md for current delivery/recovery rules.
+> Corrections remain deferred; Calendar report write-back is intentionally not restored.
+
 PostgreSQL is canonical. Expenses have no Google Form, Sheet, mapping row, Calendar,
 Discord, receipt-upload, customer/job, reimbursement or approval dependency. See
 [legacy evidence](LEGACY_EXPENSE_INVENTORY.md). This workflow stores raw facts;

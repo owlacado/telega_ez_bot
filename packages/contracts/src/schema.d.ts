@@ -1328,6 +1328,8 @@ export interface components {
             ack_status: "NOT_SENT" | "PENDING" | "ACKNOWLEDGED";
             /** Acknowledged At */
             acknowledged_at: string | null;
+            /** Superseded At */
+            superseded_at?: string | null;
             /** Resend Of Id */
             resend_of_id: string | null;
         };

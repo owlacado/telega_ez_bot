@@ -1,5 +1,11 @@
 # Work Reports — Stage 5
 
+> Approved pilot update: successful submissions now enqueue Work Group activity on the existing
+> Telegram outbox. Browser receipt still confirms persistence independently of delivery. The stage
+> text below records the earlier boundary; its no-Telegram-notification statements are superseded.
+> See WORKFLOW_PARITY_AUDIT.md and PILOT_LIVE_ACCEPTANCE_PLAN.md for current delivery/recovery rules.
+> Corrections remain deferred; Calendar report write-back is intentionally not restored.
+
 The private Telegram `/report` command (also recognizes `Submit Report`) issues a
 short-lived mobile form. PostgreSQL is canonical. No Google Form, Sheets mapping,
 Discord, Calendar write, accounting formula, expense, contract or GPS is involved.

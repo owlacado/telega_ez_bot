@@ -13,6 +13,7 @@ from hub.accounting_mirrors.service import enqueue_for_business_change
 from hub.audit.service import audit
 from hub.expenses.models import ExpenseRevision, TechnicianExpense
 from hub.expenses.schemas import ExpenseForm, ExpenseList, ExpenseRead, ExpenseReceipt
+from hub.telegram.activity import enqueue_activity
 from hub.work_reports import service as forms
 
 
@@ -83,6 +84,7 @@ async def submit(factory, token, payload):
         value.payload_hash = fingerprint
         value.submitted_at = instant
         audit(db, "expense.submitted", expense.id, actor_kind="TECHNICIAN")
+        await enqueue_activity(db, tech.id, value.bot_id, expense_id=expense.id)
         await enqueue_for_business_change(db, tech.id, day)
         return ExpenseReceipt(expense_id=expense.id)
 

@@ -37,7 +37,6 @@ def pilot_readiness(
     settings: Settings | None = None,
     google_connection: CalendarConnection | None = None,
 ) -> TechnicianPilotReadiness:
-    schedule_required = bool(settings and settings.schedule_delivery_enabled)
     requirements = [
         PilotRequirement(
             key="profile",
@@ -66,9 +65,7 @@ def pilot_readiness(
         PilotRequirement(
             key="telegram_private",
             label="Telegram private chat",
-            status="READY"
-            if integrations.telegram_private == "CONNECTED"
-            else "NEEDS_ACTION",
+            status="READY" if integrations.telegram_private == "CONNECTED" else "NEEDS_ACTION",
             required=True,
             reason=(
                 "Private Telegram identity is connected and available."
@@ -84,24 +81,16 @@ def pilot_readiness(
         PilotRequirement(
             key="telegram_group",
             label="Telegram work group",
-            status=(
-                "READY"
-                if integrations.telegram_group == "CONNECTED"
-                else "NEEDS_ACTION"
-                if schedule_required
-                else "OPTIONAL"
-            ),
-            required=schedule_required,
+            status=("READY" if integrations.telegram_group == "CONNECTED" else "NEEDS_ACTION"),
+            required=True,
             reason=(
                 "Work group is connected and available."
                 if integrations.telegram_group == "CONNECTED"
-                else "A work group is required while schedule delivery is enabled."
-                if schedule_required
-                else "A work group is optional while schedule delivery is disabled."
+                else "A work group is required for report and expense activity."
             ),
             action=(
                 "Connect or repair the work group."
-                if schedule_required and integrations.telegram_group != "CONNECTED"
+                if integrations.telegram_group != "CONNECTED"
                 else None
             ),
         ),

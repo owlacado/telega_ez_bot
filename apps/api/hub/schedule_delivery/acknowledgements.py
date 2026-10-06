@@ -10,6 +10,7 @@ from hub.schedule_delivery.delivery import clock
 from hub.schedule_delivery.domain import token_hash
 from hub.schedule_delivery.models import ScheduleDispatch
 from hub.technicians.models import Technician
+from hub.telegram.common import can_deliver
 from hub.telegram.locks import advisory_guard
 
 
@@ -50,6 +51,7 @@ async def _acknowledge(factory, locks, event, bot_id):
             if (
                 not row
                 or row.status != "SENT"
+                or row.superseded_at is not None
                 or not row.ack_expires_at
                 or row.ack_expires_at <= stamp
                 or row.bot_id != bot_id
@@ -57,6 +59,11 @@ async def _acknowledge(factory, locks, event, bot_id):
                 or row.chat_id != event.chat_id
                 or row.message_id != event.message_id
                 or not binding
+                or not can_deliver(
+                    binding,
+                    "WORK_GROUP" if row.destination == "WORK_GROUP" else "PRIVATE_TELEGRAM",
+                    bot_id,
+                )
                 or binding.bot_id != bot_id
                 or binding.private_status != "CONNECTED"
                 or binding.telegram_user_id != event.user_id

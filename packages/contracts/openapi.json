@@ -3710,6 +3710,18 @@
             ],
             "title": "Acknowledged At"
           },
+          "superseded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded At"
+          },
           "resend_of_id": {
             "anyOf": [
               {

@@ -155,6 +155,11 @@ async def create_dispatch(request, technician_id, body=None, *, automatic=False)
                 private_generation=binding.private_generation,
                 group_generation=binding.group_generation,
             )
+            # Same technician lock as ACK: a new accepted dispatch supersedes every
+            # older dispatch for this work date, even if its send later fails.
+            for older in previous:
+                if older.superseded_at is None:
+                    older.superseded_at = stamp
             db.add(item)
             await db.flush()
             if not automatic:

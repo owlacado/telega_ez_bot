@@ -136,6 +136,7 @@ class ScheduleDispatch(Base, Timestamps):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ack_status: Mapped[str] = mapped_column(String(16), default="NOT_SENT")
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ack_token_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
     ack_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     bot_id: Mapped[int] = mapped_column(BigInteger)

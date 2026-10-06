@@ -281,12 +281,17 @@ function Delivery({
                 )}{" "}
                 · {d.job_count} jobs
               </p>
+              {d.superseded_at && (
+                <p>Superseded by a newer schedule for this work date.</p>
+              )}
               {d.sent_at && <p>Sent {new Date(d.sent_at).toLocaleString()}</p>}
               {d.status === "SENT" && (
                 <p>
                   {d.ack_status === "ACKNOWLEDGED"
                     ? `Acknowledged ${d.acknowledged_at ? new Date(d.acknowledged_at).toLocaleString() : ""}`
-                    : "Awaiting acknowledgement"}
+                    : d.superseded_at
+                      ? "Acknowledgement unavailable"
+                      : "Awaiting acknowledgement"}
                 </p>
               )}
               {d.status === "AMBIGUOUS" && (

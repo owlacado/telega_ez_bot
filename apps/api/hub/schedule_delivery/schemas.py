@@ -38,6 +38,7 @@ class DispatchRead(BaseModel):
     finished_at: datetime | None
     ack_status: Literal["NOT_SENT", "PENDING", "ACKNOWLEDGED"]
     acknowledged_at: datetime | None
+    superseded_at: datetime | None = None
     resend_of_id: UUID | None
 
 

@@ -398,7 +398,7 @@ export function TelegramConnections({
       />
       {data && data.deliveries.length > 0 && (
         <details className="delivery-results">
-          <summary>Recent connection activity</summary>
+          <summary>Recent Telegram activity</summary>
           <p className="field-hint">
             Sent means Telegram accepted the message, not that it was read.
             Unknown outcomes are not automatically retried.
@@ -411,7 +411,11 @@ export function TelegramConnections({
                   ? "Membership check"
                   : job.kind === "TEST"
                     ? "Test message"
-                    : "Connection message"}
+                    : job.kind === "WORK_REPORT"
+                      ? "Work report"
+                      : job.kind === "EXPENSE"
+                        ? "Expense"
+                        : "Connection message"}
                 : <strong>{job.state}</strong>
                 {job.error_code && ` (${job.error_code.replaceAll("_", " ")})`}
               </li>

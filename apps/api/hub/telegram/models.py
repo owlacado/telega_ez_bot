@@ -72,7 +72,19 @@ class TelegramOutbox(Base):
             "state IN ('QUEUED','PROCESSING','SENT','FAILED','UNKNOWN','CANCELLED')", name="state"
         ),
         CheckConstraint("destination IN ('PRIVATE_TELEGRAM','WORK_GROUP')", name="destination"),
-        CheckConstraint("kind IN ('APPROVED','TEST','VERIFY_GROUP')", name="kind"),
+        CheckConstraint(
+            "kind IN ('APPROVED','TEST','VERIFY_GROUP','WORK_REPORT','EXPENSE')", name="kind"
+        ),
+        CheckConstraint(
+            "(kind = 'WORK_REPORT' AND report_id IS NOT NULL AND expense_id IS NULL) OR "
+            "(kind = 'EXPENSE' AND expense_id IS NOT NULL AND report_id IS NULL) OR "
+            "(kind NOT IN ('WORK_REPORT','EXPENSE') AND report_id IS NULL AND expense_id IS NULL)",
+            name="activity_reference",
+        ),
+        CheckConstraint(
+            "kind NOT IN ('WORK_REPORT','EXPENSE') OR destination = 'WORK_GROUP'",
+            name="activity_group",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     technician_id: Mapped[uuid.UUID] = mapped_column(
@@ -99,6 +111,14 @@ class TelegramOutbox(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     provider_message_id: Mapped[int | None] = mapped_column(BigInteger)
+    report_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("work_reports.id", ondelete="RESTRICT"), unique=True
+    )
+    expense_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("technician_expenses.id", ondelete="RESTRICT"), unique=True
+    )
+    activity_chat_id: Mapped[int | None] = mapped_column(BigInteger)
+    activity_user_id: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class TelegramWorkerState(Base):

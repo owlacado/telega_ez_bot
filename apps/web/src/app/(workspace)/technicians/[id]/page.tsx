@@ -9,6 +9,8 @@ import { TodayJobs, PreviewSchedule } from "@/components/calendar-jobs";
 import { useSchedule } from "@/lib/use-schedule";
 import { ProfilePanel } from "@/components/profile-panel";
 import { GpsPanel } from "@/components/detail-placeholders";
+import { WorkReports } from "@/components/work-reports";
+import { Expenses } from "@/components/expenses";
 import { Accounting } from "@/components/accounting";
 import { PilotReadiness } from "@/components/pilot-readiness";
 export default function TechnicianDetailPage({
@@ -77,6 +79,11 @@ export default function TechnicianDetailPage({
               key={`accounting:${id}:${technician.accounting_timezone}`}
               technicianId={id}
             />
+            <details className="panel">
+              <summary>Saved submissions - details and attribution</summary>
+              <WorkReports technicianId={id} />
+              <Expenses technicianId={id} />
+            </details>
             <TodayJobs resource={jobs} />
             <GpsPanel />
           </div>

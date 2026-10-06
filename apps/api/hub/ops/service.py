@@ -15,7 +15,7 @@ from hub.schedule_delivery.models import ScheduleDispatch, ScheduleWorkerState
 from hub.telegram.models import TelegramOutbox, TelegramProcessedUpdate, TelegramWorkerState
 from hub.work_reports.models import TechnicianFormSession
 
-EXPECTED_ALEMBIC_HEAD = "fda609200001"
+EXPECTED_ALEMBIC_HEAD = "fea610060001"
 FRESH_SECONDS = 120
 
 
