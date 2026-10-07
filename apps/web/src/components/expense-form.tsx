@@ -8,7 +8,20 @@ import {
 } from "react";
 import type { ExpenseForm as FormState, ExpenseReceipt } from "@hub/contracts";
 import { errorMessage } from "@/lib/api";
+import { Check, Info, ReceiptText } from "lucide-react";
+import styles from "./expense-form.module.css";
 
+type Submission = { expense_type: string; amount: string; note: string };
+type FieldName = "expense_type" | "amount" | "note";
+type FieldErrors = Partial<Record<FieldName, string>>;
+class FormRequestError extends Error {
+  constructor(
+    message: string,
+    readonly fields: FieldErrors,
+  ) {
+    super(message);
+  }
+}
 async function request<T>(
   token: string,
   suffix = "",
@@ -28,8 +41,14 @@ async function request<T>(
     body: JSON.stringify(payload ?? {}),
   });
   const body = await response.json().catch(() => null);
-  if (!response.ok)
-    throw new Error(
+  if (!response.ok) {
+    const fields: FieldErrors = {};
+    for (const detail of body?.error?.details ?? []) {
+      const name = detail.field.replace("body.", "");
+      if (["expense_type", "amount", "note"].includes(name))
+        fields[name as FieldName] = detail.message;
+    }
+    throw new FormRequestError(
       body?.error?.details
         ?.map(
           (d: { field: string; message: string }) =>
@@ -38,7 +57,9 @@ async function request<T>(
         .join("; ") ||
         body?.error?.message ||
         "Unable to save. Retry safely.",
+      fields,
     );
+  }
   return body;
 }
 export function ExpenseForm() {
@@ -50,8 +71,12 @@ export function ExpenseForm() {
   const [form, setForm] = useState<FormState | null>(null);
   const [receipt, setReceipt] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [retry, setRetry] = useState<unknown>(null);
+  const [retry, setRetry] = useState<Submission | null>(null);
+  const [saved, setSaved] = useState<Submission | null>(null);
+  const [dateLoading, setDateLoading] = useState(false);
   const load = useCallback(async (signal?: AbortSignal) => {
     const currentToken = token.current;
     const entry =
@@ -85,6 +110,10 @@ export function ExpenseForm() {
         setReceipt(null);
         setError("");
         setRetry(null);
+        setFieldErrors({});
+        setDone(false);
+        setSaved(null);
+        setDateLoading(false);
         pending.current = false;
         setBusy(false);
       }
@@ -98,12 +127,13 @@ export function ExpenseForm() {
       window.removeEventListener("hashchange", changed);
     };
   }, [load]);
-  async function send(payload: unknown) {
+  async function send(payload: Submission) {
     if (pending.current) return;
     const submittedToken = token.current;
     pending.current = true;
     setBusy(true);
     setError("");
+    setFieldErrors({});
     try {
       const result = await request<ExpenseReceipt>(
         token.current,
@@ -112,10 +142,31 @@ export function ExpenseForm() {
       );
       if (submittedToken !== token.current) return;
       setReceipt(result.expense_id);
+      setSaved(payload);
       setRetry(null);
+      // The preview date can cross midnight. Read the persisted business date
+      // through the existing capability endpoint; never infer it from the clock.
+      setDateLoading(true);
+      void request<FormState>(submittedToken)
+        .then((next) => {
+          if (
+            submittedToken === token.current &&
+            next.status === "SUBMITTED" &&
+            next.expense_id === result.expense_id
+          )
+            setForm(next);
+        })
+        .catch(() => {
+          // Saving already succeeded. A summary read failure must not suggest
+          // that a second financial submission is needed.
+        })
+        .finally(() => {
+          if (submittedToken === token.current) setDateLoading(false);
+        });
     } catch (reason) {
       if (submittedToken !== token.current) return;
       setRetry(payload);
+      if (reason instanceof FormRequestError) setFieldErrors(reason.fields);
       setError(errorMessage(reason));
     } finally {
       if (submittedToken === token.current) {
@@ -128,65 +179,150 @@ export function ExpenseForm() {
     event.preventDefault();
     const fields = new FormData(event.currentTarget);
     void send({
-      expense_type: fields.get("expense_type"),
-      amount: fields.get("amount"),
-      note: fields.get("note"),
+      expense_type: String(fields.get("expense_type") ?? ""),
+      amount: String(fields.get("amount") ?? ""),
+      note: String(fields.get("note") ?? ""),
     });
   }
+  function fieldProps(name: FieldName) {
+    return {
+      "aria-invalid": fieldErrors[name] ? true : undefined,
+      "aria-describedby": fieldErrors[name] ? `${name}-error` : undefined,
+      onInvalid: (event: FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const message = event.currentTarget.validationMessage;
+        setFieldErrors((previous) => ({ ...previous, [name]: message }));
+      },
+      onChange: () =>
+        setFieldErrors((previous) => ({ ...previous, [name]: undefined })),
+    };
+  }
+  function fieldError(name: FieldName) {
+    return fieldErrors[name] ? (
+      <span id={`${name}-error`} className={styles.fieldError}>
+        {fieldErrors[name]}
+      </span>
+    ) : null;
+  }
   return (
-    <main className="report-mobile">
-      <header>
-        <span className="eyebrow">TECHNICIAN HUB</span>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <span className={styles.brand}>
+          <ReceiptText size={18} aria-hidden="true" /> TECHNICIAN HUB
+        </span>
         <h1>Expenses</h1>
+        <p>A simple record of your work expenses.</p>
       </header>
       {receipt ? (
-        <section className="panel report-success" role="status">
+        <section className={styles.success} role="status">
+          <span className={styles.successIcon}>
+            <Check size={28} aria-hidden="true" />
+          </span>
           <h2>Expense saved successfully.</h2>
-          <p>Revision 1 · You can close this form.</p>
-          <p className="expense-receipt">Receipt: {receipt}</p>
+          <dl className={styles.summary}>
+            {saved && (
+              <>
+                <div>
+                  <dt>Amount</dt>
+                  <dd className={styles.amount}>
+                    ${saved.amount.replace(/^0+(?=\d)/, "").split(".")[0]}.
+                    {(saved.amount.split(".")[1] ?? "").padEnd(2, "0")}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Expense type</dt>
+                  <dd>{saved.expense_type.trim()}</dd>
+                </div>
+              </>
+            )}
+            <div>
+              <dt>Business date</dt>
+              <dd>
+                {form?.expense_id === receipt
+                  ? form.expense_date
+                  : dateLoading
+                    ? "Loading saved date..."
+                    : "Unavailable"}
+              </dd>
+            </div>
+            {form?.expense_id === receipt && (
+              <div>
+                <dt>Timezone</dt>
+                <dd>{form.accounting_timezone}</dd>
+              </div>
+            )}
+          </dl>
+          <p>
+            {done
+              ? "All done. Close this tab to return to Telegram."
+              : "You can close this form and return to Telegram."}
+          </p>
+          {!done && (
+            <button
+              type="button"
+              className={styles.primary}
+              onClick={() => {
+                setDone(true);
+                // Browsers only allow closing script-opened windows. Keep a useful
+                // fallback for normal tabs without loading the Telegram SDK.
+                if (window.opener) window.close();
+              }}
+            >
+              Done
+            </button>
+          )}
         </section>
       ) : (
         <>
           {error && (
-            <div role="alert" className="error-notice">
+            <div id="expense-error" role="alert" className={styles.error}>
               {error}
             </div>
           )}
           {!form ? (
             <>
-              <p>Opening your secure form…</p>
-              <button className="button" onClick={() => void load()}>
+              <p className={styles.loading}>Opening your secure form…</p>
+              <button className={styles.secondary} onClick={() => void load()}>
                 Retry opening form
               </button>
             </>
           ) : (
             <>
-              <p>
+              <section className={styles.context} aria-label="Expense context">
+                <span className={styles.contextLabel}>Technician</span>
                 <strong>{form.technician_name}</strong>
-              </p>
-              <p>
-                Business date now: {form.expense_date} ·{" "}
-                {form.accounting_timezone}
-              </p>
-              <p className="muted">
-                The saved date uses your technician timezone at submission. It
-                can change at midnight. This private link expires at{" "}
-                {new Date(form.expires_at).toLocaleTimeString()}. Do not share
-                it.
-              </p>
-              <form className="panel report-fields" onSubmit={submit}>
-                <label>
-                  Expense type
+                <dl>
+                  <div>
+                    <dt>Business date now</dt>
+                    <dd>{form.expense_date ?? "Unavailable"}</dd>
+                  </div>
+                  <div>
+                    <dt>Timezone</dt>
+                    <dd>{form.accounting_timezone ?? "Unavailable"}</dd>
+                  </div>
+                </dl>
+              </section>
+              <form
+                className={styles.form}
+                onSubmit={submit}
+                aria-describedby={error ? "expense-error" : undefined}
+              >
+                <div className={styles.field}>
+                  <label htmlFor="expense-type">Expense type</label>
                   <input
+                    id="expense-type"
+                    {...fieldProps("expense_type")}
                     name="expense_type"
                     required
                     maxLength={100}
                     autoComplete="off"
                   />
-                </label>
-                <label>
-                  Amount ($)
+                  {fieldError("expense_type")}
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="expense-amount">Amount ($)</label>
                   <input
+                    id="expense-amount"
+                    {...fieldProps("amount")}
                     name="amount"
                     type="text"
                     inputMode="decimal"
@@ -195,26 +331,40 @@ export function ExpenseForm() {
                     maxLength={13}
                     autoComplete="off"
                   />
-                </label>
-                <label>
-                  Note (optional)
-                  <textarea name="note" maxLength={4000} rows={4} />
-                </label>
-                <p className="muted">
-                  Receipt uploads are not supported. Keep any receipt photos in
-                  your work group.
-                </p>
+                  {fieldError("amount")}
+                </div>
+                <div className={styles.field}>
+                  <label htmlFor="expense-note">Note (optional)</label>
+                  <textarea
+                    id="expense-note"
+                    {...fieldProps("note")}
+                    name="note"
+                    maxLength={4000}
+                    rows={3}
+                  />
+                  {fieldError("note")}
+                </div>
+                <div className={styles.help}>
+                  <Info size={18} aria-hidden="true" />
+                  <p>Receipt photos can be sent to your Work Group.</p>
+                </div>
                 <button
-                  className="button primary"
+                  className={styles.primary}
                   disabled={busy}
                   type="submit"
                 >
                   {busy ? "Saving…" : "Save expense"}
                 </button>
               </form>
+              <p className={styles.privacy}>
+                The saved date uses your technician timezone at submission and
+                can change at midnight. This private link expires at{" "}
+                {new Date(form.expires_at).toLocaleTimeString()}. Do not share
+                it.
+              </p>
               {retry !== null && (
                 <button
-                  className="button"
+                  className={styles.secondary}
                   disabled={busy}
                   onClick={() => void send(retry)}
                 >

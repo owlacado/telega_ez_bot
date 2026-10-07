@@ -78,7 +78,7 @@ it("mobile form sends only financial inputs, keeps currency string, and handles 
   expect(await screen.findByRole("status")).toHaveTextContent(
     "Expense saved successfully.",
   );
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(3);
   expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({
     expense_type: "Parking",
     amount: "20.01",
@@ -223,4 +223,166 @@ it("financial facts never claim net, profit or payout", async () => {
   const { container } = render(<Expenses technicianId="a" />);
   await screen.findByText(/Today/);
   expect(container.textContent).not.toMatch(/net|profit|payout/i);
+});
+
+it("associates server field errors without changing labels or retry payload", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValueOnce(response(form))
+      .mockResolvedValue(
+        response(
+          {
+            error: {
+              details: [
+                {
+                  field: "body.expense_type",
+                  message: "Use plain text without markup.",
+                },
+              ],
+            },
+          },
+          false,
+        ),
+      ),
+  );
+  const { container } = render(<ExpenseForm />);
+  await userEvent.type(
+    await screen.findByLabelText("Expense type"),
+    "<Parking>",
+  );
+  await userEvent.type(screen.getByLabelText("Amount ($)"), "24.50");
+  fireEvent.submit(container.querySelector("form")!);
+  await screen.findByRole("alert");
+  const field = screen.getByLabelText("Expense type");
+  expect(field).toHaveAttribute("aria-invalid", "true");
+  expect(field).toHaveAccessibleDescription("Use plain text without markup.");
+  expect(screen.getByLabelText("Amount ($)")).not.toHaveAttribute(
+    "aria-invalid",
+  );
+  await userEvent.clear(field);
+  expect(field).not.toHaveAttribute("aria-invalid");
+});
+it("does not expose internal receipt or invent a group-delivery status", async () => {
+  const id = "d6fd08bc-e198-4fe9-a769-0ebd225af361";
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        response({ ...form, status: "SUBMITTED", expense_id: id }),
+      ),
+  );
+  const { container } = render(<ExpenseForm />);
+  await screen.findByRole("status");
+  expect(container).not.toHaveTextContent(id);
+  expect(screen.getByRole("status")).not.toHaveTextContent(
+    /queued|sent to|delivered/i,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Close this tab to return to Telegram.",
+  );
+});
+
+it("summarizes the accepted frozen payload and persisted date across midnight", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(response(form))
+    .mockRejectedValueOnce(new Error("Lost response"))
+    .mockResolvedValueOnce(response({ expense_id: "saved" }))
+    .mockResolvedValue(
+      response({
+        ...form,
+        status: "SUBMITTED",
+        expense_id: "saved",
+        expense_date: "2030-09-19",
+      }),
+    );
+  vi.stubGlobal("fetch", fetch);
+  const { container } = render(<ExpenseForm />);
+  await userEvent.type(
+    await screen.findByLabelText("Expense type"),
+    " Parking ",
+  );
+  await userEvent.type(screen.getByLabelText("Amount ($)"), "00024.5");
+  fireEvent.submit(container.querySelector("form")!);
+  await screen.findByRole("alert");
+  fireEvent.change(screen.getByLabelText("Amount ($)"), {
+    target: { value: "99.00" },
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Retry same submission" }),
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("status")).toHaveTextContent("2030-09-19"),
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("$24.50");
+  expect(screen.getByRole("status")).toHaveTextContent("Parking");
+  expect(screen.getByRole("status")).not.toHaveTextContent("99.00");
+  expect(screen.getByRole("status")).not.toHaveTextContent("2030-09-18");
+  expect(fetch.mock.calls[3][0]).toBe("/api/technician-forms/expense");
+  expect(JSON.parse(fetch.mock.calls[3][1].body)).toEqual({});
+});
+it("failed saved-date read never retries a successful financial submission", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(response(form))
+    .mockResolvedValueOnce(response({ expense_id: "saved" }))
+    .mockRejectedValue(new Error("Expired form"));
+  vi.stubGlobal("fetch", fetch);
+  const { container } = render(<ExpenseForm />);
+  await userEvent.type(await screen.findByLabelText("Expense type"), "Gas");
+  await userEvent.type(screen.getByLabelText("Amount ($)"), "10");
+  fireEvent.submit(container.querySelector("form")!);
+  await waitFor(() =>
+    expect(screen.getByRole("status")).toHaveTextContent("Unavailable"),
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("$10.00");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Retry same submission" }),
+  ).toBeNull();
+  expect(
+    fetch.mock.calls.filter(([url]) => url.endsWith("/submit")),
+  ).toHaveLength(1);
+});
+it("late saved-date response cannot replace a new capability's form", async () => {
+  let resolveDate!: (value: unknown) => void;
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(response(form))
+    .mockResolvedValueOnce(response({ expense_id: "old" }))
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveDate = resolve;
+        }),
+    )
+    .mockResolvedValue(
+      response({ ...form, technician_name: "New Technician" }),
+    );
+  vi.stubGlobal("fetch", fetch);
+  const { container } = render(<ExpenseForm />);
+  await userEvent.type(await screen.findByLabelText("Expense type"), "Gas");
+  await userEvent.type(screen.getByLabelText("Amount ($)"), "10");
+  fireEvent.submit(container.querySelector("form")!);
+  await screen.findByRole("status");
+  window.location.hash = "b".repeat(43);
+  fireEvent(window, new Event("hashchange"));
+  await screen.findByText("New Technician");
+  await act(async () =>
+    resolveDate(
+      response({
+        ...form,
+        status: "SUBMITTED",
+        expense_id: "old",
+        expense_date: "2030-09-19",
+      }),
+    ),
+  );
+  expect(screen.getByText("New Technician")).toBeInTheDocument();
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.queryByText("$10.00")).toBeNull();
 });

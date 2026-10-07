@@ -1,0 +1,266 @@
+/* Isolated from manager accounting and Work Report layouts. */
+.page {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 28px 16px max(28px, env(safe-area-inset-bottom));
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.header {
+  margin-bottom: 24px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 1.5px;
+}
+.header h1 {
+  margin: 14px 0 6px;
+  font-size: 28px;
+  letter-spacing: -0.7px;
+}
+.header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+.context {
+  padding: 0 4px 20px;
+}
+.contextLabel {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.context > strong {
+  display: block;
+  font-size: 16px;
+}
+.context dl {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 12px;
+}
+.context dl > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 2px 16px;
+}
+.context dt {
+  color: var(--muted);
+}
+.context dd {
+  margin: 0;
+  font-weight: 600;
+}
+.form,
+.success {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 20px #18213004;
+}
+.form {
+  display: grid;
+  gap: 20px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 0;
+}
+.field > label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+.field input,
+.field textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #bdc5d0;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  padding: 11px 12px;
+  font:
+    400 16px/1.5 Arial,
+    Helvetica,
+    sans-serif;
+}
+.field input {
+  height: 46px;
+}
+.field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: 3px solid #6554c030;
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.field [aria-invalid="true"] {
+  border-color: var(--red);
+}
+.fieldError {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 400;
+}
+.help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 9px;
+  background: #f3f1fa;
+  color: #514476;
+}
+.help svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.help p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.primary,
+.secondary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.primary {
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.primary:hover {
+  background: var(--accent-hover);
+}
+.secondary {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--accent-hover);
+  margin-top: 16px;
+}
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.primary:disabled,
+.secondary:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.privacy {
+  margin: 16px 4px 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+.error {
+  border: 1px solid #e8b9bd;
+  background: #fff3f3;
+  color: #8d2931;
+  border-radius: 9px;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.loading {
+  color: var(--muted);
+}
+.success {
+  text-align: center;
+  padding: 28px 20px;
+}
+.successIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  color: #21634e;
+  background: #e7f4ed;
+}
+.success h2 {
+  font-size: 21px;
+  letter-spacing: -0.4px;
+}
+.success > p {
+  margin: 10px 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.summary {
+  margin: 24px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 16px 0;
+  text-align: left;
+  display: grid;
+  gap: 12px;
+}
+.summary > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+.summary dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.summary dd {
+  margin: 0;
+  font-weight: 600;
+  max-width: 100%;
+}
+.summary .amount {
+  font-size: 24px;
+  color: var(--ink);
+}
+@media (min-width: 640px) {
+  .page {
+    padding-top: 48px;
+  }
+  .form {
+    padding: 24px;
+  }
+}
+@media (max-width: 359px) {
+  .page {
+    padding-inline: 12px;
+  }
+  .form,
+  .success {
+    padding-inline: 16px;
+  }
+}
