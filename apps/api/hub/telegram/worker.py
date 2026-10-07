@@ -5,8 +5,7 @@ import json
 import logging
 import signal
 
-from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
 import hub.models  # noqa: F401
@@ -14,8 +13,8 @@ from hub.auth.security import now
 from hub.core.config import Settings
 from hub.integrations.ports import TelegramProvider
 from hub.telegram.delivery import deliver_one, recover_processing
-from hub.telegram.locks import advisory_guard
 from hub.telegram.models import TelegramProcessedUpdate, TelegramWorkerState
+from hub.telegram.polling import POLL_SECONDS, WAIT_SECONDS, LeaseLost, PollingLease
 from hub.telegram.types import ProviderError
 from hub.telegram.updates import process_update
 
@@ -27,20 +26,17 @@ class Worker:
         self.settings, self.engine, self.provider = settings, engine, provider
         self.factory = async_sessionmaker(engine, expire_on_commit=False)
         self.bot_id = settings.telegram_expected_bot_id
+        self.lease = None
+        self.poll_uncertain = False
+        self.stop = asyncio.Event()
 
     async def state(self, status: str, error: str | None = None) -> None:
         logger.info(
             json.dumps({"event": "telegram_worker_state", "status": status, "error": error})
         )
-        async with self.factory() as db, db.begin():
-            await db.execute(
-                insert(TelegramWorkerState)
-                .values(bot_id=self.bot_id, status=status, error_code=error, heartbeat_at=now())
-                .on_conflict_do_update(
-                    index_elements=["bot_id"],
-                    set_={"status": status, "error_code": error, "heartbeat_at": now()},
-                )
-            )
+        if self.lease is None:
+            raise LeaseLost()
+        await self.lease.write(status=status, error_code=error, heartbeat_at=func.clock_timestamp())
 
     async def startup(self) -> None:
         identity = await self.provider.initialize()
@@ -76,16 +72,25 @@ class Worker:
                 not previous or (now() - previous.processed_at).total_seconds() >= 6 * 86400
             ):
                 offset = None
-        updates = await self.provider.updates(offset)
+        if self.stop.is_set():
+            return
+        await self.lease.renew()
+        self.poll_uncertain = True
+        try:
+            async with asyncio.timeout(POLL_SECONDS):
+                updates = await self.provider.updates(offset)
+            self.poll_uncertain = False
+        except TimeoutError:
+            raise ProviderError("NETWORK_UNCERTAIN") from None
+        await self.lease.renew()
         for event in sorted(updates, key=lambda value: value.update_id):
             result = await process_update(
                 self.factory, self.provider, event, self.bot_id, settings=self.settings
             )
             # Processing and its deduplication record are committed before offset advancement.
-            async with self.factory() as db, db.begin():
-                state = await db.get(TelegramWorkerState, self.bot_id, with_for_update=True)
-                state.next_update_id = event.update_id + 1
-                state.heartbeat_at = now()
+            await self.lease.write(
+                next_update_id=event.update_id + 1, heartbeat_at=func.clock_timestamp()
+            )
             if result.reply and event.chat_id is not None:
                 try:
                     await self.provider.send(event.chat_id, result.reply)
@@ -98,39 +103,74 @@ class Worker:
             return
         if not self.bot_id:
             raise ProviderError("BOT_NOT_CONFIGURED")
-        async with advisory_guard(self.engine, "telegram-poller", self.bot_id, wait=False):
+        self.stop = stop
+        while not stop.is_set():
+            lease = PollingLease(self.engine, self.bot_id)
+            if not await lease.acquire():
+                # A standby is healthy. Do not overwrite the active owner's status/offset.
+                logger.info('{"event":"telegram_poller","status":"WAITING_FOR_LEASE"}')
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=WAIT_SECONDS)
+                except TimeoutError:
+                    pass
+                continue
+            self.lease = lease
+            owned = asyncio.create_task(self.owned_run(stop, max_cycles))
+            renewal = asyncio.create_task(lease.maintain())
             try:
-                await self.startup()
-                attempts, cycles = 0, 0
-                while not stop.is_set() and (max_cycles is None or cycles < max_cycles):
-                    try:
-                        await self.cycle()
-                        attempts = 0
-                        cycles += 1
-                    except ProviderError as error:
-                        if (
-                            error.code
-                            not in {"NETWORK_UNCERTAIN", "RATE_LIMITED", "PROVIDER_UNAVAILABLE"}
-                            or attempts >= 5
-                            or error.retry_after > 3600
-                        ):
-                            raise
-                        attempts += 1
-                        await self.state("RETRYING", error.code)
-                        delay = max(2**attempts, error.retry_after)
-                        try:
-                            await asyncio.wait_for(stop.wait(), timeout=delay)
-                        except TimeoutError:
-                            pass
-                await self.state("STOPPED")
-            except ProviderError as error:
-                await self.state("FAILED", error.code)
-                raise
-            except Exception:
-                await self.state("FAILED", "PROCESSING_FAILED")
-                raise ProviderError("PROCESSING_FAILED") from None
+                done, _ = await asyncio.wait({owned, renewal}, return_when=asyncio.FIRST_COMPLETED)
+                if renewal in done:
+                    await renewal  # Lease loss cancels in-flight work before cleanup/unlock.
+                await owned
+                return
+            except LeaseLost:
+                logger.warning('{"event":"telegram_poller","status":"LEASE_LOST"}')
             finally:
-                await self.provider.close()
+                owned.cancel()
+                renewal.cancel()
+                await asyncio.gather(owned, renewal, return_exceptions=True)
+                try:
+                    await self.provider.close()
+                finally:
+                    # On cancellation/DB loss/crash, retain the expiry as a drain
+                    # window for any remote poll whose response we cannot observe.
+                    await lease.close(release=not self.poll_uncertain)
+                    self.lease = None
+
+    async def owned_run(self, stop, max_cycles):
+        try:
+            await self.startup()
+            attempts, cycles = 0, 0
+            while not stop.is_set() and (max_cycles is None or cycles < max_cycles):
+                try:
+                    await self.cycle()
+                    attempts = 0
+                    cycles += 1
+                except ProviderError as error:
+                    if (
+                        error.code
+                        not in {"NETWORK_UNCERTAIN", "RATE_LIMITED", "PROVIDER_UNAVAILABLE"}
+                        or attempts >= 5
+                        or error.retry_after > 3600
+                    ):
+                        raise
+                    attempts += 1
+                    await self.state("RETRYING", error.code)
+                    try:
+                        await asyncio.wait_for(
+                            stop.wait(), timeout=max(2**attempts, error.retry_after)
+                        )
+                    except TimeoutError:
+                        pass
+            await self.state("STOPPED")
+        except LeaseLost:
+            raise
+        except ProviderError as error:
+            await self.state("FAILED", error.code)
+            raise
+        except Exception:
+            await self.state("FAILED", "PROCESSING_FAILED")
+            raise ProviderError("PROCESSING_FAILED") from None
 
 
 async def main() -> None:

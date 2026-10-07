@@ -123,6 +123,13 @@ class TelegramOutbox(Base):
 
 class TelegramWorkerState(Base):
     __tablename__ = "telegram_worker_states"
+    __table_args__ = (
+        CheckConstraint(
+            "(poll_owner IS NULL) = (poll_lease_until IS NULL)", name="poll_lease_pair"
+        ),
+    )
+    poll_owner: Mapped[uuid.UUID | None] = mapped_column()
+    poll_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     bot_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     next_update_id: Mapped[int | None] = mapped_column(BigInteger)
     status: Mapped[str] = mapped_column(String(30), default="STOPPED")

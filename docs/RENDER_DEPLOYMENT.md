@@ -112,3 +112,54 @@ Provider activation is a separate change and a separate acceptance run. Create t
 ## Operational controls still open
 
 The Blueprint provides a private database, one-replica boundary, exact origin, secure cookies, internal application ports, stripped forwarding headers, body/read limits, a health path, and reproducible migrations. The operator must still configure Render-native backup retention/restore evidence, secret custody, alert routing, queue/heartbeat checks, and connection/resource alerts. The local `scripts/backup-postgres.ps1` targets Compose and must never be pointed at Render. Follow `PILOT_RUNBOOK.md`; keep TD-022/027/028/030/033 open until dedicated live TEST acceptance succeeds.
+
+## Telegram polling during rolling deployments
+
+The poller now waits behind the existing `telegram-poller` PostgreSQL advisory lock
+instead of exiting with `POLLER_ALREADY_RUNNING`. Previously that exit caused the
+combined Render supervisor to stop its other children and restart the group. This
+failure is reproducible without reaching Telegram. Separately, concurrent Bot API
+long polls can raise `Conflict`, mapped to `POLLING_CONFLICT`; without deploy logs
+we cannot assert which error appeared on a particular Render instance.
+
+Migration `ffb610060001` adds nullable `poll_owner` and `poll_lease_until` to
+`telegram_worker_states`, with a paired-null constraint. Apply the Web migration
+before starting the new Worker release. Existing offsets and business records are
+unchanged; the old worker remains compatible with the additive schema.
+
+- Ownership is per configured bot ID in the shared PostgreSQL database. Both
+  versions use the same session advisory-lock key, including the first upgrade.
+- The active owner has a random UUID and a 90-second lease computed using
+  PostgreSQL `clock_timestamp()`. It renews every 15 seconds and before/after
+  polling. Offset, state and heartbeat writes require the current unexpired UUID
+  and the original database session. Reconnecting cannot restore ownership.
+- Standbys log `WAITING_FOR_LEASE`, retry every two seconds, return their database
+  connection between attempts, and make no provider calls. They do not overwrite
+  the active owner's status, heartbeat or durable offset.
+- The Telegram long-poll timeout remains 25 seconds; the whole client poll has a
+  40-second bound. SIGTERM prevents another poll, lets the current bounded poll
+  complete, closes the provider, then releases ownership. If Render kills the
+  process first, the crash path applies.
+- Crash/uncertain in-flight poll cleanup retains the durable expiry. After the
+  old database session releases its advisory lock and the lease expires, a new
+  worker takes over and reads the committed offset. Lease expiry alone never
+  evicts a still-live lock session; this prevents overlap with a paused process.
+- A failed renewal cancels the active task before releasing its lock. Committed
+  processed updates remain deduplicated; an offset not yet committed is replayed.
+  `ADMITTED` reservations and delivery ambiguity recovery are unchanged.
+
+This coordination requires a direct PostgreSQL connection (or session pooling),
+not transaction-pooling middleware. All Hub pollers for a bot must share the same
+DB. It cannot coordinate an unrelated external bot process or make Telegram honor
+DB fencing tokens. Do not manually clear leases to accelerate rollout. If waiting
+persists beyond the lease window, inspect the old process and PostgreSQL session;
+do not assume an expired lease makes it safe to start a competing poller.
+
+Local verification uses two OS worker processes, one isolated PostgreSQL database,
+and one shared loopback fake Telegram endpoint. Graceful and forced-crash rollouts
+assert maximum concurrent polls = 1 and continuation from the durable offset. A
+real standby child under the unchanged Render supervisor remains alive without a
+restart. No production DB or live provider is used by those tests.
+
+Provider references: [Bot API getUpdates](https://core.telegram.org/bots/api#getupdates)
+and [python-telegram-bot Conflict](https://docs.python-telegram-bot.org/en/stable/telegram.error.html#telegram.error.Conflict).

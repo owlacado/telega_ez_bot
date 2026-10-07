@@ -83,9 +83,15 @@ async def test_startup_refuses_takeover(app, engine, provider, factory, problem,
 
 
 async def test_concurrent_poller_guard(app, engine, provider):
+    stop = asyncio.Event()
     async with advisory_guard(engine, "telegram-poller", BOT_ID, wait=False):
-        with pytest.raises(RuntimeError, match="POLLER_ALREADY_RUNNING"):
-            await Worker(app.state.settings, engine, provider).run(asyncio.Event(), max_cycles=1)
+        task = asyncio.create_task(
+            Worker(app.state.settings, engine, provider).run(stop, max_cycles=1)
+        )
+        await asyncio.sleep(0.15)
+        assert not task.done() and not provider.initialized
+        stop.set()
+        await asyncio.wait_for(task, 2)
     assert not provider.initialized
 
 
