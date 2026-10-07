@@ -1,0 +1,250 @@
+﻿/* Technician-only layout; manager pages and Expense styles remain independent. */
+.page {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 28px 16px max(28px, env(safe-area-inset-bottom));
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.header {
+  margin-bottom: 20px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 1.5px;
+}
+.header h1 {
+  margin: 14px 0 6px;
+  font-size: 28px;
+  letter-spacing: -0.7px;
+}
+.header p {
+  color: var(--muted);
+  font-size: 14px;
+}
+.privacy {
+  margin: 0 4px 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.job {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+  margin: 0 0 16px;
+  border: 1px solid #dcd7ef;
+  border-radius: 12px;
+  background: #f3f1fa;
+  color: var(--ink);
+  text-align: left;
+  font-size: 13px;
+}
+.job strong {
+  font-size: 15px;
+}
+.job span {
+  color: #565f70;
+}
+.job .contextLabel {
+  color: var(--accent-hover);
+  font-size: 11px;
+  font-weight: 600;
+}
+button.job:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: #ece8f7;
+}
+button.job:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.jobs h2 {
+  margin-bottom: 14px;
+}
+.form,
+.success {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 20px;
+  box-shadow: 0 4px 20px #18213004;
+}
+.form fieldset {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.form input,
+.form select,
+.form textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #8995a7;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font:
+    400 16px/1.5 Arial,
+    Helvetica,
+    sans-serif;
+}
+.form input,
+.form select {
+  height: 46px;
+}
+.form textarea {
+  min-height: 120px;
+  resize: vertical;
+  background: #fcfcfe;
+}
+.form textarea::placeholder {
+  color: #626d7f;
+  opacity: 1;
+}
+.form input:hover:not(:disabled),
+.form select:hover:not(:disabled),
+.form textarea:hover:not(:disabled) {
+  border-color: #6554c0;
+}
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  outline: 3px solid #6554c030;
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.form input:read-only {
+  background: #f3f4f7;
+  color: #505a6b;
+}
+.form :disabled {
+  cursor: not-allowed;
+}
+.form p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.reviews {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.reviews label {
+  font-size: 12px;
+}
+.reviews input {
+  padding-inline: 8px;
+}
+.primary,
+.secondary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+}
+.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.secondary {
+  margin-top: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  color: var(--accent-hover);
+}
+.page button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.page button:disabled {
+  opacity: 0.65;
+}
+.form + div {
+  margin-top: 16px;
+}
+.error {
+  border: 1px solid #e8b9bd;
+  border-radius: 9px;
+  background: #fff3f3;
+  color: #8d2931;
+  padding: 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+.success {
+  text-align: center;
+  padding: 28px 20px;
+}
+.successIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  color: #21634e;
+  background: #e7f4ed;
+}
+.success h2 {
+  font-size: 21px;
+  letter-spacing: -0.4px;
+}
+.success p {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (min-width: 640px) {
+  .page {
+    padding-top: 48px;
+  }
+  .form {
+    padding: 24px;
+  }
+}
+@media (max-width: 359px) {
+  .page {
+    padding-inline: 12px;
+  }
+  .form {
+    padding-inline: 16px;
+  }
+  .reviews {
+    gap: 8px;
+  }
+}

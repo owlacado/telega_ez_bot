@@ -236,3 +236,28 @@ it("StrictMode effect replay shares one pending form open", async () => {
   ).toBeVisible();
   expect(screen.queryByRole("alert")).toBeNull();
 });
+
+it("comments remain an optional labelled multiline input with unchanged payload", async () => {
+  const fetch = vi
+    .fn()
+    .mockResolvedValueOnce(response({ ...form, selected: job }))
+    .mockResolvedValue(response({}));
+  vi.stubGlobal("fetch", fetch);
+  const { container } = render(<WorkReportForm />);
+  const comments = await screen.findByLabelText(
+    "Job description & comments (optional)",
+  );
+  expect(comments.tagName).toBe("TEXTAREA");
+  expect(comments).toHaveAttribute("maxlength", "4000");
+  expect(comments).not.toBeRequired();
+  expect(comments).toHaveAttribute(
+    "placeholder",
+    expect.stringContaining("Describe work completed"),
+  );
+  const value = "Changed filter.\n<script>literal note</script>";
+  fireEvent.change(comments, { target: { value } });
+  expect(comments).toHaveValue(value);
+  fireEvent.submit(container.querySelector("form")!);
+  await screen.findByRole("status");
+  expect(JSON.parse(fetch.mock.calls[1][1].body).comments).toBe(value);
+});

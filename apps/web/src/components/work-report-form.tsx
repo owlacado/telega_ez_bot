@@ -9,6 +9,8 @@ import {
 } from "react";
 import type { WorkReportForm as FormState } from "@hub/contracts";
 import { errorMessage } from "@/lib/api";
+import { Check, ClipboardList } from "lucide-react";
+import styles from "./work-report-form.module.css";
 
 export const paymentLabels: Record<string, string> = {
   CASH: "Cash",
@@ -151,33 +153,39 @@ export function WorkReportForm() {
     });
   }
   return (
-    <main className="report-mobile">
-      <header>
-        <span className="eyebrow">TECHNICIAN HUB</span>
+    <main className={styles.page}>
+      <header className={styles.header}>
+        <span className={styles.brand}>
+          <ClipboardList size={18} aria-hidden="true" /> TECHNICIAN HUB
+        </span>
         <h1>Submit Report</h1>
+        <p>Record the outcome of your service visit.</p>
       </header>
       {success ? (
-        <section className="panel report-success" role="status">
+        <section className={styles.success} role="status">
+          <span className={styles.successIcon}>
+            <Check size={28} aria-hidden="true" />
+          </span>
           <h2>Report submitted successfully.</h2>
           <p>Your report is saved. You can close this form.</p>
         </section>
       ) : (
         <>
           {error && (
-            <div role="alert" className="error-notice">
+            <div id="report-error" role="alert" className={styles.error}>
               {error}
             </div>
           )}
           {!form ? (
             <>
               <p>Opening your secure form…</p>
-              <button className="button" onClick={() => void load()}>
+              <button className={styles.secondary} onClick={() => void load()}>
                 Retry opening form
               </button>
             </>
           ) : (
             <>
-              <p className="muted">
+              <p className={styles.privacy}>
                 This private form expires at{" "}
                 {new Date(form.expires_at).toLocaleTimeString([], {
                   hour: "2-digit",
@@ -186,7 +194,7 @@ export function WorkReportForm() {
                 . Do not share this link.
               </p>
               {!form.selected ? (
-                <section aria-label="Today's jobs">
+                <section className={styles.jobs} aria-label="Today's jobs">
                   <h2>Select today&apos;s job</h2>
                   {(form.jobs ?? []).length === 0 && (
                     <p>No scheduled jobs found for today.</p>
@@ -194,7 +202,7 @@ export function WorkReportForm() {
                   {(form.jobs ?? []).map((job) => (
                     <button
                       key={job.choice_id}
-                      className="report-job"
+                      className={styles.job}
                       disabled={busy || job.submitted}
                       onClick={() => void select(job.choice_id)}
                     >
@@ -208,14 +216,19 @@ export function WorkReportForm() {
                 </section>
               ) : (
                 <>
-                  <section className="report-job">
+                  <section className={styles.job} aria-label="Selected job">
+                    <span className={styles.contextLabel}>Selected job</span>
                     <strong>
                       {form.selected.start_time} · {form.selected.title}
                     </strong>
                     <span>{form.selected.location}</span>
                     <span>{form.selected.operational_date}</span>
                   </section>
-                  <form onSubmit={submit}>
+                  <form
+                    className={styles.form}
+                    onSubmit={submit}
+                    aria-describedby={error ? "report-error" : undefined}
+                  >
                     <fieldset disabled={busy || Boolean(retryPayload)}>
                       <label>
                         Type of payment
@@ -269,7 +282,7 @@ export function WorkReportForm() {
                           <option value="CALL_CENTER">Call center</option>
                         </select>
                       </label>
-                      <div className="report-review-grid">
+                      <div className={styles.reviews}>
                         {["GOOGLE", "GROUPON", "FACEBOOK"].map((platform) => (
                           <label key={platform}>
                             {platform[0] + platform.slice(1).toLowerCase()}{" "}
@@ -295,12 +308,18 @@ export function WorkReportForm() {
                           <option value="yes">Yes</option>
                         </select>
                       </label>
-                      <label>
+                      <label htmlFor="report-comments">
                         Job description &amp; comments (optional)
-                        <textarea name="comments" maxLength={4000} rows={4} />
+                        <textarea
+                          id="report-comments"
+                          name="comments"
+                          maxLength={4000}
+                          rows={4}
+                          placeholder="Describe work completed, issues, parts, or notes…"
+                        />
                       </label>
                       <button
-                        className="button primary"
+                        className={styles.primary}
                         type="submit"
                         disabled={busy}
                       >
@@ -311,14 +330,14 @@ export function WorkReportForm() {
                   {Boolean(retryPayload) && (
                     <div>
                       <button
-                        className="button primary"
+                        className={styles.primary}
                         disabled={busy}
                         onClick={() => void send(retryPayload)}
                       >
                         Retry same submission
                       </button>
                       <button
-                        className="button"
+                        className={styles.secondary}
                         disabled={busy}
                         onClick={() => {
                           setRetryPayload(null);
