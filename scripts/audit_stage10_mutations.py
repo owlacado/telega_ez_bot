@@ -83,9 +83,9 @@ MUTATIONS = (
     ),
     Mutation(
         "migration_mismatch_passes_preflight",
-        "apps/api/hub/ops/cli.py",
-        '                    "PASS" if head == EXPECTED_ALEMBIC_HEAD else "BLOCK",',
-        '                    "PASS",',
+        "apps/api/hub/ops/service.py",
+        '        state="PASS" if matches else "BLOCK",',
+        '        state="PASS",',
         pytest(f"{PILOT}::test_preflight_blocks_zero_manager_and_schema_mismatch"),
     ),
     Mutation(

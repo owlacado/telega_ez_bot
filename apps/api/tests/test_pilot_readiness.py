@@ -413,7 +413,7 @@ async def test_preflight_blocks_zero_manager_and_schema_mismatch(engine, capsys,
     ready_output = capsys.readouterr().out
     assert "BLOCK" not in ready_output
     assert "hub_test_only" not in ready_output
-    monkeypatch.setattr(ops_cli, "EXPECTED_ALEMBIC_HEAD", "missing-head")
+    monkeypatch.setattr("hub.ops.service.release_migration_head", lambda: "missing-head")
     assert await ops_cli.preflight(settings) == 2
     output = capsys.readouterr().out
     assert "BLOCK migration" in output

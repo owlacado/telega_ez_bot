@@ -7,13 +7,13 @@ import sys
 import uuid
 from pathlib import Path
 
-from alembic.config import Config
-from alembic.script import ScriptDirectory
+from hub.core.migrations import release_migration_head
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
 root = Path(__file__).resolve().parents[1]
+release_head = release_migration_head()
 url = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://hub:hub_test_only@127.0.0.1:5437/technician_hub_test"
 )
@@ -503,9 +503,7 @@ alembic("upgrade", "head")
 assert asyncio.run(stage4_counts()) == stage3_counts
 alembic("check")
 
-configuration = Config(str(root / "apps/api/alembic.ini"))
-configuration.set_main_option("script_location", str(root / "apps/api/migrations"))
-assert ScriptDirectory.from_config(configuration).get_heads() == ["fea610060001"]
+assert release_migration_head() == release_head
 print(
     "Stage 4 populated Stage 3 preservation, default OFF, rollback/re-upgrade, "
     "one head and zero drift passed."
@@ -547,10 +545,9 @@ async def legacy_history(action):
                     )
                 ).one()
                 assert row == ("FAILED", "v1:inert-audit-migration", None, None)
-                assert (
-                    await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fea610060001"
-                )
+                assert list(
+                    (await db.scalars(text("SELECT version_num FROM alembic_version"))).all()
+                ) == [release_head]
             else:
                 await db.execute(
                     text("DELETE FROM schedule_dispatches WHERE id=:id"), {"id": legacy_dispatch}
@@ -622,10 +619,9 @@ async def stage5_history(action):
                     text("SELECT amount_closed FROM work_report_revisions WHERE report_id=:id"),
                     {"id": stage5_report},
                 ) == Decimal("123.45")
-                assert (
-                    await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fea610060001"
-                )
+                assert list(
+                    (await db.scalars(text("SELECT version_num FROM alembic_version"))).all()
+                ) == [release_head]
             else:
                 await db.execute(
                     text(
@@ -696,10 +692,9 @@ async def stage6_history(action):
                     text("SELECT amount FROM expense_revisions WHERE expense_id=:id"),
                     {"id": expense_id},
                 ) == Decimal("20.01")
-                assert (
-                    await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fea610060001"
-                )
+                assert list(
+                    (await db.scalars(text("SELECT version_num FROM alembic_version"))).all()
+                ) == [release_head]
             else:
                 await db.execute(
                     text(
@@ -763,10 +758,9 @@ async def stage9_mirror_fixture(action):
                     )
                 ).one()
                 assert row == ("INDIVIDUAL", tech, "migrationSheet_12345")
-                assert (
-                    await db.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "fea610060001"
-                )
+                assert list(
+                    (await db.scalars(text("SELECT version_num FROM alembic_version"))).all()
+                ) == [release_head]
             else:
                 await db.execute(
                     text("DELETE FROM accounting_mirror_targets WHERE id=:id"),

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 import hub.models  # noqa: F401
 from hub.auth.models import Manager
 from hub.core.config import Settings
-from hub.ops.service import EXPECTED_ALEMBIC_HEAD, cleanup_expired, operations_health
+from hub.ops.service import cleanup_expired, migration_health, operations_health
 from hub.technicians.models import Technician
 
 FINGERPRINT_TABLES = (
@@ -90,16 +90,8 @@ async def preflight(settings: Settings) -> int:
         async with async_sessionmaker(engine)() as db:
             await db.execute(text("SELECT 1"))
             checks.append(("PASS", "database", "reachable"))
-            head = await db.scalar(text("SELECT version_num FROM alembic_version LIMIT 1"))
-            checks.append(
-                (
-                    "PASS" if head == EXPECTED_ALEMBIC_HEAD else "BLOCK",
-                    "migration",
-                    "schema head matches release"
-                    if head == EXPECTED_ALEMBIC_HEAD
-                    else "schema head does not match release",
-                )
-            )
+            migration = await migration_health(db)
+            checks.append((migration.state, "migration", migration.message))
             managers = int(
                 await db.scalar(
                     select(func.count()).select_from(Manager).where(Manager.is_active.is_(True))

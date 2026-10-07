@@ -9,13 +9,13 @@ from hub.accounting_mirrors.models import (
 )
 from hub.auth.models import RateBucket
 from hub.core.config import Settings
+from hub.core.migrations import ReleaseMigrationError, release_migration_head
 from hub.google_calendar.models import GoogleOAuthAttempt
 from hub.ops.schemas import CleanupResult, ComponentHealth, OperationsHealth, QueueCounts
 from hub.schedule_delivery.models import ScheduleDispatch, ScheduleWorkerState
 from hub.telegram.models import TelegramOutbox, TelegramProcessedUpdate, TelegramWorkerState
 from hub.work_reports.models import TechnicianFormSession
 
-EXPECTED_ALEMBIC_HEAD = "fea610060001"
 FRESH_SECONDS = 120
 
 
@@ -59,9 +59,28 @@ async def _queue_counts(db: AsyncSession, model, status_column, mappings) -> Que
     return QueueCounts(**values)
 
 
+async def migration_health(db: AsyncSession) -> ComponentHealth:
+    try:
+        expected = release_migration_head()
+    except ReleaseMigrationError:
+        return ComponentHealth(
+            state="BLOCK", message="Release migration graph must have exactly one valid head."
+        )
+    heads = list((await db.scalars(text("SELECT version_num FROM alembic_version"))).all())
+    matches = heads == [expected]
+    return ComponentHealth(
+        state="PASS" if matches else "BLOCK",
+        message=(
+            f"Database schema is at {expected}."
+            if matches
+            else "Database schema does not match this release's single migration head."
+        ),
+    )
+
+
 async def operations_health(db: AsyncSession, settings: Settings) -> OperationsHealth:
     await db.execute(select(1))
-    schema_head = await db.scalar(text("SELECT version_num FROM alembic_version LIMIT 1"))
+    migration = await migration_health(db)
     telegram_status, telegram_fresh = await _latest_worker(
         db, TelegramWorkerState, TelegramWorkerState.heartbeat_at, "status"
     )
@@ -86,14 +105,6 @@ async def operations_health(db: AsyncSession, settings: Settings) -> OperationsH
             "Google provider configuration is present; connectivity is not probed."
             if settings.google_mode == "real"
             else "Google provider is intentionally disabled."
-        ),
-    )
-    migration = ComponentHealth(
-        state="PASS" if schema_head == EXPECTED_ALEMBIC_HEAD else "BLOCK",
-        message=(
-            f"Database schema is at {EXPECTED_ALEMBIC_HEAD}."
-            if schema_head == EXPECTED_ALEMBIC_HEAD
-            else "Database schema does not match this release."
         ),
     )
     queues = {
