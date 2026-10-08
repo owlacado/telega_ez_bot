@@ -108,6 +108,41 @@ async def lifecycle(db: AsyncSession, event: TrustedEvent, bot_id: int) -> str:
         )
     else:
         return "IGNORED"
+    # A newer membership observation invalidates an in-flight recovery proof, even
+    # when identities/generations did not change (e.g. rejoin followed by removal).
+    await db.execute(
+        update(TelegramOutbox)
+        .where(
+            TelegramOutbox.technician_id == current.technician_id,
+            TelegramOutbox.kind == "VERIFY_GROUP",
+            TelegramOutbox.invitation_id.is_(None),
+            TelegramOutbox.state.in_(["QUEUED", "PROCESSING"]),
+        )
+        .values(state="CANCELLED", error_code="AVAILABILITY_CHANGED", finished_at=now())
+    )
+    if (
+        event.chat_type in {"group", "supergroup"}
+        and event.member_present
+        and technician.status == "ACTIVE"
+        and current.private_status == "CONNECTED"
+        and current.private_availability == "AVAILABLE"
+        and current.group_status == "CONNECTED"
+        and current.group_private_generation == current.private_generation
+    ):
+        # Reuse durable VERIFY_GROUP, with no invitation for an existing binding.
+        # Existing outbox identity columns pin this proof to the original target.
+        db.add(
+            TelegramOutbox(
+                technician_id=current.technician_id,
+                bot_id=bot_id,
+                destination="WORK_GROUP",
+                kind="VERIFY_GROUP",
+                generation=current.group_generation,
+                private_generation=current.private_generation,
+                activity_chat_id=current.telegram_group_chat_id,
+                activity_user_id=current.telegram_user_id,
+            )
+        )
     await db.execute(
         update(TelegramOutbox)
         .where(

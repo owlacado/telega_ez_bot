@@ -148,3 +148,25 @@ With `SCHEDULE_DELIVERY_ENABLED=true` and the configured payload key, keep
 6. Observe clock-based scheduler time with no daily/manual trigger: no new official schedule.
    Confirm already queued schedules still drain normally. An ambiguous send requires manager review,
    never blind replay. Finish with provider-silent status/queue checks and retain TEST evidence.
+
+
+### Existing Work Group member rejoin recovery (2026-10-08)
+
+- **Removal detection: PASS (operator-reported live TEST evidence).** Removing the bound
+  technician changed the same Work Group to UNAVAILABLE and blocked delivery.
+- **Same-group rejoin recovery: PENDING live TEST.** Local fake-provider regressions prove
+  recovery; no real provider was contacted for this change. Repeat removal/rejoin after deploying
+  the fix. Re-add exactly the same linked Telegram account to exactly the same bound group while
+  the bot remains present with send access. Wait for the worker's existing VERIFY_GROUP job to
+  finish; expect Connected/AVAILABLE without a new invitation or generation.
+- Recovery checks the bot identity, live bot permissions and technician membership outside a
+  business transaction, then rechecks the pinned identities, private/group generations, current
+  private relationship, active technician and uncancelled verification job under the technician
+  lock. New lifecycle events cancel older verification proofs. Replacement/migration, mismatched
+  identity or stale generations require repair; they are never automatically adopted.
+- Cancelled activity is not replayed and uncertain sends are not retried by recovery. Verify a
+  fresh manager test message or new TEST activity after recovery. Repeat a different-user/group
+  attempt and bot-access loss to confirm fail-closed behavior. Transient read-only verification
+  failures use the existing bounded outbox retry; exhausted failures require operator repair.
+- A group already stuck before this release has no queued recovery job: repeat the controlled
+  same-member leave/rejoin to trigger verification. This change does not sweep or rebind groups.

@@ -43,3 +43,18 @@ async def verify_automatic_group(
         True,
         None if bot.present and bot.can_send_messages else "BOT_CANNOT_SEND",
     )
+
+
+async def verify_bound_group(
+    provider: TelegramProvider, chat_id: int, technician_user_id: int, bot_id: int
+) -> None:
+    """Read-only proof for an existing binding; never approves a new identity."""
+    identity = await provider.initialize()
+    if identity.id != bot_id:
+        raise ProviderError("BOT_IDENTITY_MISMATCH")
+    # Keep both reads fully awaited, including failures, before the caller opens
+    # its final transaction. No sibling provider task may outlive this proof.
+    bot = await provider.member(chat_id, bot_id)
+    technician = await provider.member(chat_id, technician_user_id)
+    if not bot.present or not bot.can_send_messages or not technician.present:
+        raise ProviderError("ACCESS_DENIED")

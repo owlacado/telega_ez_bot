@@ -14,7 +14,7 @@ from hub.telegram.common import approved_id, can_deliver, generation
 from hub.telegram.locks import advisory_guard
 from hub.telegram.models import TelegramInvitation, TelegramOutbox
 from hub.telegram.types import ProviderError
-from hub.telegram.verification import verify_group
+from hub.telegram.verification import verify_bound_group, verify_group
 
 MESSAGES = {
     "APPROVED": (
@@ -107,12 +107,97 @@ async def finish(
         )
 
 
+def recovery_current(
+    job: TelegramOutbox | None,
+    current: TelegramBinding | None,
+    technician: Technician | None,
+) -> bool:
+    return bool(
+        job
+        and job.state == "PROCESSING"
+        and job.kind == "VERIFY_GROUP"
+        and job.invitation_id is None
+        and job.destination == "WORK_GROUP"
+        and technician
+        and technician.status == "ACTIVE"
+        and current
+        and current.bot_id == job.bot_id
+        and current.private_status == "CONNECTED"
+        and current.private_availability == "AVAILABLE"
+        and current.group_status == "CONNECTED"
+        and current.group_availability in {"UNAVAILABLE", "REVALIDATION_REQUIRED", "AVAILABLE"}
+        and current.group_generation == job.generation
+        and current.private_generation == job.private_generation
+        and current.group_private_generation == job.private_generation
+        and job.activity_user_id is not None
+        and job.activity_chat_id is not None
+        and current.telegram_user_id == job.activity_user_id
+        and current.telegram_group_chat_id == job.activity_chat_id
+    )
+
+
+async def verify_existing(
+    factory: async_sessionmaker, provider: TelegramProvider, job_id: UUID
+) -> None:
+    async with factory() as db:
+        job = await db.get(TelegramOutbox, job_id)
+        current = await db.get(TelegramBinding, job.technician_id) if job else None
+        technician = await db.get(Technician, job.technician_id) if job else None
+        valid = recovery_current(job, current, technician)
+    if not valid:
+        await finish(factory, job_id, "CANCELLED", error="BINDING_CHANGED")
+        return
+    # All ORM sessions/transactions are closed before provider I/O. The caller's
+    # session advisory lock serializes this job with replacement/disconnection.
+    try:
+        await verify_bound_group(provider, job.activity_chat_id, job.activity_user_id, job.bot_id)
+    except ProviderError as error:
+        retry = error.code in {"NETWORK_UNCERTAIN", "PROVIDER_UNAVAILABLE"} or (
+            error.code == "RATE_LIMITED" and 0 <= error.retry_after <= 600
+        )
+        await finish(
+            factory,
+            job_id,
+            "QUEUED" if retry else "FAILED",
+            error=error.code,
+            retry_after=min(600, max(1, error.retry_after)),
+        )
+        return
+    async with factory() as db, db.begin():
+        # Match lifecycle's lock order. A removal during I/O cancels the job;
+        # checking only the binding generation would incorrectly revive it.
+        technician = await db.scalar(
+            select(Technician).where(Technician.id == job.technician_id).with_for_update()
+        )
+        current = await db.get(TelegramBinding, job.technician_id, with_for_update=True)
+        fresh = await db.get(TelegramOutbox, job_id, with_for_update=True)
+        if not fresh or fresh.state != "PROCESSING":
+            return
+        if not recovery_current(fresh, current, technician):
+            fresh.state, fresh.error_code = "CANCELLED", "BINDING_CHANGED"
+        else:
+            current.group_availability = "AVAILABLE"
+            fresh.state, fresh.error_code = "SENT", None
+            audit(
+                db,
+                "telegram.group_revalidated",
+                job.technician_id,
+                actor_kind="TELEGRAM_WORKER",
+                outcome="AVAILABLE",
+            )
+        fresh.finished_at = now()
+
+
 async def verify_pending(
     factory: async_sessionmaker, provider: TelegramProvider, job_id: UUID
 ) -> None:
     async with factory() as db:
         job = await db.get(TelegramOutbox, job_id)
-        value = await db.get(TelegramInvitation, job.invitation_id) if job else None
+        value = (
+            await db.get(TelegramInvitation, job.invitation_id)
+            if job and job.invitation_id
+            else None
+        )
         current = await db.get(TelegramBinding, job.technician_id) if job else None
         valid = bool(
             job
@@ -126,6 +211,9 @@ async def verify_pending(
             and value.candidate_chat_id is not None
             and value.candidate_user_id is not None
         )
+    if job and job.invitation_id is None:
+        await verify_existing(factory, provider, job_id)
+        return
     if not valid:
         await finish(factory, job_id, "CANCELLED", error="STALE_INVITATION")
         return
