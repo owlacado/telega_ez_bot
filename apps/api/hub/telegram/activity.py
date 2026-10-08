@@ -9,7 +9,7 @@ from hub.telegram.common import can_deliver
 from hub.telegram.models import TelegramOutbox
 from hub.work_reports.models import WorkReport, WorkReportRevision
 
-ACTIVITY_KINDS = {"WORK_REPORT", "EXPENSE"}
+ACTIVITY_KINDS = {"WORK_REPORT", "EXPENSE", "DAILY_SUMMARY"}
 
 
 async def enqueue_activity(db, technician_id, bot_id, *, report_id=None, expense_id=None):
@@ -56,6 +56,8 @@ def clip(value, limit):
 
 
 async def render_activity(db, job):
+    if job.kind == "DAILY_SUMMARY":
+        return job.summary_text
     if job.kind == "WORK_REPORT":
         row = (
             await db.execute(

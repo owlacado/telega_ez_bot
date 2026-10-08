@@ -10,6 +10,8 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
+    UniqueConstraint,
     func,
     text,
 )
@@ -73,7 +75,9 @@ class TelegramOutbox(Base):
         ),
         CheckConstraint("destination IN ('PRIVATE_TELEGRAM','WORK_GROUP')", name="destination"),
         CheckConstraint(
-            "kind IN ('APPROVED','TEST','VERIFY_GROUP','WORK_REPORT','EXPENSE')", name="kind"
+            "kind IN ('APPROVED','TEST','VERIFY_GROUP','WORK_REPORT','EXPENSE',"
+            "'DAILY_SUMMARY','SCHEDULE_PROMPT','SCHEDULE_CONFIRMED')",
+            name="kind",
         ),
         CheckConstraint(
             "(kind = 'WORK_REPORT' AND report_id IS NOT NULL AND expense_id IS NULL) OR "
@@ -85,7 +89,30 @@ class TelegramOutbox(Base):
             "kind NOT IN ('WORK_REPORT','EXPENSE') OR destination = 'WORK_GROUP'",
             name="activity_group",
         ),
+        UniqueConstraint("schedule_id", "kind", name="uq_telegram_schedule_notice"),
+        UniqueConstraint("bot_id", "daily_request_key", name="uq_telegram_daily_summary"),
+        CheckConstraint(
+            "(kind IN ('SCHEDULE_PROMPT','SCHEDULE_CONFIRMED')) = (schedule_id IS NOT NULL)",
+            name="schedule_reference",
+        ),
+        CheckConstraint(
+            "(kind = 'DAILY_SUMMARY' AND daily_request_key IS NOT NULL "
+            "AND summary_text IS NOT NULL) "
+            "OR (kind <> 'DAILY_SUMMARY' AND daily_request_key IS NULL AND summary_text IS NULL)",
+            name="daily_reference",
+        ),
+        CheckConstraint(
+            "(kind <> 'SCHEDULE_PROMPT' OR destination = 'PRIVATE_TELEGRAM') AND "
+            "(kind NOT IN ('DAILY_SUMMARY','SCHEDULE_CONFIRMED') OR destination = 'WORK_GROUP')",
+            name="notice_destination",
+        ),
     )
+    # One durable side effect per logical action/dispatch, including ambiguous attempts.
+    schedule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("schedule_dispatches.id", ondelete="RESTRICT")
+    )
+    daily_request_key: Mapped[str | None] = mapped_column(String(64))
+    summary_text: Mapped[str | None] = mapped_column(Text)
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     technician_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("technicians.id", ondelete="CASCADE"), index=True

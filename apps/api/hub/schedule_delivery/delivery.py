@@ -14,6 +14,7 @@ from hub.schedule_delivery.models import ScheduleDeliverySetting, ScheduleDispat
 from hub.technicians.models import Technician
 from hub.telegram.common import can_deliver
 from hub.telegram.locks import advisory_guard
+from hub.telegram.models import TelegramOutbox
 from hub.telegram.types import ProviderError
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,16 @@ async def claim(factory, bot_id):
                 ScheduleDispatch.status == "PENDING",
                 ScheduleDispatch.available_at <= stamp,
                 ScheduleDispatch.delivery_deadline > stamp,
+                # Preserve the /daily group-feed order across the two existing workers.
+                # A terminal failed/unknown summary does not suppress the schedule.
+                ~select(TelegramOutbox.id)
+                .where(
+                    TelegramOutbox.kind == "DAILY_SUMMARY",
+                    TelegramOutbox.bot_id == ScheduleDispatch.bot_id,
+                    TelegramOutbox.daily_request_key == ScheduleDispatch.daily_request_key,
+                    TelegramOutbox.state.in_(["QUEUED", "PROCESSING"]),
+                )
+                .exists(),
             )
             .order_by(ScheduleDispatch.available_at, ScheduleDispatch.id)
             .with_for_update(skip_locked=True)
@@ -161,7 +172,9 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
                 or len(payload.jobs) != row.job_count
             ):
                 raise ValueError("SNAPSHOT_INVALID")
-            message = payload.render()
+            message = payload.render(
+                waiting_confirmation=row.private_ack_required and row.destination == "WORK_GROUP"
+            )
         except Exception:
             terminal(row, "FAILED", "SNAPSHOT_UNREADABLE", stamp)
             return None
@@ -170,7 +183,15 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
         row.provider_started_at = stamp
         row.attempt_count += 1
         row.claim_expires_at = stamp + LEASE
-        return row.chat_id, message, "sch:" + token
+        return (
+            row.chat_id,
+            message,
+            (
+                None
+                if row.private_ack_required and row.destination == "WORK_GROUP"
+                else "sch:" + token
+            ),
+        )
 
 
 async def finish(factory, identifier, owner, *, message_id=None, failure=None):
@@ -185,6 +206,13 @@ async def finish(factory, identifier, owner, *, message_id=None, failure=None):
                 terminal(row, "SENT", None, stamp)
                 row.sent_at, row.message_id, row.ack_status = stamp, message_id, "PENDING"
                 row.encrypted_payload = None
+                if row.private_ack_required:
+                    if row.destination == "WORK_GROUP":
+                        from hub.telegram.notices import enqueue_schedule_notice
+
+                        await enqueue_schedule_notice(db, row, "SCHEDULE_PROMPT")
+                    else:
+                        row.ack_message_id = message_id
                 return False
         code = failure.code
         if (

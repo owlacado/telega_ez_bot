@@ -170,3 +170,35 @@ With `SCHEDULE_DELIVERY_ENABLED=true` and the configured payload key, keep
   failures use the existing bounded outbox retry; exhausted failures require operator repair.
 - A group already stuck before this release has no queued recovery job: repeat the controlled
   same-member leave/rejoin to trigger verification. This change does not sweep or rebind groups.
+
+
+### Private schedule ACK and Daily group summary acceptance (2026-10-08)
+
+Live status: PENDING. Apply migration `ffd610080001` and wait until Web and the combined Worker
+(Telegram and Schedule processes) run this release before resuming TEST actions. Do not trigger
+new daily/manual schedules during a mixed-version rolling rollout. Then:
+
+1. Run `/daily` privately as the linked TEST technician. Compare the private full accounting with
+   canonical manager Daily Accounting. In the Work Group verify only the short name/report-count/
+   gross/expense completion event, including an explicit zero-day case. No payment/review/maintenance
+   breakdown, identifiers or tokens may be shown. Replaying the same action must not duplicate it.
+2. Verify the official group schedule has waiting status and **no button**. The linked private chat
+   receives a separate dated job-count prompt with **Confirm schedule**. Daily and manager manual
+   sends share this path; confirmed group delivery must precede its private prompt. For `/daily`,
+   the schedule waits while its summary is QUEUED/PROCESSING; a terminal summary failure/UNKNOWN
+   does not suppress the independent schedule or roll back private accounting.
+3. Confirm privately. Expect one final success response, one canonical ACK timestamp in manager Web
+   and one concise group confirmation event with date/name/UTC time. The adapter has no safe edit
+   capability: the original waiting message is not rewritten; the confirmation event updates the
+   activity feed. Repeated confirmation must not add events or alter the receipt time.
+4. Send a changed/explicitly replaced schedule. Old private buttons must say the schedule was updated;
+   the new dispatch requires its own ACK. Managers clicking historical group buttons cannot confirm.
+5. Exercise unavailable/revalidation-required groups and rebound identities. No pending summary,
+   prompt or confirmation may move to the new generation. Confirm private accounting survives group
+   summary or schedule failure. Preserve failure receipts; do not resubmit accounting to retry sends.
+6. UNKNOWN/AMBIGUOUS sends require operator review, never automatic replay. A private prompt whose
+   receipt is uncertain cannot authorize ACK without a known message ID; the manager may explicitly
+   resend the schedule with the existing duplicate-risk confirmation. Prior buttons become stale.
+
+No real Google/Telegram calls were used to implement or test this change. Other live acceptance
+blockers remain open; new local tests do not constitute provider acceptance.

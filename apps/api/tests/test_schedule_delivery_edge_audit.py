@@ -14,7 +14,7 @@ from hub.schedule_delivery.models import ScheduleDispatch
 from hub.telegram.types import ProviderError, TrustedEvent
 from tests.fakes import BOT_ID, FakeTelegram
 from tests.test_schedule_delivery import assigned as assigned
-from tests.test_schedule_delivery import enqueue, request, row, run_delivery
+from tests.test_schedule_delivery import deliver_private_prompt, enqueue, request, row, run_delivery
 from tests.test_schedule_delivery import google as google
 from tests.test_schedule_delivery import ready as ready
 
@@ -84,6 +84,7 @@ async def test_trusted_group_migration_invalidates_old_send_and_ack(
     fake = FakeTelegram()
     if already_sent:
         await run_delivery(app, fake)
+        await deliver_private_prompt(app, fake)
     event = TrustedEvent(
         300, "MIGRATION", chat_id=-771002, chat_type="group", migrated_chat_id=-880002
     )
@@ -95,10 +96,11 @@ async def test_trusted_group_migration_invalidates_old_send_and_ack(
         ack = TrustedEvent(
             301,
             "CALLBACK",
-            chat_id=-771002,
+            chat_id=771001,
+            chat_type="private",
             user_id=771001,
-            message_id=saved.message_id,
-            payload=fake.schedule_sent[0][2],
+            message_id=saved.ack_message_id,
+            payload=fake.schedule_sent[-1][2],
         )
         assert await acknowledge(app.state.session_factory, ack, BOT_ID) == "ACK_UNAVAILABLE"
     else:

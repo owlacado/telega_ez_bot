@@ -1,5 +1,42 @@
 # End-to-end workflow parity audit
 
+## Private schedule confirmation and short Daily group event (2026-10-08)
+
+This approval supersedes the earlier group-summary deferral. `/daily` keeps the full canonical
+Daily Accounting breakdown private and queues a two-line completion event with technician name,
+report count, canonical gross and expenses. Zero days explicitly show zero counts/amounts. The
+admitted-update request key uniquely owns the summary intent, including failed/uncertain outcomes.
+Accounting, summary and schedule outcomes remain independent; the next-date resolver is unchanged.
+The schedule claim waits for its Daily summary attempt to finish across workers; a terminal failed
+or UNKNOWN summary does not suppress the schedule. Manual sends have no Daily-summary dependency.
+
+New official dispatches show the full schedule plus waiting status in the Work Group, with no ACK
+button. On a confirmed group send, the same transaction queues one private prompt for that exact
+dispatch. Its button says **Confirm schedule**. ACK additionally matches the private chat/message;
+current actor, bot, generations, group availability, expiry and supersession checks still apply.
+Manager manual sends use the same service and delivery path. Timed pilot creation remains disabled.
+
+The current provider adapter has no safe edit operation, so successful ACK atomically queues one
+concise group confirmation event with target date, technician and canonical confirmation timestamp
+(UTC). The original group message retains its waiting line; the later confirmation event is the
+status update. Manager Web continues to display canonical `ack_status`/`acknowledged_at`. Unique
+outbox references prevent duplicate intents; ambiguous sends/crashes remain UNKNOWN with no blind
+resend. Newer dispatches invalidate old private buttons and old queued notices; earlier receipts
+remain historical. Historical messages may retain their old buttons, but never grant managers ACK
+rights. Historical dispatch receipts are not rewritten by the additive migration `ffd610080001`.
+
+Callbacks attempt one final safe response, including rejected, expired, superseded and rate-limited
+paths, without an interim Checking answer. Provider failure cannot roll back an ACK. These are local
+implementation results; deployed/private-client behavior still needs controlled live TEST acceptance.
+
+Local verification: affected backend regressions passed 651 tests (four unrelated accounting
+query-budget cases deselected). After the final cross-worker ordering change, all 131 focused
+private-ACK/Daily/schedule tests passed on final source. Existing manager schedule/Telegram UI
+tests passed 35 tests. API contract snapshot, Ruff and secret scan passed. The guarded disposable
+PostgreSQL migration harness passed fresh upgrade, round trips, fixture preservation, a single
+`ffd610080001` head and zero drift. Populated new receipt rollback refusal is covered separately.
+Providers were fakes; the normal database and retained Docker volume were not accessed.
+
 ## Daily workflow restoration (2026-10-08)
 
 This approval supersedes the earlier `/daily` deferral below. `/daily` is now a private,

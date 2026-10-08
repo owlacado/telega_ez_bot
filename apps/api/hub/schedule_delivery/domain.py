@@ -35,7 +35,7 @@ class Payload(BaseModel):
     def fingerprint(self):
         return hashlib.sha256(self.canonical().encode()).hexdigest()
 
-    def render(self):
+    def render(self, *, waiting_confirmation=False):
         escape = html.escape
         lines = [
             f"<b>{escape(self.technician_name)}</b>",
@@ -48,6 +48,8 @@ class Payload(BaseModel):
                 lines.append(escape(job.location))
         if not self.jobs:
             lines.append("No scheduled jobs.")
+        if waiting_confirmation:
+            lines.extend(["", "\u23f3 Waiting for technician confirmation"])
         message = "\n".join(lines)
         # Conservative bound includes escaped HTML and tags, measured as UTF-16 units.
         # This is stricter than Telegram's 4096 characters after entity parsing.

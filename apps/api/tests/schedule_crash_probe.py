@@ -75,7 +75,8 @@ async def main():
     @event.listens_for(Session, "before_commit")
     def before_commit(session):
         if window == "F" and any(
-            isinstance(r, ScheduleDispatch) and r.status == "SENT" for r in session.dirty
+            isinstance(r, ScheduleDispatch) and r.status == "SENT"
+            for r in session.identity_map.values()
         ):
             die()
 

@@ -28,6 +28,7 @@ from tests.test_schedule_delivery import (
     assigned as assigned,
 )
 from tests.test_schedule_delivery import (
+    deliver_private_prompt,
     enqueue,
     preview,
     request,
@@ -121,6 +122,8 @@ async def test_daily_accounting_and_group_dispatch_replay(app, client, google, r
         app.state.session_factory, fake, command(), BOT_ID, settings=app.state.settings
     )
     assert repeated.outcome == "DUPLICATE"
+    fake.group(-771002, 771001, 771001)
+    await deliver_private_prompt(app, fake)  # Drain the preceding Daily summary.
     await run_delivery(app, fake)
     assert len(fake.schedule_sent) == 1
 
@@ -189,14 +192,16 @@ async def test_exact_ack_and_replacement(app, client, google, ready):
     first = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     stored = await row(app, first["id"])
     event = TrustedEvent(
         88001,
         "CALLBACK",
-        chat_id=-771002,
+        chat_id=771001,
+        chat_type="private",
         user_id=771001,
-        message_id=stored.message_id,
-        payload=fake.schedule_sent[0][2],
+        message_id=stored.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     assert (
         await acknowledge(app.state.session_factory, replace(event, user_id=666), BOT_ID)
@@ -230,6 +235,8 @@ async def test_crash_replay_reuses_dispatch_even_when_calendar_changes(
     await process_update(
         app.state.session_factory, fake, command(), BOT_ID, settings=app.state.settings
     )
+    fake.group(-771002, 771001, 771001)
+    await deliver_private_prompt(app, fake)  # Drain the preceding Daily summary.
     await run_delivery(app, fake)
     async with app.state.session_factory() as db, db.begin():
         reservation = await db.get(TelegramProcessedUpdate, (BOT_ID, command().update_id))

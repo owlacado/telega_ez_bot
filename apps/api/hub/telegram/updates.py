@@ -42,8 +42,8 @@ REPLIES = {
     "HELP": (
         "Use your manager's /start invitation to connect. /status shows "
         "connection status. /getid shows your own Telegram ID in a private chat. "
-        "/report — Submit Report; /expenses — Expenses. Use Schedule received "
-        "on your delivered schedule to acknowledge it. /daily - Daily report."
+        "/report — Submit Report; /expenses — Expenses. Use Confirm schedule "
+        "in your private chat to acknowledge your schedule. /daily - Daily report."
     ),
 }
 
@@ -73,8 +73,52 @@ async def process_update(
     *,
     settings=None,
 ) -> UpdateResult:
-    async with advisory_guard(factory.kw["bind"], f"telegram-update:{bot_id}", event.update_id):
-        return await _process_update(factory, provider, event, bot_id, settings=settings)
+    try:
+        async with advisory_guard(factory.kw["bind"], f"telegram-update:{bot_id}", event.update_id):
+            result = await _process_update(factory, provider, event, bot_id, settings=settings)
+        feedback = result.outcome
+        if event.kind == "CALLBACK" and result.outcome == "DUPLICATE":
+            from hub.schedule_delivery.acknowledgements import acknowledgement_feedback
+
+            async with factory() as db:
+                stored = await db.get(TelegramProcessedUpdate, (bot_id, event.update_id))
+                feedback = stored.outcome if stored else "ACK_UNAVAILABLE"
+            # A rejected/rate-limited durable update never gets another admission path.
+            # Only an already successful receipt is revalidated for current feedback.
+            if feedback in {"ACKNOWLEDGED", "ACK_ALREADY_ACKNOWLEDGED"}:
+                feedback = await acknowledgement_feedback(factory, event, bot_id)
+    except Exception:
+        if event.kind == "CALLBACK":
+            await callback_feedback(provider, event, "ACK_UNAVAILABLE")
+        raise
+    if event.kind == "CALLBACK":
+        await callback_feedback(provider, event, feedback)
+    return result
+
+
+async def callback_feedback(provider, event, outcome):
+    messages = {
+        "ACKNOWLEDGED": "Schedule confirmed. Thank you.",
+        "ACK_ALREADY_ACKNOWLEDGED": "You already confirmed this schedule.",
+        "ACK_WRONG_USER": "Only the assigned technician can confirm this schedule.",
+        "ACK_INVALID": "Invalid confirmation. Please use the latest private schedule prompt.",
+        "ACK_SUPERSEDED": "This schedule has been updated. Please confirm the latest schedule.",
+        "ACK_EXPIRED": "This confirmation has expired. Ask your manager for the latest schedule.",
+        "RATE_LIMITED": "Too many actions. Please wait and try again.",
+    }
+    if event.callback_query_id:
+        try:
+            # Exactly one final response: Telegram may ignore a second answer after Checking.
+            await provider.answer_callback(
+                event.callback_query_id,
+                messages.get(
+                    outcome,
+                    "Confirmation unavailable. Check your connection "
+                    "and use the latest private prompt.",
+                ),
+            )
+        except Exception:
+            pass  # A transport failure cannot roll back the authoritative receipt.
 
 
 async def _process_update(
@@ -157,24 +201,9 @@ async def _process_update(
 
         return await handle_daily(factory, event, bot_id, config, provider)
     if event.kind == "CALLBACK":
-        # Clear Telegram's progress indicator promptly, before database work. A failure
-        # to answer is cosmetic and must not prevent the authoritative acknowledgement.
-        try:
-            await provider.answer_callback(event.callback_query_id, "Checking schedule receipt...")
-        except Exception:
-            pass
         from hub.schedule_delivery.acknowledgements import acknowledge
 
-        outcome = await acknowledge(factory, event, bot_id)
-        try:
-            await provider.answer_callback(
-                event.callback_query_id,
-                "Schedule received."
-                if outcome == "ACKNOWLEDGED"
-                else "Receipt unavailable. Check your current connection or try again.",
-            )
-        except Exception:
-            pass
+        outcome = await acknowledge(factory, event, bot_id, detailed=True)
         async with factory() as db, db.begin():
             record = await db.get(
                 TelegramProcessedUpdate,

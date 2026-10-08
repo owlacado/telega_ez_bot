@@ -16,6 +16,7 @@ from tests.test_schedule_delivery import (
     assigned as assigned,
 )
 from tests.test_schedule_delivery import (
+    deliver_private_prompt,
     enqueue,
     row,
     run_delivery,
@@ -293,14 +294,16 @@ async def test_ack_identity_context_replays(app, client, ready, field, value):
     data = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, data["id"])
     event = TrustedEvent(
         1,
         "CALLBACK",
         user_id=771001,
-        chat_id=saved.chat_id,
-        message_id=saved.message_id,
-        payload=fake.schedule_sent[0][2],
+        chat_id=saved.telegram_user_id,
+        chat_type="private",
+        message_id=saved.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     assert (
         await acknowledge(app.state.session_factory, replace(event, **{field: value}), BOT_ID)
@@ -319,14 +322,16 @@ async def test_twenty_ack_callbacks_one_audit(app, client, ready):
     data = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, data["id"])
     event = TrustedEvent(
         1,
         "CALLBACK",
         user_id=771001,
-        chat_id=saved.chat_id,
-        message_id=saved.message_id,
-        payload=fake.schedule_sent[0][2],
+        chat_id=saved.telegram_user_id,
+        chat_type="private",
+        message_id=saved.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     assert (
         await asyncio.gather(
@@ -389,6 +394,7 @@ async def test_history_bounds_and_capability_privacy(app, client, ready):
     data = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, data["id"])
     async with app.state.session_factory() as db, db.begin():
         for i in range(24):
@@ -405,7 +411,7 @@ async def test_history_bounds_and_capability_privacy(app, client, ready):
     response = await client.get(f"/api/technicians/{ready}/schedule-delivery?limit=1000000")
     assert len(response.json()["history"]) == 20
     for secret in [
-        fake.schedule_sent[0][2],
+        fake.schedule_sent[-1][2],
         saved.ack_token_hash,
         str(saved.chat_id),
         "ADDRESS_CANARY",
@@ -896,25 +902,29 @@ async def test_database_rejects_impossible_states(app, client, ready, values):
             await db.execute(update(ScheduleDispatch).values(**values))
 
 
-async def test_expired_ack_preserves_sent_history(app, client, ready):
+async def test_expired_ack_preserves_sent_history(app, client, ready, monkeypatch):
     from hub.schedule_delivery.acknowledgements import acknowledge
     from hub.telegram.types import TrustedEvent
 
     data = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, data["id"])
-    async with app.state.session_factory() as db, db.begin():
-        await db.execute(
-            update(ScheduleDispatch).values(ack_expires_at=datetime.now(UTC) - timedelta(seconds=1))
-        )
+    from hub.schedule_delivery import acknowledgements
+
+    async def future_clock(db):
+        return datetime.now(UTC) + timedelta(days=8)
+
+    monkeypatch.setattr(acknowledgements, "clock", future_clock)
     event = TrustedEvent(
         1,
         "CALLBACK",
         user_id=771001,
-        chat_id=saved.chat_id,
-        message_id=saved.message_id,
-        payload=fake.schedule_sent[0][2],
+        chat_id=saved.telegram_user_id,
+        chat_type="private",
+        message_id=saved.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     assert await acknowledge(app.state.session_factory, event, BOT_ID) == "ACK_UNAVAILABLE"
     current = await row(app, data["id"])

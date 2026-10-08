@@ -73,7 +73,7 @@ async def create_dispatch(
     ):
         fail("SCHEDULE_CHANGED")
     try:
-        payload.render()
+        payload.render(waiting_confirmation=True)
     except ValueError:
         fail("SCHEDULE_TOO_LARGE")
     factory = request.app.state.session_factory
@@ -166,6 +166,7 @@ async def create_dispatch(
             actor = request.state.manager_id
             item = ScheduleDispatch(
                 technician_id=technician_id,
+                private_ack_required=True,
                 calendar_id=fresh.calendar.id,
                 target_date=payload.target_date,
                 trigger="AUTOMATIC" if automatic else "MANUAL_RESEND" if parent else "MANUAL",

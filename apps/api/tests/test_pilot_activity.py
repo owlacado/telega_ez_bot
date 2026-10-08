@@ -25,7 +25,7 @@ from tests.fakes import BOT_ID, FakeTelegram
 from tests.test_calendar_events import assigned as assigned
 from tests.test_expenses import issue as issue_expense
 from tests.test_google_calendar import google as google
-from tests.test_schedule_delivery import enqueue, row, run_delivery
+from tests.test_schedule_delivery import deliver_private_prompt, enqueue, row, run_delivery
 from tests.test_work_reports import BASE, PAYLOAD, selected
 
 schedule_ready = schedule_tests.ready
@@ -191,14 +191,16 @@ async def test_ack_availability_and_exactly_once(app, client, schedule_ready, av
     first = await enqueue(client, schedule_ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, first["id"])
     event = TrustedEvent(
         10,
         "CALLBACK",
-        chat_id=saved.chat_id,
+        chat_id=saved.telegram_user_id,
+        chat_type="private",
         user_id=771001,
-        message_id=saved.message_id,
-        payload=fake.schedule_sent[0][2],
+        message_id=saved.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     async with app.state.session_factory() as db, db.begin():
         binding = await db.get(TelegramBinding, schedule_ready)
@@ -236,8 +238,9 @@ async def test_ack_availability_and_exactly_once(app, client, schedule_ready, av
     assert (await row(app, first["id"])).superseded_at is not None
     assert await acknowledge(app.state.session_factory, event, BOT_ID) == "ACK_UNAVAILABLE"
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     current = await row(app, second["id"])
-    event = replace(event, message_id=current.message_id, payload=fake.schedule_sent[-1][2])
+    event = replace(event, message_id=current.ack_message_id, payload=fake.schedule_sent[-1][2])
     assert await acknowledge(app.state.session_factory, event, BOT_ID) == "ACKNOWLEDGED"
 
 
@@ -288,7 +291,9 @@ def test_message_unicode_budget():
     assert clipped.endswith("\u2026")
 
 
-async def test_upgrade_preserves_receipts_and_backfills_supersession(app, client, schedule_ready):
+async def test_upgrade_preserves_receipts_and_backfills_supersession(
+    app, client, schedule_ready, monkeypatch
+):
     import os
     import subprocess
     import sys
@@ -299,6 +304,14 @@ async def test_upgrade_preserves_receipts_and_backfills_supersession(app, client
     from hub.schedule_delivery.models import ScheduleDispatch
     from tests.conftest import TEST_URL
 
+    # Simulate pre-private-ACK history at construction, before immutable receipt guards.
+    original_init = ScheduleDispatch.__init__
+
+    def historical_init(self, **values):
+        values["private_ack_required"] = False
+        original_init(self, **values)
+
+    monkeypatch.setattr(ScheduleDispatch, "__init__", historical_init)
     first = await enqueue(client, schedule_ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)

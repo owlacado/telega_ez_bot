@@ -178,7 +178,7 @@ class TelegramBotAdapter:
         except TelegramError as error:
             raise safe_error(error) from None
 
-    async def send_schedule(self, chat_id: int, message: str, callback_data: str) -> int:
+    async def send_schedule(self, chat_id: int, message: str, callback_data: str | None) -> int:
         try:
             return (
                 await self.bot.send_message(
@@ -188,8 +188,10 @@ class TelegramBotAdapter:
                     protect_content=True,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
                     reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("Schedule received", callback_data=callback_data)]]
-                    ),
+                        [[InlineKeyboardButton("Confirm schedule", callback_data=callback_data)]]
+                    )
+                    if callback_data is not None
+                    else None,
                 )
             ).message_id
         except TelegramError as error:

@@ -958,3 +958,15 @@ additive, immutable dispatch metadata (`ffc610080001`); no financial rules chang
 messages never privately fall back. Pilot timed creation is disabled independently of durable queue
 processing. `/tomorrow`, Calendar write-back, Contracts and GPS remain outside scope. Historical
 parity findings remain as evidence; this change does not close any live TEST acceptance debt.
+
+
+### Approved private ACK and Daily group summary (2026-10-08)
+
+New official group schedules contain no ACK button; their private prompts are exact-dispatch and
+exact-message capabilities. Successful ACK queues one group confirmation event using the existing
+outbox (safe message editing is not implemented by the current provider adapter). Canonical
+manager ACK state/time remain available. Daily completion events contain only canonical count,
+gross and expenses plus technician name; full accounting stays private. Additive migration
+`ffd610080001` adds immutable prompt receipts and unique durable notice references. No accounting
+formula, next-date rule or timed-pilot policy changed. TD-022/028 and all other live TEST acceptance
+items remain OPEN pending the updated PILOT_LIVE_ACCEPTANCE_PLAN.md sequence.

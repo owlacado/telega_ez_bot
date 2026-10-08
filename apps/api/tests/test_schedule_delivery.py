@@ -87,6 +87,13 @@ async def run_delivery(app, fake):
     )
 
 
+async def deliver_private_prompt(app, fake):
+    from hub.telegram.delivery import deliver_one
+
+    while await deliver_one(app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID):
+        pass
+
+
 def request(app):
     return SimpleNamespace(app=app, state=SimpleNamespace(manager_id=None))
 
@@ -106,12 +113,21 @@ async def test_manual_snapshot_render_ack_history(app, client, google, ready, ca
     chat, message, token = fake.schedule_sent[0]
     assert chat == -771002 and "&lt;b&gt;" in message and "<b>important</b>" not in message
     assert "08:00" in message and "Friday, September 18, 2026" in message
+    assert token is None
+    await deliver_private_prompt(app, fake)
+    token = fake.schedule_sent[-1][2]
     assert len(token.encode()) <= 64
     saved = await row(app, data["id"])
     assert saved.status == "SENT" and saved.encrypted_payload is None
     assert saved.attempt_count == 1 and saved.ack_status == "PENDING"
     event = TrustedEvent(
-        55, "CALLBACK", chat_id=chat, user_id=771001, message_id=saved.message_id, payload=token
+        55,
+        "CALLBACK",
+        chat_type="private",
+        chat_id=771001,
+        user_id=771001,
+        message_id=saved.ack_message_id,
+        payload=token,
     )
     assert (
         await acknowledge(app.state.session_factory, replace(event, user_id=999), BOT_ID)
@@ -324,6 +340,7 @@ async def test_rebound_identity_cannot_ack(app, client, ready, change):
     data = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, data["id"])
     async with app.state.session_factory() as db, db.begin():
         binding = await db.get(TelegramBinding, ready)
@@ -335,10 +352,11 @@ async def test_rebound_identity_cannot_ack(app, client, ready, change):
     event = TrustedEvent(
         1,
         "CALLBACK",
-        chat_id=saved.chat_id,
+        chat_id=saved.telegram_user_id,
+        chat_type="private",
         user_id=771001,
-        message_id=saved.message_id,
-        payload=fake.schedule_sent[0][2],
+        message_id=saved.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     assert await acknowledge(app.state.session_factory, event, BOT_ID) == "ACK_UNAVAILABLE"
 
@@ -526,18 +544,20 @@ async def test_auto_missed_window_never_catches_up_next_morning(app, client, rea
         assert (await db.get(ScheduleAutoDecision, (ready, date(2026, 9, 18)))).state == "MISSED"
 
 
-async def test_ack_expired_wrong_message_and_group_generation(app, client, ready):
+async def test_ack_expired_wrong_message_and_group_generation(app, client, ready, monkeypatch):
     data = await enqueue(client, ready)
     fake = FakeTelegram()
     await run_delivery(app, fake)
+    await deliver_private_prompt(app, fake)
     saved = await row(app, data["id"])
     event = TrustedEvent(
         1,
         "CALLBACK",
-        chat_id=saved.chat_id,
+        chat_id=saved.telegram_user_id,
+        chat_type="private",
         user_id=771001,
-        message_id=saved.message_id,
-        payload=fake.schedule_sent[0][2],
+        message_id=saved.ack_message_id,
+        payload=fake.schedule_sent[-1][2],
     )
     assert (
         await acknowledge(app.state.session_factory, replace(event, message_id=888), BOT_ID)
@@ -547,8 +567,12 @@ async def test_ack_expired_wrong_message_and_group_generation(app, client, ready
         await acknowledge(app.state.session_factory, replace(event, chat_id=888), BOT_ID)
         == "ACK_UNAVAILABLE"
     )
-    async with app.state.session_factory() as db, db.begin():
-        await db.execute(update(ScheduleDispatch).values(ack_expires_at=now() - timedelta(days=1)))
+    from hub.schedule_delivery import acknowledgements
+
+    async def future_clock(db):
+        return now() + timedelta(days=8)
+
+    monkeypatch.setattr(acknowledgements, "clock", future_clock)
     assert await acknowledge(app.state.session_factory, event, BOT_ID) == "ACK_UNAVAILABLE"
 
 

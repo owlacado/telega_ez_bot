@@ -13,6 +13,7 @@ from hub.telegram.activity import ACTIVITY_KINDS, bound, render_activity
 from hub.telegram.common import approved_id, can_deliver, generation
 from hub.telegram.locks import advisory_guard
 from hub.telegram.models import TelegramInvitation, TelegramOutbox
+from hub.telegram.notices import SCHEDULE_NOTICE_KINDS, deliver_schedule_notice
 from hub.telegram.types import ProviderError
 from hub.telegram.verification import verify_bound_group, verify_group
 
@@ -85,6 +86,11 @@ async def finish(
             return
         if state == "QUEUED" and job.attempts >= 3:
             state = "FAILED"
+        if job.kind == "SCHEDULE_PROMPT" and state == "SENT":
+            from hub.schedule_delivery.models import ScheduleDispatch
+
+            dispatch = await db.get(ScheduleDispatch, job.schedule_id, with_for_update=True)
+            dispatch.ack_message_id = message_id
         job.state, job.error_code, job.provider_message_id = state, error, message_id
         job.finished_at = now() if state != "QUEUED" else None
         if state == "QUEUED":
@@ -268,6 +274,8 @@ async def deliver_one(
             await finish(factory, job_id, "CANCELLED", error="BINDING_CHANGED")
         elif job.kind == "VERIFY_GROUP":
             await verify_pending(factory, provider, job_id)
+        elif job.kind in SCHEDULE_NOTICE_KINDS:
+            await deliver_schedule_notice(factory, provider, job_id)
         elif not available or target is None:
             await finish(factory, job_id, "CANCELLED", error="DESTINATION_UNAVAILABLE")
         else:

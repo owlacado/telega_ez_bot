@@ -53,6 +53,11 @@ class ScheduleDispatch(Base, Timestamps):
             name="fallback_reason",
         ),
         CheckConstraint("message_id IS NULL OR message_id > 0", name="positive_message"),
+        CheckConstraint(
+            "ack_message_id IS NULL OR (ack_message_id > 0 AND status = 'SENT' "
+            "AND private_ack_required)",
+            name="private_ack_message",
+        ),
         CheckConstraint("ack_status IN ('NOT_SENT','PENDING','ACKNOWLEDGED')", name="ack_status"),
         CheckConstraint("attempt_count >= 0 AND job_count >= 0", name="counts"),
         CheckConstraint(
@@ -141,6 +146,10 @@ class ScheduleDispatch(Base, Timestamps):
     created_by: Mapped[UUID | None] = mapped_column(ForeignKey("managers.id", ondelete="SET NULL"))
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    private_ack_required: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
+    ack_message_id: Mapped[int | None] = mapped_column(BigInteger)
     ack_status: Mapped[str] = mapped_column(String(16), default="NOT_SENT")
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

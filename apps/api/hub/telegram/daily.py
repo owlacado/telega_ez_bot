@@ -14,6 +14,7 @@ from hub.technicians.models import Technician
 from hub.telegram.common import can_deliver
 from hub.telegram.locks import advisory_guard
 from hub.telegram.models import TelegramProcessedUpdate
+from hub.telegram.notices import enqueue_daily_summary
 
 SCHEDULE_FAILED = (
     "\n\nDaily report is ready, but your next schedule could not be sent. "
@@ -142,6 +143,17 @@ async def handle_daily(factory, event, bot_id, settings, provider):
             else:
                 reply = "Daily report delivery was already attempted."
         if outcome == "DAILY_READY":
+            try:
+                summary_queued = await enqueue_daily_summary(
+                    factory, technician_id, binding, bot_id, request_key, daily
+                )
+            except Exception:
+                summary_queued = False
+            if not summary_queued:
+                reply += (
+                    "\n\nDaily report is ready, but its Work Group summary could not be queued. "
+                    "Please contact your manager."
+                )
             try:
                 request = SimpleNamespace(
                     app=SimpleNamespace(
