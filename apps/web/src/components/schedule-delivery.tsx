@@ -11,8 +11,7 @@ const errors: Record<string, string> = {
     "Telegram may have accepted the previous message. Review the history and confirm a resend if needed.",
   DELIVERY_IN_PROGRESS:
     "A schedule for this date is already queued or processing.",
-  TELEGRAM_UNAVAILABLE:
-    "Connect an available Telegram destination before sending.",
+  TELEGRAM_UNAVAILABLE: "Connect an available Work Group before sending.",
   SCHEDULE_TOO_LARGE:
     "This schedule exceeds the single-message limit. Shorten the calendar titles or locations and refresh.",
   DELIVERY_DISABLED: "Schedule delivery is not configured.",
@@ -174,7 +173,11 @@ function Delivery({
             <input
               type="checkbox"
               checked={data.enabled}
-              disabled={busy || (!data.available && !data.enabled)}
+              disabled={
+                busy ||
+                !data.timed_auto_available ||
+                (!data.available && !data.enabled)
+              }
               onChange={(e) => {
                 const enabled = e.target.checked;
                 void mutate(
@@ -192,8 +195,9 @@ function Delivery({
             Automatic schedule delivery
           </label>
           <p className="field-hint">
-            When enabled, send at {data.local_time} in the assigned calendar
-            timezone. Catch-up ends at 23:00.
+            {data.timed_auto_available
+              ? `When enabled, send at ${data.local_time} in the assigned calendar timezone. Catch-up ends at 23:00.`
+              : "Timed automatic creation is disabled. Use /daily or Send next schedule."}
           </p>
           {data.automatic_state && (
             <p>
@@ -266,7 +270,12 @@ function Delivery({
                 {d.target_date} · {label[d.status]}
               </strong>
               <p>
-                {label[d.trigger]} · {label[d.destination]}
+                {d.trigger_source === "TECHNICIAN_DAILY"
+                  ? "Technician daily"
+                  : d.trigger_source === "MANAGER_MANUAL"
+                    ? "Manager manual"
+                    : label[d.trigger]}{" "}
+                · {label[d.destination]}
                 {d.fallback_reason && (
                   <span>
                     {" "}

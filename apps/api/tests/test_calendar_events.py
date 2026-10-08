@@ -629,7 +629,7 @@ async def test_weekend_preview_operational_date(client, google, assigned, monkey
         )
         await db.commit()
     data = (await client.get(f"/api/technicians/{assigned[0]['id']}/calendar/next-schedule")).json()
-    assert data["operational_date"] == "2026-09-21"
+    assert data["operational_date"] == ("2026-09-20" if day.weekday() == 5 else "2026-09-21")
 
 
 def test_cancelled_event_with_valid_title():

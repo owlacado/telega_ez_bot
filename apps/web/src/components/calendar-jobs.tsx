@@ -107,6 +107,7 @@ export function ScheduleContent({
         </span>
         <small>Calendar time · {data.timezone}</small>
       </div>
+      {data.resolution_note && <p role="status">{data.resolution_note}</p>}
       {(data.warnings ?? []).map((w) => (
         <p role="status" key={w}>
           {w}
@@ -206,7 +207,6 @@ function Preview({ id, onClose }: { id: string; onClose: () => void }) {
 }
 export function PreviewSchedule({
   id,
-  today,
 }: {
   id: string;
   today: ScheduleRead | null;
@@ -225,7 +225,7 @@ export function PreviewSchedule({
         }}
       >
         <CalendarDays size={16} />
-        {previewLabel(today?.operational_date, today?.next_schedule_date)}
+        Send next schedule
       </button>
       {open && (
         <Preview

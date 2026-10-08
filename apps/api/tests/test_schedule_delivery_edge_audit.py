@@ -103,7 +103,8 @@ async def test_trusted_group_migration_invalidates_old_send_and_ack(
         assert await acknowledge(app.state.session_factory, ack, BOT_ID) == "ACK_UNAVAILABLE"
     else:
         await run_delivery(app, fake)
-        assert [chat for chat, _, _ in fake.schedule_sent] == [771001]
+        assert fake.schedule_sent == []
+        assert (await row(app, data["id"])).status == "CANCELLED"
 
 
 async def test_old_group_transferred_to_another_technician(app, client, ready):
@@ -139,7 +140,7 @@ async def test_old_group_transferred_to_another_technician(app, client, ready):
         )
     fake = FakeTelegram()
     await run_delivery(app, fake)
-    assert [chat for chat, _, _ in fake.schedule_sent] == [771001]
+    assert fake.schedule_sent == []
 
 
 async def test_auto_disable_during_authoritative_fetch(app, client, google, ready, monkeypatch):

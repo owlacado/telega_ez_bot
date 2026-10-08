@@ -947,3 +947,14 @@ void, Contracts, GPS or CRM workflow was introduced. See WORKFLOW_PARITY_AUDIT.m
 failure/manual-review contract and verification. These changes close the identified local workflow
 links, not external acceptance: TD-012/017/025/029 and TD-022/027/028/030/033 remain OPEN. No TD is closed
 or reclassified by fake-provider evidence. PILOT READY: NO pending deployment and live TEST evidence.
+
+
+### Approved daily workflow restoration ? 2026-10-08
+
+The earlier `/daily` deferral is superseded by the approved private Daily Accounting -> Work Group
+ScheduleDispatch workflow. Shared calendar filtering resolves the Sunday exception; manager preview
+and confirm use the same service. `trigger_source` and an opaque admitted-update request key are
+additive, immutable dispatch metadata (`ffc610080001`); no financial rules change. New official
+messages never privately fall back. Pilot timed creation is disabled independently of durable queue
+processing. `/tomorrow`, Calendar write-back, Contracts and GPS remain outside scope. Historical
+parity findings remain as evidence; this change does not close any live TEST acceptance debt.

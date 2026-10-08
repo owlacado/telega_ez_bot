@@ -36,6 +36,10 @@ class ScheduleDispatch(Base, Timestamps):
             name="status",
         ),
         CheckConstraint("trigger IN ('MANUAL','AUTOMATIC','MANUAL_RESEND')", name="trigger"),
+        CheckConstraint(
+            "trigger_source IS NULL OR trigger_source IN ('TECHNICIAN_DAILY','MANAGER_MANUAL')",
+            name="trigger_source",
+        ),
         CheckConstraint("destination IN ('WORK_GROUP','PRIVATE')", name="destination"),
         CheckConstraint(
             "requested_destination IS NULL OR requested_destination IN ('WORK_GROUP','PRIVATE')",
@@ -90,6 +94,7 @@ class ScheduleDispatch(Base, Timestamps):
             "encrypted_payload IS NULL OR encrypted_payload LIKE 'v1:%'", name="cipher_version"
         ),
         UniqueConstraint("resend_of_id"),
+        UniqueConstraint("bot_id", "daily_request_key", name="uq_schedule_daily_request"),
         Index(
             "uq_schedule_active_day",
             "technician_id",
@@ -114,6 +119,8 @@ class ScheduleDispatch(Base, Timestamps):
     )
     target_date: Mapped[date] = mapped_column(Date)
     trigger: Mapped[str] = mapped_column(String(20))
+    trigger_source: Mapped[str | None] = mapped_column(String(24))
+    daily_request_key: Mapped[str | None] = mapped_column(String(64))
     destination: Mapped[str] = mapped_column(String(16))
     requested_destination: Mapped[str | None] = mapped_column(String(16))
     fallback_reason: Mapped[str | None] = mapped_column(String(48))

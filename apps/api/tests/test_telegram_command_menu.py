@@ -38,6 +38,7 @@ def adapter():
         "You're connected to Technician Hub. /report /expenses",
         "Submit Report\nOpen this private link",
         "Expenses\nOpen this private link",
+        "Daily report\nSynthetic accounting",
     ],
 )
 async def test_connected_private_menu_exact_commands_and_keyboard_removal(adapter, message):
@@ -46,6 +47,7 @@ async def test_connected_private_menu_exact_commands_and_keyboard_removal(adapte
     assert [c.to_dict() for c in call.args[0]] == [
         {"command": "report", "description": "Submit a report"},
         {"command": "expenses", "description": "Expenses"},
+        {"command": "daily", "description": "Daily report"},
     ]
     assert call.kwargs["scope"].to_dict() == {"type": "chat", "chat_id": 12345678}
     assert call.kwargs["language_code"] == ""

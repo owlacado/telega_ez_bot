@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     google_oauth_attempt_retention_days: int = Field(default=7, ge=1, le=365)
 
     schedule_delivery_enabled: bool = False
+    schedule_timed_auto_enabled: bool = False
     schedule_payload_encryption_key: SecretStr | None = None
     schedule_auto_delivery_local_time: str = Field(
         default="20:00", pattern=r"^(?:[01][0-9]|2[0-2]):[0-5][0-9]$"

@@ -139,11 +139,20 @@ class TelegramBotAdapter:
         # Configure only a connected technician's private chat. Telegram persists this
         # menu across sessions; repeat setup on home/form replies to repair older chats.
         if chat_id > 0 and message.startswith(
-            ("You're connected to Technician Hub.", "Submit Report\n", "Expenses\n")
+            (
+                "You're connected to Technician Hub.",
+                "Submit Report\n",
+                "Expenses\n",
+                "Daily report\n",
+            )
         ):
             try:
                 await self.bot.set_my_commands(
-                    [BotCommand("report", "Submit a report"), BotCommand("expenses", "Expenses")],
+                    [
+                        BotCommand("report", "Submit a report"),
+                        BotCommand("expenses", "Expenses"),
+                        BotCommand("daily", "Daily report"),
+                    ],
                     scope=BotCommandScopeChat(chat_id),
                     language_code="",
                 )

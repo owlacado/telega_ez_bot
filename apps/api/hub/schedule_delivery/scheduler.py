@@ -21,6 +21,8 @@ def in_window(stamp, timezone, settings):
 
 async def evaluate(request):
     factory, settings = request.app.state.session_factory, request.app.state.settings
+    if not settings.schedule_timed_auto_enabled or settings.app_env == "pilot":
+        return
     async with factory() as db:
         candidates = (
             await db.execute(

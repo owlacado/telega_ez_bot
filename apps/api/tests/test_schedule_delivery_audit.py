@@ -28,8 +28,9 @@ from tests.test_schedule_delivery import (
 )
 
 
-async def test_fallback_provenance_survives_success(app, client, ready):
+async def test_official_group_rejection_never_falls_back(app, client, ready):
     data = await enqueue(client, ready)
+
     fake = FakeTelegram()
     original = fake.send_schedule
     calls = []
@@ -43,10 +44,11 @@ async def test_fallback_provenance_survives_success(app, client, ready):
     fake.send_schedule = send
     await run_delivery(app, fake)
     history = (await client.get(f"/api/technicians/{ready}/schedule-delivery")).json()["history"][0]
-    assert history["status"] == "SENT"
+    assert history["status"] == "FAILED"
     assert history.get("requested_destination") == "WORK_GROUP"
-    assert history["destination"] == "PRIVATE"
-    assert history.get("fallback_reason") == "GROUP_REJECTED_PRIVATE_FALLBACK"
+    assert history["destination"] == "WORK_GROUP"
+    assert history.get("fallback_reason") is None
+    assert calls == [-771002]
     assert (await row(app, data["id"])).encrypted_payload is None
 
 
@@ -413,20 +415,23 @@ async def test_history_bounds_and_capability_privacy(app, client, ready):
         assert secret not in response.text
 
 
-async def test_wrong_group_rebind_private_fallback(app, client, ready):
+async def test_wrong_group_rebind_blocks_official_dispatch(app, client, ready):
     from hub.integrations.models import TelegramBinding
 
     data = await enqueue(client, ready)
+
     async with app.state.session_factory() as db, db.begin():
         binding = await db.get(TelegramBinding, ready)
         binding.telegram_group_chat_id = -900099
         binding.group_generation += 1
     fake = FakeTelegram()
     await run_delivery(app, fake)
-    assert [c for c, _, _ in fake.schedule_sent] == [771001]
+    assert fake.schedule_sent == []
     saved = await row(app, data["id"])
     assert (
-        saved.destination == "PRIVATE" and saved.fallback_reason == "GROUP_UNAVAILABLE_BEFORE_SEND"
+        saved.destination == "WORK_GROUP"
+        and saved.status == "CANCELLED"
+        and saved.fallback_reason is None
     )
 
 

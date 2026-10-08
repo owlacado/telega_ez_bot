@@ -148,6 +148,9 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
             or binding.telegram_group_chat_id != row.chat_id
             or not can_deliver(binding, "WORK_GROUP", row.bot_id)
         ):
+            if row.trigger_source is not None:
+                terminal(row, "CANCELLED", "GROUP_UNAVAILABLE", stamp)
+                return None
             row.destination, row.chat_id = "PRIVATE", row.telegram_user_id
             row.fallback_reason = "GROUP_UNAVAILABLE_BEFORE_SEND"
         try:
@@ -184,7 +187,11 @@ async def finish(factory, identifier, owner, *, message_id=None, failure=None):
                 row.encrypted_payload = None
                 return False
         code = failure.code
-        if code in {"ACCESS_DENIED", "CHAT_UNAVAILABLE"} and row.destination == "WORK_GROUP":
+        if (
+            code in {"ACCESS_DENIED", "CHAT_UNAVAILABLE"}
+            and row.destination == "WORK_GROUP"
+            and row.trigger_source is None
+        ):
             # Provider definitively rejected this send. A crash before this commit is
             # still ambiguous; only this committed transition permits private fallback.
             row.destination, row.chat_id = "PRIVATE", row.telegram_user_id

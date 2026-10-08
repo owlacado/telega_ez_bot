@@ -27,8 +27,6 @@ def destination(binding, bot_id):
         return None
     if can_deliver(binding, "WORK_GROUP", bot_id):
         return "WORK_GROUP"
-    if can_deliver(binding, "PRIVATE_TELEGRAM", bot_id):
-        return "PRIVATE"
     return None
 
 
@@ -36,13 +34,37 @@ def fail(code):
     raise HTTPException(409, code)
 
 
-async def create_dispatch(request, technician_id, body=None, *, automatic=False):
+async def create_dispatch(
+    request,
+    technician_id,
+    body=None,
+    *,
+    automatic=False,
+    daily_binding=None,
+    daily_request_key=None,
+):
     config = request.app.state.settings
+    if automatic and (not config.schedule_timed_auto_enabled or config.app_env == "pilot"):
+        fail("AUTO_DISABLED")
+    if daily_binding is not None and daily_request_key is None:
+        fail("DAILY_UPDATE_REQUIRED")
+    if daily_request_key is not None:
+        async with request.app.state.session_factory() as db:
+            replay = await db.scalar(
+                select(ScheduleDispatch).where(
+                    ScheduleDispatch.bot_id == config.telegram_expected_bot_id,
+                    ScheduleDispatch.daily_request_key == daily_request_key,
+                    ScheduleDispatch.technician_id == technician_id,
+                )
+            )
+            if replay:
+                return DispatchRead.model_validate(replay)
+    internal = automatic or daily_binding is not None
     try:
         encryption = cipher(config)
     except ValueError:
         fail("DELIVERY_DISABLED")
-    projection = await read_schedule(request, technician_id, preview=True, worker=automatic)
+    projection = await read_schedule(request, technician_id, preview=True, worker=internal)
     if projection.state != "READY":
         fail(projection.state)
     payload = from_schedule(projection)
@@ -60,12 +82,20 @@ async def create_dispatch(request, technician_id, body=None, *, automatic=False)
             await mutation_lock(db)
             await lock_technician(db, technician_id)
             fresh, identity, _ = await snapshot(
-                request, technician_id, preview=True, worker=automatic, session=db
+                request,
+                technician_id,
+                preview=True,
+                worker=internal,
+                session=db,
+                target_date=payload.target_date,
             )
             if (
                 fresh.state != "READY"
                 or identity != projection._source_identity
-                or fresh.operational_date != payload.target_date
+                or (await snapshot(request, technician_id, worker=internal, session=db))[
+                    0
+                ].operational_date
+                != projection._resolved_on
             ):
                 fail("SCHEDULE_CHANGED")
             setting = await db.get(ScheduleDeliverySetting, technician_id)
@@ -79,6 +109,17 @@ async def create_dispatch(request, technician_id, body=None, *, automatic=False)
                 ):
                     fail("AUTO_NOT_DUE")
             binding = await db.get(TelegramBinding, technician_id)
+            if daily_binding is not None and (
+                not binding
+                or (
+                    binding.telegram_user_id,
+                    binding.private_generation,
+                    binding.group_generation,
+                    binding.telegram_group_chat_id,
+                )
+                != daily_binding
+            ):
+                fail("TELEGRAM_UNAVAILABLE")
             chosen = destination(binding, config.telegram_expected_bot_id)
             if not chosen:
                 fail("TELEGRAM_UNAVAILABLE")
@@ -128,6 +169,12 @@ async def create_dispatch(request, technician_id, body=None, *, automatic=False)
                 calendar_id=fresh.calendar.id,
                 target_date=payload.target_date,
                 trigger="AUTOMATIC" if automatic else "MANUAL_RESEND" if parent else "MANUAL",
+                trigger_source=None
+                if automatic
+                else "TECHNICIAN_DAILY"
+                if daily_binding is not None
+                else "MANAGER_MANUAL",
+                daily_request_key=daily_request_key,
                 destination=chosen,
                 requested_destination=chosen,
                 fingerprint=payload.fingerprint,
@@ -165,9 +212,14 @@ async def create_dispatch(request, technician_id, body=None, *, automatic=False)
             if not automatic:
                 audit(
                     db,
-                    "schedule.resend_queued" if parent else "schedule.manual_queued",
+                    "schedule.daily_queued"
+                    if daily_binding is not None
+                    else "schedule.resend_queued"
+                    if parent
+                    else "schedule.manual_queued",
                     item.id,
                     actor_id=actor,
+                    actor_kind="TELEGRAM_WORKER" if daily_binding is not None else "MANAGER",
                 )
                 if parent and parent.status == "AMBIGUOUS":
                     audit(db, "schedule.ambiguous_resend_confirmed", parent.id, actor_id=actor)
@@ -201,6 +253,7 @@ async def read_delivery(request, technician_id):
         )
         return ScheduleDeliveryRead(
             enabled=bool(setting and setting.enabled),
+            timed_auto_available=config.schedule_timed_auto_enabled and config.app_env != "pilot",
             available=config.schedule_delivery_enabled,
             destination=chosen,
             local_time=config.schedule_auto_delivery_local_time,
@@ -211,6 +264,9 @@ async def read_delivery(request, technician_id):
 
 
 async def set_enabled(request, technician_id, enabled):
+    config = request.app.state.settings
+    if enabled and (not config.schedule_timed_auto_enabled or config.app_env == "pilot"):
+        fail("AUTO_DISABLED")
     async with advisory_guard(request.app.state.google_lock_engine, "technician", technician_id):
         async with request.app.state.session_factory() as db, db.begin():
             await lock_technician(db, technician_id, active=enabled)

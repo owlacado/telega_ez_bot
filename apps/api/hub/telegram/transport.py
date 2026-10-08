@@ -95,7 +95,8 @@ def _parse_update(update: dict, bot_username: str) -> TrustedEvent:
         if not addressed or addressed.lower() == bot_username.lower():
             command = (
                 name.lower()
-                if name.lower() in {"/start", "/help", "/status", "/getid", "/report", "/expenses"}
+                if name.lower()
+                in {"/start", "/help", "/status", "/getid", "/report", "/expenses", "/daily"}
                 else None
             )
         if raw.strip().lower() == "get id":

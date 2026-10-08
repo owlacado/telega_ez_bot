@@ -19,6 +19,8 @@ class ScheduleCalendar(BaseModel):
 
 
 class ScheduleRead(BaseModel):
+    resolution_note: str | None = None
+    _resolved_on: date | None = PrivateAttr(default=None)
     fingerprint: str | None = None
     _source_identity: tuple | None = PrivateAttr(default=None)
     technician: ScheduleTechnician

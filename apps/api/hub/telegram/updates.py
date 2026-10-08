@@ -35,14 +35,15 @@ REPLIES = {
         "verification."
     ),
     "CONNECTED": (
-        "You're connected to Technician Hub. /report — Submit Report; /expenses — Expenses"
+        "You're connected to Technician Hub. /report — Submit Report; /expenses — Expenses; "
+        "/daily - Daily report"
     ),
     "UNAVAILABLE": "Your connection is currently unavailable. Contact your manager.",
     "HELP": (
         "Use your manager's /start invitation to connect. /status shows "
         "connection status. /getid shows your own Telegram ID in a private chat. "
         "/report — Submit Report; /expenses — Expenses. Use Schedule received "
-        "on your delivered schedule to acknowledge it."
+        "on your delivered schedule to acknowledge it. /daily - Daily report."
     ),
 }
 
@@ -91,7 +92,11 @@ async def _process_update(
         config = Settings()
     async with factory() as db:
         existing = await db.get(TelegramProcessedUpdate, (bot_id, event.update_id))
-        if existing and existing.outcome != "ADMITTED":
+        if (
+            existing
+            and existing.outcome != "ADMITTED"
+            and not (existing.outcome == "DAILY_ACCOUNTING_ATTEMPTED" and event.command == "/daily")
+        ):
             return UpdateResult("DUPLICATE")
     if existing is None:
         async with factory() as db, db.begin():
@@ -139,6 +144,18 @@ async def _process_update(
             )
             if not admitted:
                 return UpdateResult("RATE_LIMITED")
+    if (
+        event.kind == "COMMAND"
+        and event.command == "/daily"
+        and event.chat_type == "private"
+        and event.chat_id == event.user_id
+        and event.user_id is not None
+        and not event.user_is_bot
+        and not event.anonymous
+    ):
+        from hub.telegram.daily import handle_daily
+
+        return await handle_daily(factory, event, bot_id, config, provider)
     if event.kind == "CALLBACK":
         # Clear Telegram's progress indicator promptly, before database work. A failure
         # to answer is cosmetic and must not prevent the authoritative acknowledgement.

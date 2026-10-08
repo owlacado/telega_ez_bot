@@ -122,13 +122,13 @@ it.each([
 it("preview is read-only, loads target day and closes", async () => {
   mocked.mockResolvedValue({ ...ready, operational_date: "2026-09-18" });
   render(<PreviewSchedule id="tech" today={ready} />);
-  fireEvent.click(screen.getByRole("button", { name: /Preview Friday/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send next schedule/ }));
   await waitFor(() =>
     expect(screen.getByText("No scheduled jobs.")).toBeVisible(),
   );
   expect(screen.getByText("Friday, Sep 18")).toBeVisible();
   expect(
-    screen.queryByRole("button", { name: /Send/ }),
+    screen.queryByRole("button", { name: "Send schedule" }),
   ).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
   expect(screen.queryByText("No scheduled jobs.")).not.toBeInTheDocument();
@@ -205,10 +205,10 @@ it("close and reopen ignores previous preview completion", async () => {
     )
     .mockResolvedValue({ ...ready, jobs: [job] });
   render(<PreviewSchedule id="tech" today={ready} />);
-  fireEvent.click(screen.getByRole("button", { name: /Preview Friday/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send next schedule/ }));
   await waitFor(() => expect(mocked).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
-  fireEvent.click(screen.getByRole("button", { name: /Preview Friday/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Send next schedule/ }));
   await waitFor(() => expect(screen.getByText("1. Furnace")).toBeVisible());
   await act(async () => old({ ...ready, state: "PROVIDER_ERROR" }));
   expect(screen.getByText("1. Furnace")).toBeVisible();
@@ -317,5 +317,21 @@ it("provider links prevent opener access and content remains literal", () => {
   expect(screen.getByRole("link")).toHaveAttribute(
     "rel",
     "noopener noreferrer",
+  );
+});
+
+it("shows the backend Sunday resolution explanation", () => {
+  render(
+    <ScheduleContent
+      {...view({
+        ...ready,
+        resolution_note:
+          "Sunday has no eligible jobs; the next schedule is Monday.",
+      })}
+      preview
+    />,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(
+    "Sunday has no eligible jobs",
   );
 });

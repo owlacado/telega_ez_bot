@@ -27,7 +27,9 @@ from hub.telegram.locks import advisory_guard
 logger = logging.getLogger(__name__)
 
 
-async def snapshot(request, technician_id, preview=False, *, worker=False, session=None):
+async def snapshot(
+    request, technician_id, preview=False, *, worker=False, session=None, target_date=None
+):
     async with (
         nullcontext(session) if session is not None else request.app.state.session_factory()
     ) as db:
@@ -93,7 +95,9 @@ async def snapshot(request, technician_id, preview=False, *, worker=False, sessi
         try:
             today = now().astimezone(calendar_zone(cal.timezone)).date()
             result.next_schedule_date = next_schedule_date(today)
-            result.operational_date = result.next_schedule_date if preview else today
+            result.operational_date = target_date or (
+                result.next_schedule_date if preview else today
+            )
         except ProviderError:
             pass
         if connection is not None and connection.status in {"REAUTH_REQUIRED", "DISCONNECTED"}:
@@ -151,8 +155,10 @@ async def remember_failure(request, connection_id, generation, exc):
         await db.commit()
 
 
-async def _read_schedule(request, technician_id, preview=False, *, worker=False):
-    result, identity, context = await snapshot(request, technician_id, preview, worker=worker)
+async def _read_schedule(request, technician_id, preview=False, *, worker=False, target_date=None):
+    result, identity, context = await snapshot(
+        request, technician_id, preview, worker=worker, target_date=target_date
+    )
     if result.state != "READY":
         return result
     connection, calendar = context
@@ -168,7 +174,7 @@ async def _read_schedule(request, technician_id, preview=False, *, worker=False)
                     request.app.state.google_lock_engine, "google-lifecycle", 0
                 ):
                     latest_result, latest_identity, latest_context = await snapshot(
-                        request, technician_id, preview, worker=worker
+                        request, technician_id, preview, worker=worker, target_date=target_date
                     )
                     if latest_identity != identity or latest_result.state != "READY":
                         latest_result.state = "CHANGED"
@@ -214,7 +220,7 @@ async def _read_schedule(request, technician_id, preview=False, *, worker=False)
                     )
                 )
                 fresh, fresh_identity, _ = await snapshot(
-                    request, technician_id, preview, worker=worker
+                    request, technician_id, preview, worker=worker, target_date=target_date
                 )
                 if fresh_identity != identity:
                     fresh.state = "CHANGED"
@@ -233,12 +239,14 @@ async def _read_schedule(request, technician_id, preview=False, *, worker=False)
                 fresh.error_code = exc.code
                 if fresh.state == "PROVIDER_ERROR":
                     fresh.retry_at = (
-                        await snapshot(request, technician_id, preview, worker=worker)
+                        await snapshot(
+                            request, technician_id, preview, worker=worker, target_date=target_date
+                        )
                     )[0].retry_at
                 result = fresh
                 return result
             fresh, fresh_identity, _ = await snapshot(
-                request, technician_id, preview, worker=worker
+                request, technician_id, preview, worker=worker, target_date=target_date
             )
             if (
                 fresh_identity != identity
@@ -262,11 +270,43 @@ async def _read_schedule(request, technician_id, preview=False, *, worker=False)
         return result
 
 
+async def resolve_next_schedule_date(request, technician_id, *, worker=False):
+    """Resolve one next-day projection; only Saturday consults Sunday eligibility."""
+    today, identity, _ = await snapshot(request, technician_id, worker=worker)
+    if today.state != "READY":
+        return today
+    day = today.operational_date
+    target = day + timedelta(days=1)
+    result = await _read_schedule(request, technician_id, True, worker=worker, target_date=target)
+    if result.state != "READY":
+        return result
+    if day.weekday() == 5 and not result.jobs:
+        target += timedelta(days=1)
+        result = await _read_schedule(
+            request, technician_id, True, worker=worker, target_date=target
+        )
+        result.resolution_note = "Sunday has no eligible jobs; the next schedule is Monday."
+    fresh, fresh_identity, _ = await snapshot(request, technician_id, worker=worker)
+    if (
+        fresh_identity != identity
+        or fresh.operational_date != day
+        or result._source_identity != identity
+    ):
+        result.state = "CHANGED"
+    result.next_schedule_date = target
+    result._resolved_on = day
+    return result
+
+
 async def read_schedule(request, technician_id, preview=False, *, worker=False):
     started = monotonic()
     result, outcome = None, "INTERRUPTED"
     try:
-        result = await _read_schedule(request, technician_id, preview, worker=worker)
+        result = (
+            await resolve_next_schedule_date(request, technician_id, worker=worker)
+            if preview
+            else await _read_schedule(request, technician_id, worker=worker)
+        )
         outcome = (
             ("SUCCESS" if result.jobs else "NO_JOBS")
             if result.state == "READY"

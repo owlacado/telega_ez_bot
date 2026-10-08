@@ -25,6 +25,7 @@ const schedule: ScheduleRead = {
 const data: DeliveryRead = {
   available: true,
   enabled: false,
+  timed_auto_available: true,
   destination: "WORK_GROUP",
   local_time: "20:00",
   history: [],
@@ -251,4 +252,14 @@ it("polls pending acknowledgement slowly and stops on failure", async () => {
   );
   await act(async () => vi.advanceTimersByTimeAsync(60000));
   expect(mocked).toHaveBeenCalledTimes(2);
+});
+
+it("keeps manual send available while pilot timed creation is disabled", async () => {
+  mocked.mockResolvedValue({ ...data, timed_auto_available: false });
+  render(<ScheduleDelivery id="A" schedule={schedule} refresh={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("checkbox")).toBeDisabled());
+  expect(screen.getByRole("button", { name: "Send schedule" })).toBeEnabled();
+  expect(
+    screen.getByText(/Timed automatic creation is disabled/),
+  ).toBeVisible();
 });

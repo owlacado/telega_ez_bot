@@ -60,7 +60,7 @@ encryption keys, chat IDs, spreadsheet IDs, or credential-bearing screenshots.
    transferable-bearer limitation. Confirm canonical daily and weekly accounting.
 6. **Schedule delivery — TD-028/TD-029.** Preview and send one fictional schedule to the verified
    TEST group; verify destination, escaping, Telegram length behavior, acknowledgement, duplicate and
-   late callback handling, private fallback only under the documented rule, and removed-membership
+   late callback handling, no private fallback for new official daily/manual dispatches, and removed-membership
    failure. Exercise an ambiguity with a controlled TEST failure only if it can be induced without
    risking another destination; confirm ordinary retry is unavailable and record the manager choice.
 7. **Individual Google Sheet — TD-033.** Configure the Individual TEST spreadsheet, sync one week,
@@ -101,7 +101,7 @@ Use matching API/Telegram worker/frontend with migration `fea610060001` or its s
 database is not a test fixture. Apply approved deployment/backup procedures before live activation.
 The prior order remains: private onboarding -> group -> Google read setup -> forms/activity ->
 schedule/ACK -> Sheets -> parity/recovery. Calendar remains read-only; do not grant write scope or
-expect a report description update. Menu contains only /report and /expenses; no /daily or /tomorrow.
+expect a report description update. Menu contains /report, /expenses and /daily; no /tomorrow.
 
 At step 5, test one report and one expense with fictional values. Verify browser success, one stored
 record/revision and one activity intent on receipt replay. Verify the exact TEST work group receives
@@ -125,3 +125,26 @@ Record the release/client versions and sanitized evidence, without tokens or des
 
 All live matrix rows remain pending until this is executed and reviewed. This document does not
 constitute provider execution or deployment approval by itself.
+
+
+### Daily to next-schedule acceptance (2026-10-08)
+
+Use only the dedicated TEST bot, private chat, Work Group and assigned TEST Google calendar.
+With `SCHEDULE_DELIVERY_ENABLED=true` and the configured payload key, keep
+`SCHEDULE_TIMED_AUTO_ENABLED=false`; pilot mode also hard-blocks timed creation.
+
+1. In the bound private chat run `/daily`. Compare totals and business date/timezone with manager
+   Daily Accounting. Confirm the separate schedule result says queued until actual delivery.
+2. Verify the official schedule appears only in the bound Work Group. ACK as the technician twice;
+   confirm one persisted receipt. A different group member must not ACK.
+3. Open technician **Send next schedule**. Review date, job count/content and Saturday's
+   Sunday-empty explanation; explicitly Send. For changed content, the new same-date dispatch
+   supersedes the old one and its old ACK must fail.
+4. Exercise Saturday with eligible Sunday jobs, no Sunday jobs, and only cancelled/fake/ineligible
+   jobs. After an empty-Sunday decision, a newly added Sunday job requires an explicit manager send;
+   no automatic calendar-change detection is provided.
+5. With unavailable/revalidation-required group, `/daily` must still return accounting and a safe
+   schedule failure message; no private schedule fallback. Restore/revalidate before retrying.
+6. Observe clock-based scheduler time with no daily/manual trigger: no new official schedule.
+   Confirm already queued schedules still drain normally. An ambiguous send requires manager review,
+   never blind replay. Finish with provider-silent status/queue checks and retain TEST evidence.

@@ -3587,6 +3587,21 @@
             ],
             "title": "Trigger"
           },
+          "trigger_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "TECHNICIAN_DAILY",
+                  "MANAGER_MANUAL"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trigger Source"
+          },
           "destination": {
             "type": "string",
             "enum": [
@@ -5544,6 +5559,11 @@
             "type": "boolean",
             "title": "Enabled"
           },
+          "timed_auto_available": {
+            "type": "boolean",
+            "title": "Timed Auto Available",
+            "default": false
+          },
           "available": {
             "type": "boolean",
             "title": "Available"
@@ -5609,6 +5629,17 @@
       },
       "ScheduleRead": {
         "properties": {
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Note"
+          },
           "fingerprint": {
             "anyOf": [
               {

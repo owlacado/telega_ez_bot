@@ -1,5 +1,38 @@
 # End-to-end workflow parity audit
 
+## Daily workflow restoration (2026-10-08)
+
+This approval supersedes the earlier `/daily` deferral below. `/daily` is now a private,
+bound-technician command/menu entry: it renders canonical Daily Accounting totals for today
+in the accounting timezone, then uses the shared calendar-timezone next-schedule resolver and
+existing ScheduleDispatch pipeline. Accounting and schedule outcomes are reported separately;
+schedule errors never roll back accounting. The private accounting receipt is attempted before
+Google work, with a durable attempt checkpoint preventing blind resend after a crash/uncertain send.
+The separate schedule receipt says queued, not delivered.
+Manager **Send next schedule** opens the same backend preview with date, jobs and Sunday-empty
+explanation, followed by explicit Send. No frontend business-date resolver was introduced.
+
+Mon-Fri select the next day (Friday includes Saturday). Saturday selects Sunday only when the
+canonical schedule filter finds eligible Sunday jobs; otherwise Monday. Sunday selects Monday.
+No forward search occurs. New `TECHNICIAN_DAILY` and `MANAGER_MANUAL` dispatches are Work Group
+only; unavailable/revalidation-required/rebound groups cancel delivery with no private fallback.
+Historic dispatches retain their recorded legacy semantics. Exact/current ACK, superseding,
+membership checks, immutable snapshots and ambiguous-send handling reuse the existing pipeline.
+Daily request keys are tied to the durable admitted-update reservation so crash replay cannot
+create a replacement schedule; a later Telegram ID epoch receives a distinct key.
+
+`SCHEDULE_TIMED_AUTO_ENABLED` defaults false; pilot mode refuses timed creation even if set true.
+The schedule worker still drains durable dispatches. `/tomorrow`, Calendar write-back and the
+original legacy group Daily summary remain deferred/out of this approved private-summary scope.
+Local verification: 25 daily workflow integration tests and 890 affected Telegram/Calendar/Schedule,
+Work Report and canonical accounting regressions verified across the affected run and corrected
+legacy-expectation rerun (three unchanged accounting query-budget benchmarks excluded). Also passed:
+44 provider-silent operator/migration-resolver/logging checks, 41 frontend tests, typecheck, lint,
+production build, deterministic generated contracts, migration upgrade/roundtrip checks and zero drift.
+PostgreSQL was the isolated local test cluster; no normal DB/volume or real provider was used.
+Live provider acceptance is still required; local fake-provider evidence does not close it.
+
+
 ## Approved pilot workflow completion (2026-10-06)
 
 This section supersedes the historical gap dispositions below. Implementation starts from audit

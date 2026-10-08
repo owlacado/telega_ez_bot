@@ -187,3 +187,13 @@ Alembic subprocess stdout/stderr is suppressed to prevent credential-bearing tra
 on BLOCK, stop deployment and inspect the release migrations/configuration through the
 controlled diagnostic procedure. This command does not stamp, downgrade or auto-repair
 migration history. No new migration is introduced by these operator commands.
+
+
+### Pilot daily/manual schedules
+
+`/daily` now returns canonical accounting privately and queues the next official Work Group schedule.
+Manager **Send next schedule** previews the shared resolver before confirmation. Keep
+`SCHEDULE_TIMED_AUTO_ENABLED=false` (default); `APP_ENV=pilot` blocks timed creation regardless.
+`SCHEDULE_DELIVERY_ENABLED` still controls the durable schedule worker and encryption requirement.
+Apply the additive `ffc610080001` migration through the verified migrate command before running
+this release. Provider activation/credentials and live TEST acceptance remain separate operator steps.

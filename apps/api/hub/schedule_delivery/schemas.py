@@ -23,6 +23,7 @@ class DispatchRead(BaseModel):
     id: UUID
     target_date: date
     trigger: Literal["MANUAL", "AUTOMATIC", "MANUAL_RESEND"]
+    trigger_source: Literal["TECHNICIAN_DAILY", "MANAGER_MANUAL"] | None = None
     destination: Literal["WORK_GROUP", "PRIVATE"]
     requested_destination: Literal["WORK_GROUP", "PRIVATE"] | None = None
     fallback_reason: (
@@ -44,6 +45,7 @@ class DispatchRead(BaseModel):
 
 class ScheduleDeliveryRead(BaseModel):
     enabled: bool
+    timed_auto_available: bool = False
     available: bool
     destination: Literal["WORK_GROUP", "PRIVATE"] | None
     local_time: str

@@ -36,6 +36,7 @@ from tests.test_google_calendar import google as google
 async def ready(app, client, google, assigned):
     settings = app.state.settings
     settings.schedule_delivery_enabled = True
+    settings.schedule_timed_auto_enabled = True
     settings.schedule_payload_encryption_key = SecretStr(Fernet.generate_key().decode())
     settings.telegram_mode, settings.telegram_expected_bot_id = "fake", BOT_ID
     settings.telegram_expected_bot_username = BOT_USERNAME
@@ -190,8 +191,8 @@ async def test_duplicate_resend_changed_content(app, client, google, ready):
         ("PROVIDER_UNAVAILABLE", "AMBIGUOUS", False),
         ("PROCESSING_FAILED", "AMBIGUOUS", False),
         ("REQUEST_REJECTED", "FAILED", False),
-        ("ACCESS_DENIED", "SENT", True),
-        ("CHAT_UNAVAILABLE", "SENT", True),
+        ("ACCESS_DENIED", "FAILED", False),
+        ("CHAT_UNAVAILABLE", "FAILED", False),
         ("RATE_LIMITED", "PENDING", False),
     ],
 )

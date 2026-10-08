@@ -1290,6 +1290,8 @@ export interface components {
              * @enum {string}
              */
             trigger: "MANUAL" | "AUTOMATIC" | "MANUAL_RESEND";
+            /** Trigger Source */
+            trigger_source?: ("TECHNICIAN_DAILY" | "MANAGER_MANUAL") | null;
             /**
              * Destination
              * @enum {string}
@@ -2060,6 +2062,11 @@ export interface components {
         ScheduleDeliveryRead: {
             /** Enabled */
             enabled: boolean;
+            /**
+             * Timed Auto Available
+             * @default false
+             */
+            timed_auto_available: boolean;
             /** Available */
             available: boolean;
             /** Destination */
@@ -2075,6 +2082,8 @@ export interface components {
         };
         /** ScheduleRead */
         ScheduleRead: {
+            /** Resolution Note */
+            resolution_note?: string | null;
             /** Fingerprint */
             fingerprint?: string | null;
             technician: components["schemas"]["ScheduleTechnician"];
