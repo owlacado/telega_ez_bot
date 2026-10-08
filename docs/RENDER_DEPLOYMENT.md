@@ -163,3 +163,27 @@ restart. No production DB or live provider is used by those tests.
 
 Provider references: [Bot API getUpdates](https://core.telegram.org/bots/api#getupdates)
 and [python-telegram-bot Conflict](https://docs.python-telegram-bot.org/en/stable/telegram.error.html#telegram.error.Conflict).
+
+
+### Operator status and verified migrations
+
+Run `python -m hub.render_runtime status` in a Render Shell for a human-readable,
+provider-silent summary: release version/commit, database connectivity, actual and
+release-derived Alembic heads, provider configuration, worker freshness states, and
+queue counts. It prints no credentials, destinations, payloads or business records.
+`Overall: PASS` exits 0; unavailable checks, a schema mismatch, missing required
+credentials, or non-PASS operations health produce `Overall: BLOCK` and exit 2.
+Disabled providers are allowed. Configuration presence is not live provider acceptance.
+Unknown database revision values are displayed as `UNKNOWN`, not echoed verbatim.
+The existing `preflight` and `queues` commands retain their output and exit contracts.
+
+`python -m hub.render_runtime migrate` prints the current DB head and the target
+from the packaged migration graph. Exactly one release head is required. A current
+database prints `No migration required. PASS` without invoking Alembic. Otherwise it
+runs Alembic to that exact target and re-reads all DB heads; only an exact single-head
+match prints the old-to-new result and PASS. Empty databases are supported. Failed
+execution, unavailable checks and post-migration mismatches exit 2 with a safe error.
+Alembic subprocess stdout/stderr is suppressed to prevent credential-bearing tracebacks;
+on BLOCK, stop deployment and inspect the release migrations/configuration through the
+controlled diagnostic procedure. This command does not stamp, downgrade or auto-repair
+migration history. No new migration is introduced by these operator commands.

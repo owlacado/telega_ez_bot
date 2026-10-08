@@ -1,5 +1,6 @@
 """Render-only process entrypoint; never contacts a provider during preparation."""
 
+import asyncio
 import json
 import os
 import re
@@ -144,6 +145,7 @@ def main() -> None:
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command not in {
         "migrate",
+        "status",
         "preflight",
         "queues",
         "create-manager",
@@ -163,8 +165,15 @@ def main() -> None:
         raise SystemExit(
             "Render configuration is missing or unsafe; check variable names."
         ) from None
-    if command == "migrate":
-        raise SystemExit(subprocess.call(("alembic", "upgrade", "head"), cwd=API_DIRECTORY))
+    if command in {"migrate", "status"}:
+        from hub import render_operator
+
+        code = (
+            render_operator.migrate(settings)
+            if command == "migrate"
+            else asyncio.run(render_operator.status(settings))
+        )
+        raise SystemExit(code)
     if command == "preflight":
         raise SystemExit(subprocess.call((sys.executable, "-m", "hub.ops.cli", "preflight")))
     if command == "queues":
