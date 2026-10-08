@@ -100,7 +100,7 @@ async def status(settings):
     )
     print("Mirror worker: " + (health.mirror_worker.state if health else "UNAVAILABLE"))
     print("Schedule worker: " + (health.schedule_worker.state if health else "UNAVAILABLE"))
-    for name in ("telegram", "schedule", "mirror"):
+    for name in ("telegram", "schedule", "mirror", "report_calendar"):
         queue = health.queues.get(name) if health else None
         counts = (
             " ".join(

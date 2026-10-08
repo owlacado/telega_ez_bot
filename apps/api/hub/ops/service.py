@@ -12,6 +12,7 @@ from hub.core.config import Settings
 from hub.core.migrations import ReleaseMigrationError, release_migration_head
 from hub.google_calendar.models import GoogleOAuthAttempt
 from hub.ops.schemas import CleanupResult, ComponentHealth, OperationsHealth, QueueCounts
+from hub.report_mirror.models import ReportCalendarMirror
 from hub.schedule_delivery.models import ScheduleDispatch, ScheduleWorkerState
 from hub.telegram.models import TelegramOutbox, TelegramProcessedUpdate, TelegramWorkerState
 from hub.work_reports.models import TechnicianFormSession
@@ -130,6 +131,17 @@ async def operations_health(db: AsyncSession, settings: Settings) -> OperationsH
                 "ambiguous": ["AMBIGUOUS"],
             },
         ),
+        "report_calendar": await _queue_counts(
+            db,
+            ReportCalendarMirror,
+            ReportCalendarMirror.status,
+            {
+                "pending": ["PENDING"],
+                "processing": ["PROCESSING"],
+                "failed": ["BLOCKED"],
+                "ambiguous": [],
+            },
+        ),
         "mirror": await _queue_counts(
             db,
             AccountingMirrorRefresh,
@@ -214,7 +226,7 @@ async def cleanup_expired(
         .where(
             ScheduleDispatch.payload_expires_at <= stamp,
             ScheduleDispatch.encrypted_payload.is_not(None),
-            ScheduleDispatch.status.in_(["FAILED", "AMBIGUOUS", "CANCELLED"]),
+            ScheduleDispatch.status.in_(["FAILED", "AMBIGUOUS", "CANCELLED", "SENT"]),
         )
         .order_by(ScheduleDispatch.payload_expires_at, ScheduleDispatch.id)
         .limit(batch_size)

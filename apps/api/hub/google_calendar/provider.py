@@ -1,4 +1,4 @@
-"""Google read-only network boundary. No calendar/event mutation API."""
+"""Google provider boundary; report mirror may conditionally patch description only."""
 
 import asyncio
 import json
@@ -19,6 +19,7 @@ from hub.accounting_mirrors.provider import GoogleSheetsHttpMixin
 from hub.core.config import Settings
 from hub.google_calendar.types import (
     EVENT_SCOPE,
+    REPORT_WRITE_SCOPE,
     SCOPE,
     SHEETS_SCOPE,
     Authorization,
@@ -57,7 +58,9 @@ class GoogleCalendarProvider(GoogleSheetsHttpMixin):
                 if child.startswith(name + "."):
                     logging.getLogger(child).disabled = True
 
-    def _flow(self, verifier=None, event_access=False, sheets_access=False):
+    def _flow(
+        self, verifier=None, event_access=False, sheets_access=False, report_write_access=False
+    ):
         settings = self.settings
         flow = Flow.from_client_config(
             {
@@ -72,6 +75,7 @@ class GoogleCalendarProvider(GoogleSheetsHttpMixin):
                 SCOPE,
                 *([EVENT_SCOPE] if event_access else []),
                 *([SHEETS_SCOPE] if sheets_access else []),
+                *([REPORT_WRITE_SCOPE] if report_write_access else []),
             ],
             redirect_uri=settings.google_oauth_redirect_uri,
             code_verifier=verifier,
@@ -80,8 +84,14 @@ class GoogleCalendarProvider(GoogleSheetsHttpMixin):
         flow.oauth2session.trust_env = False
         return flow
 
-    def build_authorization_url(self, state, event_access=False, sheets_access=False):
-        flow = self._flow(event_access=event_access, sheets_access=sheets_access)
+    def build_authorization_url(
+        self, state, event_access=False, sheets_access=False, report_write_access=False
+    ):
+        flow = self._flow(
+            event_access=event_access,
+            sheets_access=sheets_access,
+            report_write_access=report_write_access,
+        )
         try:
             url, _ = flow.authorization_url(
                 state=state,
@@ -94,10 +104,15 @@ class GoogleCalendarProvider(GoogleSheetsHttpMixin):
             flow.oauth2session.close()
 
     async def exchange_authorization_code(
-        self, code, verifier, event_access=False, sheets_access=False
+        self, code, verifier, event_access=False, sheets_access=False, report_write_access=False
     ):
         def exchange():
-            flow = self._flow(verifier, event_access=event_access, sheets_access=sheets_access)
+            flow = self._flow(
+                verifier,
+                event_access=event_access,
+                sheets_access=sheets_access,
+                report_write_access=report_write_access,
+            )
             try:
                 try:
                     token = flow.fetch_token(code=code, timeout=TIMEOUT, allow_redirects=False)
@@ -113,6 +128,7 @@ class GoogleCalendarProvider(GoogleSheetsHttpMixin):
                         SCOPE,
                         *([EVENT_SCOPE] if event_access else []),
                         *([SHEETS_SCOPE] if sheets_access else []),
+                        *([REPORT_WRITE_SCOPE] if report_write_access else []),
                     ],
                 )
                 if isinstance(scopes, str):
@@ -449,3 +465,52 @@ class GoogleCalendarProvider(GoogleSheetsHttpMixin):
                     raise ProviderError("MALFORMED_RESPONSE")
                 seen_pages.add(page)
         raise ProviderError("REQUEST_LIMIT")
+
+    async def get_report_event(self, access_token, calendar_id, event_id):
+        return await _thread_call(self._report_event, access_token, calendar_id, event_id)
+
+    async def patch_report_description(
+        self, access_token, calendar_id, event_id, etag, description
+    ):
+        return await _thread_call(
+            self._report_event, access_token, calendar_id, event_id, etag, description
+        )
+
+    def _report_event(self, access_token, calendar_id, event_id, etag=None, description=None):
+        from urllib.parse import quote
+
+        url = (
+            "https://www.googleapis.com/calendar/v3/calendars/"
+            + quote(calendar_id, safe="")
+            + "/events/"
+            + quote(event_id, safe="")
+        )
+        headers = {"Authorization": "Bearer " + access_token}
+        with requests.Session() as session:
+            session.trust_env = False
+            try:
+                if etag is None:
+                    response = session.get(
+                        url, headers=headers, timeout=TIMEOUT, allow_redirects=False
+                    )
+                else:
+                    headers["If-Match"] = etag
+                    response = session.patch(
+                        url,
+                        headers=headers,
+                        json={"description": description},
+                        params={"sendUpdates": "none"},
+                        timeout=TIMEOUT,
+                        allow_redirects=False,
+                    )
+                if response.status_code == 412:
+                    raise ProviderError("EVENT_CHANGED")
+                if response.status_code in {404, 410}:
+                    raise ProviderError("CALENDAR_UNAVAILABLE")
+                self._check(response)
+                result = response.json()
+                if not isinstance(result, dict) or result.get("id") != event_id:
+                    raise ProviderError("MALFORMED_RESPONSE")
+                return result
+            except (requests.RequestException, ValueError):
+                raise ProviderError("PROVIDER_TEMPORARY_ERROR") from None

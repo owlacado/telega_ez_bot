@@ -152,7 +152,7 @@ async def clear_test_delivery_history():
                 await db.execute(
                     text(
                         "TRUNCATE telegram_outbox, technician_form_sessions, "
-                        "work_report_revisions, work_reports"
+                        "work_report_revisions, work_reports CASCADE"
                     )
                 )
             if await db.scalar(text("SELECT to_regclass('schedule_dispatches')")):
@@ -626,7 +626,7 @@ async def stage5_history(action):
                 await db.execute(
                     text(
                         "TRUNCATE telegram_outbox, technician_form_sessions, "
-                        "work_report_revisions, work_reports"
+                        "work_report_revisions, work_reports CASCADE"
                     )
                 )
     finally:
@@ -642,6 +642,30 @@ refused = subprocess.run(
     capture_output=True,
     text=True,
 )
+assert refused.returncode != 0
+if "REPORT_MIRROR_HISTORY_ROLLBACK_REFUSED" in refused.stderr:
+    # The new projection guard must refuse first, with the canonical report still intact.
+    asyncio.run(stage5_history("check"))
+
+    async def clear_test_report_projection():
+        engine = create_async_engine(url, hide_parameters=True)
+        try:
+            async with engine.begin() as db:
+                await db.execute(
+                    text("DELETE FROM report_calendar_mirrors WHERE report_id=:id"),
+                    {"id": stage5_report},
+                )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(clear_test_report_projection())
+    refused = subprocess.run(
+        [sys.executable, "-m", "alembic", "downgrade", "d4e509170002"],
+        cwd=root / "apps/api",
+        env=env,
+        capture_output=True,
+        text=True,
+    )
 assert refused.returncode != 0 and "WORK_REPORT_HISTORY_ROLLBACK_REFUSED" in refused.stderr
 asyncio.run(stage5_history("check"))
 asyncio.run(stage5_history("remove"))

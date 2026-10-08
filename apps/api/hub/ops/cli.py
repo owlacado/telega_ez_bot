@@ -25,6 +25,7 @@ FINGERPRINT_TABLES = (
     "google_oauth_attempts",
     "manager_sessions",
     "managers",
+    "report_calendar_mirrors",
     "schedule_auto_decisions",
     "schedule_delivery_settings",
     "schedule_dispatches",

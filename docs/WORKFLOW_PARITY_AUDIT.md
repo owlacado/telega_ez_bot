@@ -1,5 +1,67 @@
 # End-to-end workflow parity audit
 
+## Approved full Daily / shared schedule / Calendar report mirror (2026-10-08)
+
+This product approval supersedes the short group-summary and no-Calendar-write-back decisions
+recorded in the historical sections below. Both Daily destinations use the same canonical `render_daily` text. The durable group
+intent freezes that text for retries/replay; financial calculations are unchanged. Zero days
+include the complete zero-valued breakdown. Group failure cannot undo the private accounting.
+
+Group, private confirmation and manager preview use one normalized schedule snapshot. The
+Google-only `legacy_presentation` adapter removes numeric prefixes and recognized phone spans
+from presentation titles, separates phones/locations, and hides recognized dispatcher/history
+lines and report sections. Source events are never changed by formatting. The private prompt
+now contains the full schedule; group messages have copy-address buttons but no ACK controls.
+Native `CopyTextButton` rows preserve each address, with job numbers to distinguish them.
+Single-message size and Telegram's 256-character copy-text limit fail closed before enqueue;
+message splitting remains deferred. Pending legacy v1 snapshots retain fingerprint compatibility.
+
+Report persistence atomically creates a `report_calendar_mirrors` intent through PostgreSQL
+triggers. No existing reports are backfilled. The existing Google mirror worker drains this
+independent lane. It pins connection/calendar/event identity, reads the current canonical
+revision, refetches the source, then conditionally PATCHes only `description` with `If-Match`.
+Only `[TECHNICIAN HUB REPORT]` through `[/TECHNICIAN HUB REPORT]` is owned by Hub. Every character
+outside recognized blocks is preserved; malformed markers block writing. Reconciliation reads
+first after crashes, timeouts or ETag conflicts; duplicate complete managed blocks are collapsed.
+No Telegram UserID or internal DB IDs are rendered. Nothing reads this block into accounting.
+
+Explicit same-account OAuth reconnect via **Enable report write-back** requests Calendar event
+write permission. Read-only/disconnected/excluded/wrong-account or conflicting source mappings
+remain BLOCKED. Same-account credential rotation is allowed under the existing lifecycle lock;
+account replacement never redirects a queued report. Operations exposes `report_calendar` queue
+counts. BLOCKED attempts retry no sooner than five minutes; correcting access/source is required.
+Google errors do not affect report persistence, accounting or Telegram activity delivery.
+
+Migration `ffe610080001` is additive except for relaxing the sent-snapshot purge timing: the
+encrypted schedule snapshot is retained until successful private prompt receipt, or the existing
+seven-day expiry/cleanup bound. Prompt tokens, generation checks, exact/private/current ACK,
+supersession, idempotency and pilot timed-auto OFF are unchanged. Historical report rows/revisions
+remain immutable: this release adds no correction UI/API. A newer canonical revision is covered
+by a controlled test-only pointer fixture; a future authorized correction workflow must also
+invalidate its other existing projections. Destructive rollback with mirror receipts is refused.
+
+Live Google/Telegram acceptance remains PENDING. After Web/Worker migration/rollout completes,
+grant write-back permission to the same TEST Google account, submit a fictional TEST report,
+verify the one managed block and untouched manual notes, then verify Daily parity, private/full
+schedule, copy-address buttons and exact ACK on Telegram mobile. No real provider acceptance
+result is inferred from fake-provider tests.
+
+Local verification for this approval: the 1,184-case affected PostgreSQL regression run had
+1,182 passes and two test-expectation failures (safe HTTP 500 on an injected rollback and the
+new operations queue key). Those assertions were corrected; the final complete mirror,
+presentation, private-ACK, pilot-ops and operator subset passed **149/149**, including a direct
+group/private/manager-preview comparison. No unresolved test failures remain. Frontend **65/65**,
+typecheck, changed-file ESLint and production build passed. Python Ruff/format, deterministic
+OpenAPI/TypeScript regeneration, secret scan and whitespace checks passed. The guarded disposable
+migration harness passed fresh/round-trip/populated preservation, destructive rollback refusal,
+one head `ffe610080001` and zero drift. Real providers were blocked in automated tests. The normal
+DB, manager, calendars and Docker volume were not accessed or modified; preservation is by
+non-interaction, not a new checksum of business data.
+
+References: [Telegram CopyTextButton](https://core.telegram.org/bots/api#copytextbutton),
+[Calendar conditional updates](https://developers.google.com/workspace/calendar/api/guides/version-resources).
+
+
 ## Private schedule confirmation and short Daily group event (2026-10-08)
 
 This approval supersedes the earlier group-summary deferral. `/daily` keeps the full canonical

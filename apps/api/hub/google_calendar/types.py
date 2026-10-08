@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
+REPORT_WRITE_SCOPE = "https://www.googleapis.com/auth/calendar.events"
+
 EVENT_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly"
 
 SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
@@ -32,6 +34,7 @@ class DiscoveredCalendar:
 
 class ProviderError(Exception):
     CODES = {
+        "EVENT_CHANGED",
         "REAUTH_REQUIRED",
         "SCOPE_REQUIRED",
         "EVENT_SCOPE_REQUIRED",
@@ -53,7 +56,11 @@ class ProviderError(Exception):
 
 class CalendarProvider(Protocol):
     def build_authorization_url(
-        self, state: str, event_access: bool = False, sheets_access: bool = False
+        self,
+        state: str,
+        event_access: bool = False,
+        sheets_access: bool = False,
+        report_write_access: bool = False,
     ) -> Authorization: ...
     async def exchange_authorization_code(
         self,
@@ -61,6 +68,7 @@ class CalendarProvider(Protocol):
         verifier: str,
         event_access: bool = False,
         sheets_access: bool = False,
+        report_write_access: bool = False,
     ) -> TokenGrant: ...
     async def refresh_credentials(
         self, refresh_token: str, scopes: tuple[str, ...] = (SCOPE,)
@@ -70,4 +78,9 @@ class CalendarProvider(Protocol):
 
     async def list_events(
         self, access_token: str, provider_calendar_id: str, time_min, time_max, timezone: str
+    ): ...
+
+    async def get_report_event(self, access_token, calendar_id, event_id): ...
+    async def patch_report_description(
+        self, access_token, calendar_id, event_id, etag, description
     ): ...

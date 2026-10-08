@@ -91,6 +91,7 @@ async def finish(
 
             dispatch = await db.get(ScheduleDispatch, job.schedule_id, with_for_update=True)
             dispatch.ack_message_id = message_id
+            dispatch.encrypted_payload = None
         job.state, job.error_code, job.provider_message_id = state, error, message_id
         job.finished_at = now() if state != "QUEUED" else None
         if state == "QUEUED":
@@ -243,7 +244,11 @@ async def verify_pending(
 
 
 async def deliver_one(
-    factory: async_sessionmaker, engine: AsyncEngine, provider: TelegramProvider, bot_id: int
+    factory: async_sessionmaker,
+    engine: AsyncEngine,
+    provider: TelegramProvider,
+    bot_id: int,
+    settings=None,
 ) -> bool:
     selected = await claim_job(factory, bot_id)
     if not selected:
@@ -275,7 +280,7 @@ async def deliver_one(
         elif job.kind == "VERIFY_GROUP":
             await verify_pending(factory, provider, job_id)
         elif job.kind in SCHEDULE_NOTICE_KINDS:
-            await deliver_schedule_notice(factory, provider, job_id)
+            await deliver_schedule_notice(factory, provider, job_id, settings)
         elif not available or target is None:
             await finish(factory, job_id, "CANCELLED", error="DESTINATION_UNAVAILABLE")
         else:

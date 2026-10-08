@@ -1,6 +1,7 @@
-"""Private ACK + short daily group summary, with isolated DB and fake providers."""
+"""Private ACK + full canonical daily group report, with isolated DB and fake providers."""
 
 import asyncio
+import html
 from dataclasses import replace
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -32,7 +33,7 @@ REAL_SCHEDULE_SEND = TelegramBotAdapter.send_schedule
 
 async def drain(app, fake):
     while await delivery.deliver_one(
-        app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID
+        app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID, app.state.settings
     ):
         pass
 
@@ -92,11 +93,11 @@ async def test_daily_private_accounting_and_one_canonical_group_summary(
     await drain(app, fake)
     summaries = [message for chat, message in fake.sent if chat == -771002]
     assert summaries == [render_daily_summary(projection)]
-    assert ("2 reports" if nonzero else "0 reports") in summaries[0]
-    assert ("$950.00 gross" if nonzero else "$0.00 gross") in summaries[0]
-    assert ("$50.00 expenses" if nonzero else "$0.00 expenses") in summaries[0]
-    assert len(summaries[0].splitlines()) == 2
-    for prohibited in ["Payments", "Reviews", "Maintenance", "771001", str(ready), "sch:"]:
+    assert summaries[0] == fake.sent[0][1]
+    assert ("Reports: 2" if nonzero else "Reports: 0") in summaries[0]
+    assert ("Gross total: $950.00" if nonzero else "Gross total: $0.00") in summaries[0]
+    assert "Payments:" in summaries[0] and "Reviews:" in summaries[0]
+    for prohibited in ["771001", str(ready), "sch:"]:
         assert prohibited not in summaries[0]
     # Replayed completed action and crash after intent, before marking update completed.
     assert (
@@ -123,7 +124,13 @@ async def test_group_schedule_no_button_private_prompt_and_one_confirmation(app,
     assert group[0] == -771002 and group[2] is None
     assert "Waiting for technician confirmation" in group[1]
     assert prompt[0] == 771001 and prompt[2].startswith("sch:")
-    assert "Confirm schedule" in prompt[1] and str(dispatch.target_date.year) in prompt[1]
+    assert group[1] == prompt[1] + "\n\n\u23f3 Waiting for technician confirmation"
+    preview = await client.get(f"/api/technicians/{ready}/calendar/next-schedule")
+    assert preview.status_code == 200
+    assert preview.json()["presentation"] == html.unescape(
+        prompt[1].replace("<b>", "").replace("</b>", "")
+    )
+    assert "DESCRIPTION_CANARY" in prompt[1] and str(dispatch.target_date.year) in prompt[1]
     results = await asyncio.gather(
         *[acknowledge(app.state.session_factory, event, BOT_ID) for _ in range(3)]
     )
@@ -573,7 +580,7 @@ async def test_populated_private_ack_migration_refuses_destructive_rollback(app,
     saved = await row(app, dispatch.id)
     assert saved.ack_message_id == dispatch.ack_message_id and saved.status == "SENT"
     async with app.state.session_factory() as db:
-        assert await db.scalar(text("SELECT version_num FROM alembic_version")) == "ffd610080001"
+        assert await db.scalar(text("SELECT version_num FROM alembic_version")) == "ffe610080001"
 
 
 @pytest.mark.parametrize("summary_error", [None, "NETWORK_UNCERTAIN", "ACCESS_DENIED"])
@@ -602,5 +609,5 @@ async def test_daily_group_order_across_workers_and_independent_summary_failure(
     assert fake.schedule_sent[-1][0] == 771001
     assert "Gross total:" in fake.sent[0][1]
     if not summary_error:
-        assert "completed Daily Report" in fake.sent[1][1]
+        assert fake.sent[1][1] == fake.sent[0][1]
         assert "Waiting for technician confirmation" in fake.sent[2][1]

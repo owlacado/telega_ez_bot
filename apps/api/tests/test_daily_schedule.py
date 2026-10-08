@@ -248,7 +248,16 @@ async def test_crash_replay_reuses_dispatch_even_when_calendar_changes(
         app.state.session_factory, fake, command(), BOT_ID, settings=app.state.settings
     )
     assert "was sent to your Work Group" in result.reply
-    assert len([message for _, message in fake.sent if message.startswith("Daily report\n")]) == 1
+    assert (
+        len(
+            [
+                message
+                for chat, message in fake.sent
+                if chat == 771001 and message.startswith("Daily report\n")
+            ]
+        )
+        == 1
+    )
     async with app.state.session_factory() as db:
         assert await db.scalar(select(func.count()).select_from(ScheduleDispatch)) == 1
 

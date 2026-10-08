@@ -191,6 +191,7 @@ async def prepare(factory, identifier, owner, settings, *, group_available=True)
                 if row.private_ack_required and row.destination == "WORK_GROUP"
                 else "sch:" + token
             ),
+            payload.copy_addresses(),
         )
 
 
@@ -205,7 +206,8 @@ async def finish(factory, identifier, owner, *, message_id=None, failure=None):
             else:
                 terminal(row, "SENT", None, stamp)
                 row.sent_at, row.message_id, row.ack_status = stamp, message_id, "PENDING"
-                row.encrypted_payload = None
+                if not (row.private_ack_required and row.destination == "WORK_GROUP"):
+                    row.encrypted_payload = None
                 if row.private_ack_required:
                     if row.destination == "WORK_GROUP":
                         from hub.telegram.notices import enqueue_schedule_notice
@@ -327,7 +329,7 @@ async def purge(factory):
                 .where(
                     ScheduleDispatch.payload_expires_at <= stamp,
                     ScheduleDispatch.encrypted_payload.is_not(None),
-                    ScheduleDispatch.status.in_(["FAILED", "AMBIGUOUS", "CANCELLED"]),
+                    ScheduleDispatch.status.in_(["FAILED", "AMBIGUOUS", "CANCELLED", "SENT"]),
                 )
                 .with_for_update(skip_locked=True)
                 .limit(100)

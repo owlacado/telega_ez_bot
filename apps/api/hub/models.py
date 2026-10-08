@@ -11,6 +11,7 @@ from hub.calendars.models import Calendar, CalendarAssignment
 from hub.expenses.models import ExpenseRevision, TechnicianExpense
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.integrations.models import GpsBinding, TelegramBinding
+from hub.report_mirror.models import ReportCalendarMirror
 from hub.schedule_delivery.models import (
     ScheduleAutoDecision,
     ScheduleDeliverySetting,
@@ -27,6 +28,7 @@ from hub.telegram.models import (
 from hub.work_reports.models import TechnicianFormSession, WorkReport, WorkReportRevision
 
 __all__ = [
+    "ReportCalendarMirror",
     "AccountingMirrorRefresh",
     "AccountingMirrorTarget",
     "AccountingMirrorWorkerState",

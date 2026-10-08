@@ -260,7 +260,15 @@ async def _read_schedule(request, technician_id, preview=False, *, worker=False,
             fresh.last_fetched_at = now()
             from hub.schedule_delivery.domain import from_schedule
 
-            fresh.fingerprint = from_schedule(fresh).fingerprint
+            presentation = from_schedule(fresh)
+            fresh.fingerprint = presentation.fingerprint
+            try:
+                fresh.presentation = presentation.render(plain=True)
+            except ValueError:
+                fresh.presentation = (
+                    "Schedule exceeds the Telegram message limit. "
+                    "Shorten job details before sending."
+                )
             result = fresh
             return result
     except RuntimeError as exc:

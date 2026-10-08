@@ -202,3 +202,16 @@ new daily/manual schedules during a mixed-version rolling rollout. Then:
 
 No real Google/Telegram calls were used to implement or test this change. Other live acceptance
 blockers remain open; new local tests do not constitute provider acceptance.
+
+
+### Full Daily and Calendar report mirror update (2026-10-08): PENDING
+
+This replaces the short-summary expectation in the previous sequence. Wait for migration
+`ffe610080001` and matching Web/Worker releases. Reconnect the same dedicated TEST Google account
+using **Enable report write-back**; the assigned TEST calendar must grant writer/owner access.
+Submit a fictional report. Verify one `[TECHNICIAN HUB REPORT]` block on the exact source event,
+with manual description bytes outside it preserved. Check `report_calendar` queue health.
+Run `/daily`: full canonical report must match in private and Work Group, including a zero day.
+Check eight-job presentation, each native copy-address button, useful filtered details, private
+full schedule + Confirm schedule, group no ACK controls, and one group confirmation event.
+Repeat supersede, unavailable-group and replay checks. Do not count automated tests as live PASS.

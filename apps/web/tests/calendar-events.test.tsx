@@ -335,3 +335,22 @@ it("shows the backend Sunday resolution explanation", () => {
     "Sunday has no eligible jobs",
   );
 });
+
+it("uses the backend shared presentation without interpreting provider HTML", () => {
+  const presentation =
+    "Alex Test\nFriday, October 9, 2026\n08:00-09:30\n<script>notes</script>";
+  const { container } = render(
+    <ScheduleContent
+      {...view({ ...ready, jobs: [job], presentation })}
+      preview
+    />,
+  );
+  expect(container.querySelector(".schedule-presentation")).toHaveTextContent(
+    "Alex Test",
+  );
+  expect(container.querySelector(".schedule-presentation")?.textContent).toBe(
+    presentation,
+  );
+  expect(container.querySelector("script")).toBeNull();
+  expect(screen.queryByText(job.schedule_summary)).not.toBeInTheDocument();
+});

@@ -5640,6 +5640,17 @@
             ],
             "title": "Resolution Note"
           },
+          "presentation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presentation"
+          },
           "fingerprint": {
             "anyOf": [
               {
@@ -5856,6 +5867,11 @@
       },
       "StartInput": {
         "properties": {
+          "request_report_write_access": {
+            "type": "boolean",
+            "title": "Request Report Write Access",
+            "default": false
+          },
           "request_event_access": {
             "type": "boolean",
             "title": "Request Event Access",

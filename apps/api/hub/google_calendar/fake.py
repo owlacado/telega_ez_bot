@@ -1,5 +1,6 @@
 """Deterministic, process-local provider. Settings restrict this to isolated tests."""
 
+from copy import deepcopy
 from dataclasses import replace
 from datetime import timedelta
 from urllib.parse import urlencode
@@ -11,10 +12,12 @@ from hub.accounting_mirrors.provider import (
 )
 from hub.google_calendar.types import (
     EVENT_SCOPE,
+    REPORT_WRITE_SCOPE,
     SCOPE,
     SHEETS_SCOPE,
     Authorization,
     DiscoveredCalendar,
+    ProviderError,
     TokenGrant,
 )
 
@@ -36,9 +39,13 @@ class FakeCalendarProvider:
         self.sheets_error = None
         self.spreadsheets = {}
         self.sheets_calls = []
+        self.report_events = {}
+        self.report_sequence = 0
         self.ambiguous_add_once = False
 
-    def build_authorization_url(self, state, event_access=False, sheets_access=False):
+    def build_authorization_url(
+        self, state, event_access=False, sheets_access=False, report_write_access=False
+    ):
         return Authorization(
             "/api/calendar-connections/google/callback?"
             + urlencode(
@@ -51,12 +58,14 @@ class FakeCalendarProvider:
         )
 
     async def exchange_authorization_code(
-        self, code, verifier, event_access=False, sheets_access=False
+        self, code, verifier, event_access=False, sheets_access=False, report_write_access=False
     ):
         self.calls.append("exchange")
         scopes = {SCOPE, *self.grant.scopes}
         if event_access:
             scopes.add(EVENT_SCOPE)
+        if report_write_access:
+            scopes.add(REPORT_WRITE_SCOPE)
         if sheets_access:
             scopes.add(SHEETS_SCOPE)
         self.grant = replace(self.grant, scopes=tuple(sorted(scopes)))
@@ -209,3 +218,22 @@ class FakeCalendarProvider:
 
     def inspect_sheet(self, spreadsheet_id, title):
         return self._sheet(spreadsheet_id, title=title)
+
+    async def get_report_event(self, access_token, calendar_id, event_id):
+        if self.error:
+            raise self.error
+        value = self.report_events.get((calendar_id, event_id))
+        if value is None:
+            raise ProviderError("CALENDAR_UNAVAILABLE")
+        return deepcopy(value)
+
+    async def patch_report_description(
+        self, access_token, calendar_id, event_id, etag, description
+    ):
+        value = await self.get_report_event(access_token, calendar_id, event_id)
+        if value.get("etag") != etag:
+            raise ProviderError("EVENT_CHANGED")
+        self.report_sequence += 1
+        value.update(description=description, etag=f'"fake-report-{self.report_sequence}"')
+        self.report_events[(calendar_id, event_id)] = value
+        return deepcopy(value)

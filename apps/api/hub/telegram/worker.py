@@ -66,7 +66,9 @@ class Worker:
     async def cycle(self) -> None:
         await self.state("RUNNING")
         for _ in range(10):
-            if not await deliver_one(self.factory, self.engine, self.provider, self.bot_id):
+            if not await deliver_one(
+                self.factory, self.engine, self.provider, self.bot_id, self.settings
+            ):
                 break
             await self.state("RUNNING")
         async with self.factory() as db:

@@ -44,7 +44,8 @@ class FakeTelegram:
         self.sent.append((chat_id, message))
         return len(self.sent)
 
-    async def send_schedule(self, chat_id, message, callback_data):
+    async def send_schedule(self, chat_id, message, callback_data, addresses=()):
+        self.copy_addresses = tuple(addresses)
         result = await self.send(chat_id, message)
         self.schedule_sent.append((chat_id, message, callback_data))
         return result

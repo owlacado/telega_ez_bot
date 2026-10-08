@@ -76,7 +76,7 @@ def provider():
 
 async def deliver(app, fake):
     return await delivery.deliver_one(
-        app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID
+        app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID, app.state.settings
     )
 
 

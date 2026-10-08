@@ -20,13 +20,9 @@ SCHEDULE_NOTICE_KINDS = {"SCHEDULE_PROMPT", "SCHEDULE_CONFIRMED"}
 
 
 def render_daily_summary(daily):
-    totals = daily.totals
-    name = clip(" ".join(daily.technician_name.split()), 250)
-    return (
-        f"\u2705 {name} completed Daily Report\n"
-        f"{totals.report_count} reports \u00b7 ${totals.gross_total:.2f} gross "
-        f"\u00b7 ${totals.expense_total:.2f} expenses"
-    )
+    from hub.telegram.daily import render_daily
+
+    return render_daily(daily)
 
 
 async def enqueue_daily_summary(factory, technician_id, expected, bot_id, request_key, daily):
@@ -118,7 +114,7 @@ def current_notice(job, row, binding, tech):
     )
 
 
-async def deliver_schedule_notice(factory, provider, job_id):
+async def deliver_schedule_notice(factory, provider, job_id, settings=None):
     # The caller owns the existing technician advisory lock and PROCESSING marker.
     from hub.telegram.delivery import finish
 
@@ -152,12 +148,24 @@ async def deliver_schedule_notice(factory, provider, job_id):
                 token = secrets.token_urlsafe(32)
                 row.ack_token_hash = token_hash(token)
                 target = row.telegram_user_id
-                message = (
-                    f"<b>Confirm schedule</b>\n{row.target_date:%A, %B %d, %Y}\n"
-                    f"{html.escape(name)} \u00b7 {row.job_count} jobs\n"
-                    "See the official schedule in your Work Group. "
-                    "Confirm that you have seen this exact schedule."
-                )
+                if row.encrypted_payload:
+                    from hub.schedule_delivery.domain import Payload, cipher
+
+                    payload = Payload.model_validate_json(
+                        cipher(settings).decrypt(row.encrypted_payload)
+                    )
+                    if payload.fingerprint != row.fingerprint or row.payload_expires_at <= now():
+                        raise ValueError("SNAPSHOT_INVALID")
+                    message = payload.render()
+                    addresses = payload.copy_addresses()
+                else:
+                    # Already-sent historical receipts have no retained full snapshot.
+                    message = (
+                        f"<b>Confirm schedule</b>\n{row.target_date:%A, %B %d, %Y}\n"
+                        f"{html.escape(name)} \u00b7 {row.job_count} jobs\n"
+                        "See the official schedule in your Work Group."
+                    )
+                    addresses = ()
             else:
                 target = row.chat_id
                 message = (
@@ -166,7 +174,7 @@ async def deliver_schedule_notice(factory, provider, job_id):
                 )
         send_started = True
         message_id = (
-            await provider.send_schedule(target, message, "sch:" + token)
+            await provider.send_schedule(target, message, "sch:" + token, addresses)
             if job.kind == "SCHEDULE_PROMPT"
             else await provider.send(target, message)
         )

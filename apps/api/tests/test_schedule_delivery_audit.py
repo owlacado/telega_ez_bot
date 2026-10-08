@@ -269,7 +269,9 @@ async def test_hard_process_death_matrix(app, client, ready, window, tmp_path):
         1 if window in "DEFGHI" else 0
     )
     if expected == "SENT":
-        assert saved.encrypted_payload is None
+        assert saved.encrypted_payload is not None  # Full private schedule still needs it.
+        await deliver_private_prompt(app, fake)
+        assert (await row(app, data["id"])).encrypted_payload is None
     else:
         assert saved.encrypted_payload is not None and saved.attempt_count == 1
 
@@ -630,11 +632,19 @@ def test_canonical_optional_text(location):
     schedule = N(
         operational_date=date(2026, 9, 18),
         technician=N(first_name="Jos\u00e9", last_name="Tech"),
-        jobs=[N(display_start_time="08:00", schedule_summary="Repair", location=None)],
+        jobs=[
+            N(
+                display_start_time="08:00",
+                display_end_time="09:00",
+                summary="Repair",
+                description=None,
+                location=None,
+            )
+        ],
     )
     original = from_schedule(schedule)
     schedule.technician.first_name = "Jose\u0301"
-    schedule.jobs[0].schedule_summary = "  Repair  "
+    schedule.jobs[0].summary = "  Repair  "
     schedule.jobs[0].location = location
     assert from_schedule(schedule).fingerprint == original.fingerprint
     assert from_schedule(schedule).render() == original.render()
@@ -942,7 +952,7 @@ async def test_unexpected_provider_exception_is_redacted(app, client, ready, cap
     data = await enqueue(client, ready)
     fake = FakeTelegram()
 
-    async def send(chat, message, token):
+    async def send(chat, message, token, addresses=()):
         raise RuntimeError("AUDIT_PRIVATE_EXCEPTION_ADDRESS " + message + token + str(chat))
 
     fake.send_schedule = send

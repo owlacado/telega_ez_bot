@@ -7,6 +7,7 @@ from telegram import (
     Bot,
     BotCommand,
     BotCommandScopeChat,
+    CopyTextButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     LinkPreviewOptions,
@@ -178,7 +179,9 @@ class TelegramBotAdapter:
         except TelegramError as error:
             raise safe_error(error) from None
 
-    async def send_schedule(self, chat_id: int, message: str, callback_data: str | None) -> int:
+    async def send_schedule(
+        self, chat_id: int, message: str, callback_data: str | None, addresses=()
+    ) -> int:
         try:
             return (
                 await self.bot.send_message(
@@ -188,9 +191,28 @@ class TelegramBotAdapter:
                     protect_content=True,
                     link_preview_options=LinkPreviewOptions(is_disabled=True),
                     reply_markup=InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("Confirm schedule", callback_data=callback_data)]]
+                        [
+                            [
+                                InlineKeyboardButton(
+                                    f"\U0001f4cb Copy address {index}",
+                                    copy_text=CopyTextButton(address),
+                                )
+                            ]
+                            for index, address in addresses
+                        ]
+                        + (
+                            [
+                                [
+                                    InlineKeyboardButton(
+                                        "Confirm schedule", callback_data=callback_data
+                                    )
+                                ]
+                            ]
+                            if callback_data is not None
+                            else []
+                        )
                     )
-                    if callback_data is not None
+                    if addresses or callback_data is not None
                     else None,
                 )
             ).message_id

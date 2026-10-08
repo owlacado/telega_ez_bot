@@ -113,7 +113,14 @@ export function ScheduleContent({
           {w}
         </p>
       ))}
-      {!(data.jobs ?? []).length ? (
+      {preview && data.presentation ? (
+        <div
+          className="schedule-presentation"
+          style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+        >
+          {data.presentation}
+        </div>
+      ) : !(data.jobs ?? []).length ? (
         <p className="schedule-empty">
           {preview ? "No scheduled jobs." : "No scheduled jobs today."}
         </p>

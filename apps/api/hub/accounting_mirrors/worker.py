@@ -433,7 +433,16 @@ class Worker:
         try:
             while not self.stop.is_set():
                 await self.beat()
-                results = await run_once(self.factory, self.settings, self.provider)
+                from hub.report_mirror.worker import run_once as report_once
+
+                lanes = await asyncio.gather(
+                    run_once(self.factory, self.settings, self.provider),
+                    report_once(self.factory, self.settings, self.provider),
+                    return_exceptions=True,
+                )
+                results = [item for lane in lanes if isinstance(lane, list) for item in lane]
+                if any(isinstance(lane, Exception) for lane in lanes):
+                    logger.warning("google_mirror lane=RETRY_PENDING")
                 if not results:
                     try:
                         await asyncio.wait_for(self.stop.wait(), 5)

@@ -970,3 +970,19 @@ gross and expenses plus technician name; full accounting stays private. Additive
 `ffd610080001` adds immutable prompt receipts and unique durable notice references. No accounting
 formula, next-date rule or timed-pilot policy changed. TD-022/028 and all other live TEST acceptance
 items remain OPEN pending the updated PILOT_LIVE_ACCEPTANCE_PLAN.md sequence.
+
+
+### Approved full Daily and Calendar report mirror (2026-10-08)
+
+The previous no-Calendar-write-back and short Daily-summary decisions are superseded by explicit
+approval. See WORKFLOW_PARITY_AUDIT.md for implementation boundaries. Live acceptance stays OPEN.
+Operational follow-up: grant Calendar event write permission on the same TEST account; observe
+`report_calendar` BLOCKED/PROCESSING backlog in existing ops health. Old reports are not backfilled.
+Future correction APIs remain deferred; existing canonical history immutability is preserved.
+Schedule pagination remains deferred: oversized content or addresses beyond native Telegram's
+256-character copy limit fail closed with a manager-visible send error. Temporary Google legacy
+filtering is isolated compatibility code; structured future CRM jobs must bypass it.
+
+Local verification is recorded in WORKFLOW_PARITY_AUDIT.md: affected regressions plus final
+149-test corrective subset, 65 frontend tests, migration/preservation/drift and generated-schema
+checks passed. This evidence does not close TD-022/027/028/030/033 or other deployed operational gates.

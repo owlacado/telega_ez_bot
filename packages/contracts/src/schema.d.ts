@@ -2084,6 +2084,8 @@ export interface components {
         ScheduleRead: {
             /** Resolution Note */
             resolution_note?: string | null;
+            /** Presentation */
+            presentation?: string | null;
             /** Fingerprint */
             fingerprint?: string | null;
             technician: components["schemas"]["ScheduleTechnician"];
@@ -2155,6 +2157,11 @@ export interface components {
         };
         /** StartInput */
         StartInput: {
+            /**
+             * Request Report Write Access
+             * @default false
+             */
+            request_report_write_access: boolean;
             /**
              * Request Event Access
              * @default false

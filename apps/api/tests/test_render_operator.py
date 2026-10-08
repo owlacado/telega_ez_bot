@@ -42,7 +42,9 @@ def summary():
         schedule_worker=disabled,
         mirror_worker=disabled,
         google_configuration=disabled,
-        queues={name: QueueCounts() for name in ("telegram", "schedule", "mirror")},
+        queues={
+            name: QueueCounts() for name in ("telegram", "schedule", "mirror", "report_calendar")
+        },
     )
 
 
@@ -74,6 +76,7 @@ async def test_status_pass(monkeypatch, settings, capsys):
         "Mirror worker: DISABLED",
         "Schedule worker: DISABLED",
         "Queue telegram: pending=0 processing=0 failed=0 ambiguous=0",
+        "Queue report_calendar: pending=0 processing=0 failed=0 ambiguous=0",
         "Overall: PASS",
     ):
         assert expected in output

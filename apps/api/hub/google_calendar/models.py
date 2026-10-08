@@ -76,6 +76,9 @@ class GoogleOAuthAttempt(Timestamps, Base):
     )
     expected_generation: Mapped[int | None] = mapped_column(Integer)
     mode: Mapped[str] = mapped_column(String(12))
+    request_report_write_access: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=text("false")
+    )
     request_event_access: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default=text("false")
     )

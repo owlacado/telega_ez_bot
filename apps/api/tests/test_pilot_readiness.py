@@ -126,7 +126,7 @@ async def test_operations_health_is_manager_only_and_truthful(app, client):
     assert body["telegram_worker"]["state"] == "DISABLED"
     assert body["schedule_worker"]["state"] == "DISABLED"
     assert body["mirror_worker"]["state"] == "DISABLED"
-    assert set(body["queues"]) == {"telegram", "schedule", "mirror"}
+    assert set(body["queues"]) == {"telegram", "schedule", "mirror", "report_calendar"}
 
 
 async def test_public_health_fails_closed_when_database_is_down():

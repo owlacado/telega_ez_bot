@@ -76,7 +76,9 @@ class ScheduleDispatch(Base, Timestamps):
             "(ack_status = 'ACKNOWLEDGED') = (acknowledged_at IS NOT NULL)", name="ack_time"
         ),
         CheckConstraint(
-            "status <> 'SENT' OR encrypted_payload IS NULL", name="sent_payload_purged"
+            "status <> 'SENT' OR encrypted_payload IS NULL OR "
+            "(private_ack_required AND ack_message_id IS NULL)",
+            name="sent_payload_purged",
         ),
         CheckConstraint(
             "status NOT IN ('PENDING','PROCESSING') OR encrypted_payload IS NOT NULL",

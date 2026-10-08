@@ -90,7 +90,9 @@ async def run_delivery(app, fake):
 async def deliver_private_prompt(app, fake):
     from hub.telegram.delivery import deliver_one
 
-    while await deliver_one(app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID):
+    while await deliver_one(
+        app.state.session_factory, app.state.google_lock_engine, fake, BOT_ID, app.state.settings
+    ):
         pass
 
 
@@ -104,7 +106,7 @@ async def test_manual_snapshot_render_ack_history(app, client, google, ready, ca
     assert saved.encrypted_payload.startswith("v1:")
     assert "ADDRESS_CANARY" not in saved.encrypted_payload
     payload = cipher(app.state.settings).decrypt(saved.encrypted_payload)
-    assert "ADDRESS_CANARY" in payload and "DESCRIPTION_CANARY" not in payload
+    assert "ADDRESS_CANARY" in payload and "DESCRIPTION_CANARY" in payload
     assert "secret note" not in payload
     fake = FakeTelegram()
     google.events = []  # Delivery must use the immutable snapshot, never re-read.
@@ -218,11 +220,11 @@ async def test_provider_outcomes(app, client, ready, code, status, fallback):
     calls = []
     original = fake.send_schedule
 
-    async def send(chat, message, token):
+    async def send(chat, message, token, addresses=()):
         calls.append(chat)
         if len(calls) == 1:
             raise ProviderError(code, retry_after=10)
-        return await original(chat, message, token)
+        return await original(chat, message, token, addresses)
 
     fake.send_schedule = send
     await run_delivery(app, fake)

@@ -542,3 +542,25 @@ it("keeps OAuth controls locked after start succeeds until navigation", async ()
     mocked.mock.calls.filter(([path]) => path.endsWith("/start")),
   ).toHaveLength(1);
 });
+
+it("offers an explicit same-account report write permission upgrade", async () => {
+  connected();
+  render(<GoogleCalendarConnection onChange={vi.fn()} />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Enable report write-back" }),
+  );
+  await waitFor(() =>
+    expect(mocked).toHaveBeenCalledWith(
+      "/calendar-connections/google/start",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.stringContaining('"request_report_write_access":true'),
+      }),
+    ),
+  );
+  const request = mocked.mock.calls.find(([path]) => path.endsWith("/start"));
+  expect(JSON.parse(request![1]!.body as string)).toMatchObject({
+    mode: "RECONNECT",
+    expected_connection_id: "connection-id",
+  });
+});

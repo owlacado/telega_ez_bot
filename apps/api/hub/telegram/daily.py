@@ -13,7 +13,7 @@ from hub.schedule_delivery.service import create_dispatch
 from hub.technicians.models import Technician
 from hub.telegram.common import can_deliver
 from hub.telegram.locks import advisory_guard
-from hub.telegram.models import TelegramProcessedUpdate
+from hub.telegram.models import TelegramOutbox, TelegramProcessedUpdate
 from hub.telegram.notices import enqueue_daily_summary
 
 SCHEDULE_FAILED = (
@@ -109,6 +109,20 @@ async def handle_daily(factory, event, bot_id, settings, provider):
                 "Daily accounting is unavailable. Please contact your manager.",
             )
         if outcome == "DAILY_READY":
+            try:
+                summary_queued = await enqueue_daily_summary(
+                    factory, technician_id, binding, bot_id, request_key, daily
+                )
+                async with factory() as db:
+                    frozen = await db.scalar(
+                        select(TelegramOutbox.summary_text).where(
+                            TelegramOutbox.bot_id == bot_id,
+                            TelegramOutbox.daily_request_key == request_key,
+                        )
+                    )
+                reply = frozen or reply
+            except Exception:
+                summary_queued = False
             # A private receipt is attempted BEFORE Google work, independently of schedule success.
             # Persist the attempt first; crash/ambiguous delivery must not blindly replay it.
             if not receipt_attempted:
@@ -143,12 +157,6 @@ async def handle_daily(factory, event, bot_id, settings, provider):
             else:
                 reply = "Daily report delivery was already attempted."
         if outcome == "DAILY_READY":
-            try:
-                summary_queued = await enqueue_daily_summary(
-                    factory, technician_id, binding, bot_id, request_key, daily
-                )
-            except Exception:
-                summary_queued = False
             if not summary_queued:
                 reply += (
                     "\n\nDaily report is ready, but its Work Group summary could not be queued. "

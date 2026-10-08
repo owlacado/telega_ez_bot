@@ -41,7 +41,14 @@ export function GoogleCalendarConnection({
   }, [result]);
 
   async function action(
-    kind: "CONNECT" | "RECONNECT" | "SWITCH" | "DISCONNECT" | "SCAN" | "EVENTS",
+    kind:
+      | "CONNECT"
+      | "RECONNECT"
+      | "SWITCH"
+      | "DISCONNECT"
+      | "SCAN"
+      | "EVENTS"
+      | "REPORTS",
   ) {
     if (!data || pending.current) return;
     const snapshot = confirm?.snapshot ?? data;
@@ -78,8 +85,10 @@ export function GoogleCalendarConnection({
             method: "POST",
             body: json({
               ...expected,
-              mode: kind === "EVENTS" ? "RECONNECT" : kind,
-              request_event_access: kind === "EVENTS",
+              mode:
+                kind === "EVENTS" || kind === "REPORTS" ? "RECONNECT" : kind,
+              request_event_access: kind === "EVENTS" || kind === "REPORTS",
+              request_report_write_access: kind === "REPORTS",
               confirm_replace: kind === "SWITCH",
               expected_impact_version: snapshot.impact_version,
             }),
@@ -175,6 +184,23 @@ export function GoogleCalendarConnection({
                     Grant Event Access
                   </button>
                 )}
+              {data.id &&
+                !data.granted_scopes?.includes(
+                  "https://www.googleapis.com/auth/calendar.events",
+                ) && (
+                  <button
+                    className="button secondary"
+                    disabled={!!busy || !data.enabled}
+                    onClick={() => void action("REPORTS")}
+                  >
+                    Enable report write-back
+                  </button>
+                )}
+              <p className="field-hint">
+                Report write-back mirrors saved reports into the original Google
+                event description. Reconnect the same account to grant
+                permission.
+              </p>
               <button
                 className="button primary"
                 disabled={

@@ -15,7 +15,13 @@ from hub.calendars.models import Calendar, CalendarAssignment
 from hub.core.secrets import SecretCipher
 from hub.google_calendar.models import CalendarConnection, GoogleOAuthAttempt
 from hub.google_calendar.schemas import GoogleConnectionRead
-from hub.google_calendar.types import EVENT_SCOPE, SCOPE, SHEETS_SCOPE, ProviderError
+from hub.google_calendar.types import (
+    EVENT_SCOPE,
+    REPORT_WRITE_SCOPE,
+    SCOPE,
+    SHEETS_SCOPE,
+    ProviderError,
+)
 from hub.telegram.locks import advisory_guard, lock_key
 
 
@@ -140,7 +146,9 @@ async def start(request, db, payload):
         await _manual_admission(db, request)
     state = secrets.token_urlsafe(32)
     if (
-        payload.request_event_access or payload.request_sheets_access
+        payload.request_event_access
+        or payload.request_sheets_access
+        or payload.request_report_write_access
     ) and payload.mode != "RECONNECT":
         raise HTTPException(409, "Permission upgrades require a same-account reconnect.")
     event_access = payload.request_event_access or bool(
@@ -149,8 +157,14 @@ async def start(request, db, payload):
     sheets_access = payload.request_sheets_access or bool(
         connection and SHEETS_SCOPE in connection.granted_scopes
     )
+    report_write_access = payload.request_report_write_access or bool(
+        connection and REPORT_WRITE_SCOPE in connection.granted_scopes
+    )
     authorization = adapter.build_authorization_url(
-        state, event_access=event_access, sheets_access=sheets_access
+        state,
+        event_access=event_access,
+        sheets_access=sheets_access,
+        report_write_access=report_write_access,
     )
     await db.execute(
         update(GoogleOAuthAttempt)
@@ -169,6 +183,7 @@ async def start(request, db, payload):
         expected_connection_id=connection.id if connection else None,
         expected_generation=connection.generation if connection else None,
         mode=payload.mode,
+        request_report_write_access=report_write_access,
         request_event_access=event_access,
         request_sheets_access=sheets_access,
         expected_impact_version=impact,
@@ -270,6 +285,7 @@ async def callback(request):
                 secret_cipher.decrypt(encrypted_verifier),
                 **({"event_access": True} if attempt.request_event_access else {}),
                 **({"sheets_access": True} if attempt.request_sheets_access else {}),
+                **({"report_write_access": True} if attempt.request_report_write_access else {}),
             )
             if SCOPE not in grant.scopes:
                 raise ProviderError("SCOPE_REQUIRED")
@@ -291,7 +307,9 @@ async def callback(request):
                     old_token,
                     **(
                         {"scopes": tuple(grant.scopes)}
-                        if {EVENT_SCOPE, SHEETS_SCOPE}.intersection(grant.scopes)
+                        if {EVENT_SCOPE, SHEETS_SCOPE, REPORT_WRITE_SCOPE}.intersection(
+                            grant.scopes
+                        )
                         else {}
                     ),
                 )
@@ -441,7 +459,9 @@ async def scan(request):
                         token,
                         **(
                             {"scopes": tuple(latest.granted_scopes)}
-                            if {EVENT_SCOPE, SHEETS_SCOPE}.intersection(latest.granted_scopes)
+                            if {EVENT_SCOPE, SHEETS_SCOPE, REPORT_WRITE_SCOPE}.intersection(
+                                latest.granted_scopes
+                            )
                             else {}
                         ),
                     )

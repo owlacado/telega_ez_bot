@@ -24,6 +24,7 @@ class GoogleConnectionRead(BaseModel):
 
 
 class StartInput(InputModel):
+    request_report_write_access: bool = False
     request_event_access: bool = False
     request_sheets_access: bool = False
     mode: Literal["CONNECT", "RECONNECT", "SWITCH"] = "CONNECT"
