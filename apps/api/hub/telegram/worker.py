@@ -29,14 +29,26 @@ class Worker:
         self.lease = None
         self.poll_uncertain = False
         self.stop = asyncio.Event()
+        self._last_logged_state = None
+
+    def log_state(self, status: str, error: str | None = None, *, poller=False) -> None:
+        event = "telegram_poller" if poller else "telegram_worker_state"
+        current = (event, status, error)
+        # Only suppress healthy repetition; each error occurrence remains diagnosable.
+        if (
+            current != self._last_logged_state
+            or error is not None
+            or status in {"STARTING", "STOPPED", "ERROR", "FAILED"}
+        ):
+            level = logging.WARNING if status == "LEASE_LOST" else logging.INFO
+            logger.log(level, json.dumps({"event": event, "status": status, "error": error}))
+            self._last_logged_state = current
 
     async def state(self, status: str, error: str | None = None) -> None:
-        logger.info(
-            json.dumps({"event": "telegram_worker_state", "status": status, "error": error})
-        )
         if self.lease is None:
             raise LeaseLost()
         await self.lease.write(status=status, error_code=error, heartbeat_at=func.clock_timestamp())
+        self.log_state(status, error)
 
     async def startup(self) -> None:
         identity = await self.provider.initialize()
@@ -104,17 +116,19 @@ class Worker:
         if not self.bot_id:
             raise ProviderError("BOT_NOT_CONFIGURED")
         self.stop = stop
+        self.log_state("STARTING", poller=True)
         while not stop.is_set():
             lease = PollingLease(self.engine, self.bot_id)
             if not await lease.acquire():
                 # A standby is healthy. Do not overwrite the active owner's status/offset.
-                logger.info('{"event":"telegram_poller","status":"WAITING_FOR_LEASE"}')
+                self.log_state("WAITING_FOR_LEASE", poller=True)
                 try:
                     await asyncio.wait_for(stop.wait(), timeout=WAIT_SECONDS)
                 except TimeoutError:
                     pass
                 continue
             self.lease = lease
+            self.log_state("LEASE_ACQUIRED", poller=True)
             owned = asyncio.create_task(self.owned_run(stop, max_cycles))
             renewal = asyncio.create_task(lease.maintain())
             try:
@@ -124,7 +138,7 @@ class Worker:
                 await owned
                 return
             except LeaseLost:
-                logger.warning('{"event":"telegram_poller","status":"LEASE_LOST"}')
+                self.log_state("LEASE_LOST", poller=True)
             finally:
                 owned.cancel()
                 renewal.cancel()
@@ -136,6 +150,7 @@ class Worker:
                     # window for any remote poll whose response we cannot observe.
                     await lease.close(release=not self.poll_uncertain)
                     self.lease = None
+        self.log_state("STOPPED", poller=True)
 
     async def owned_run(self, stop, max_cycles):
         try:
